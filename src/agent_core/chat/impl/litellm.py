@@ -50,7 +50,7 @@ class ChatLiteLLM(IChatModel):
         model = options.model or self._settings.chat_model
         if model is None:
             raise ChatLiteLLMError(
-                "Chat model is required. Pass ChatOptions(model=...) or set " "LITELLM_CHAT_MODEL."
+                "Chat model is required. Pass ChatOptions(model=...) or set LITELLM_CHAT_MODEL."
             )
         payload: dict[str, Any] = {
             "model": model,
@@ -264,7 +264,7 @@ class ChatResponsesLiteLLM(ChatLiteLLM):
         model = options.model or self._settings.chat_model
         if model is None:
             raise ChatResponsesLiteLLMError(
-                "Chat model is required. Pass ChatOptions(model=...) or set " "LITELLM_CHAT_MODEL."
+                "Chat model is required. Pass ChatOptions(model=...) or set LITELLM_CHAT_MODEL."
             )
         payload: dict[str, Any] = {
             "model": model,

@@ -1,0 +1,297 @@
+:root {
+  color: #e5e7eb;
+  background: #0b1020;
+  font-family: "Fira Sans", Inter, system-ui, sans-serif;
+  line-height: 1.4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #0b1020;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.loginShell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.loginPanel {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  background: #111827;
+  border: 1px solid #293548;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 22px;
+}
+
+h2 {
+  font-size: 16px;
+}
+
+h3 {
+  font-size: 15px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 38px;
+  color: #e5e7eb;
+  background: #0b1020;
+  border: 1px solid #293548;
+  padding: 8px 10px;
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+}
+
+.leftRail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 12px;
+  background: #111827;
+  border-right: 1px solid #293548;
+}
+
+.brand {
+  height: 42px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.navItem,
+.iconButton,
+.primaryButton {
+  min-height: 38px;
+  border: 1px solid #293548;
+  color: #e5e7eb;
+  background: #172033;
+}
+
+.navItem {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.navItem.active {
+  border-left: 3px solid #3b82f6;
+}
+
+.workArea {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 72px minmax(0, 1fr);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #293548;
+  background: #111827;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.meta {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.badge,
+.stageChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #293548;
+  background: #172033;
+  color: #e5e7eb;
+  font-size: 12px;
+}
+
+.workflowGrid,
+.resultGrid {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.workflowGrid {
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+.resultGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  align-content: start;
+}
+
+.panel,
+.stateBox {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 16px;
+  background: #111827;
+  border: 1px solid #293548;
+  min-width: 0;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f59e0b;
+  color: #0b1020;
+  border-color: #f59e0b;
+  font-weight: 700;
+}
+
+.primaryButton:disabled {
+  opacity: 0.65;
+}
+
+.errorAlert {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #fecaca;
+  border: 1px solid #ef5350;
+  background: #3b1115;
+  padding: 10px;
+}
+
+.stageList,
+.citationList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+}
+
+.citationList {
+  display: grid;
+  list-style: none;
+}
+
+.citationList li {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #293548;
+}
+
+.sectionBlock,
+.freshness,
+.citationRefs {
+  display: grid;
+  gap: 8px;
+  color: #e5e7eb;
+}
+
+.freshness,
+.citationRefs {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.chartBox {
+  width: 100%;
+  min-height: 260px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+th,
+td {
+  border-bottom: 1px solid #293548;
+  padding: 8px;
+  text-align: left;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .leftRail {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid #293548;
+  }
+
+  .brand {
+    width: auto;
+  }
+
+  .workflowGrid,
+  .resultGrid {
+    grid-template-columns: 1fr;
+  }
+}

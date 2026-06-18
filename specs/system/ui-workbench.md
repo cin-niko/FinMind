@@ -2,7 +2,8 @@
 id: SPEC-SYSTEM-UI-WORKBENCH-FINMIND
 status: active
 last_review: 2026-06-18
-implements: []
+implements:
+  - src/ui
 validated_by: []
 adr_refs: []
 ---
