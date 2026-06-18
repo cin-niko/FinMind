@@ -1,0 +1,94 @@
+[project]
+name = "FinMind"
+version = "0.1.0"
+description = "Workflow-first finance research platform"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.116.0,<0.117.0",
+    "jinja2>=3.1.6,<4.0.0",
+    "pydantic>=2.11.0,<3.0.0",
+    "pydantic-settings>=2.10.0,<3.0.0",
+    "uvicorn>=0.35.0,<0.36.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.0,<0.29.0",
+    "mypy>=1.11.0",
+    "pre-commit",
+    "pytest>=8.4.0,<9.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_core", "src/api"]
+
+# Tools settings: pre-commit ----------------------------------------------------------------------
+[tool.ruff]
+# https://docs.astral.sh/ruff/configuration/
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+# see: https://docs.astral.sh/ruff/rules
+select = [
+     "F", # Pyflakes
+     "E", # Pycodestyle
+     "W", # Pycodestyle
+     "C90", # McCabe
+     "UP", # PyUpgrade
+     "B", # Flake8-bugbear
+     "C4", # Flake8-comprehensions
+]
+# Import order: use isort (pre-commit + ``tool.isort``), not Ruff ``I`` rules.
+ignore = ["E731", "E741", "C408", "W191", "B008"]
+    # E731: Do not assign a lambda expression, use a def
+    # E741: Do not use variables named 'I', 'O', or 'l'
+    # C408: Unnecessary <dict/list/tuple> call - rewrite as a literal
+    # W191: Indentation contains tabs (incompatible with `format.indent-style="tab"`)
+    # B008: Checks for function calls in default function arguments.
+fixable = ["ALL"]
+mccabe.max-complexity = 17
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+exclude = [
+    "^app/_version\\.py$",
+    "^benchmark/",
+]
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = "asyncpg.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "diskcache.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "importlib_metadata"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "locust.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.isort]
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+use_parentheses = true
