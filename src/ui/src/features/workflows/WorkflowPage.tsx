@@ -38,15 +38,17 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
   }, [onSessionExpired]);
 
   const selected = workflows.find((workflow) => workflow.id === selectedId);
+  const selectedMarket =
+    selected?.market_scope.includes(market) ? market : selected?.market_scope[0] ?? "";
 
   async function handleRun() {
-    if (!selected) {
+    if (!selected || !selectedMarket) {
       return;
     }
     setRunning(true);
     setError("");
     try {
-      const run = await runWorkflow(selected.id, market);
+      const run = await runWorkflow(selected.id, selectedMarket);
       onRunComplete(run);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
@@ -108,17 +110,26 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
         <div className="selectedWorkflowName">{selected.title}</div>
         <label>
           Market
-          <select value={market} onChange={(event) => setMarket(event.target.value)}>
+          <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
             {selected.market_scope.map((scope) => (
               <option key={scope} value={scope}>
                 {scope === "VN_STOCK" ? "VN stocks" : "Gold"}
               </option>
             ))}
-            <option value="US_STOCK">US stocks</option>
-            <option value="BTC">BTC</option>
+            <option disabled value="US_STOCK">
+              US stocks (future)
+            </option>
+            <option disabled value="BTC">
+              BTC (future)
+            </option>
           </select>
         </label>
-        <button className="primaryButton" disabled={running} onClick={handleRun} type="button">
+        <button
+          className="primaryButton"
+          disabled={running || !selectedMarket}
+          onClick={handleRun}
+          type="button"
+        >
           <Play size={16} /> {running ? "Running" : "Run"}
         </button>
       </section>
