@@ -91,7 +91,8 @@ Navigation is phase-aware:
 ### Workflow
 
 - Workflow catalog cards for fixed system-defined workflows
-- Market/instrument inputs
+- Market/instrument inputs expose only V1-supported VN stock and gold choices as enabled runnable selections.
+- US stock and BTC may appear in mock/demo UI only as disabled or clearly marked future/out-of-scope preview options; users must not be able to select them and then discover the limitation only after clicking Run.
 - Amber run button
 - Validation messages near fields
 - Stage status chips

@@ -32,6 +32,8 @@ V1 uses cookie-backed web sessions for authenticated browser access. Logout and 
 
 V1 user-facing market coverage is VN stocks and gold only. US stocks and BTC are roadmap markets and must return clear out-of-scope behavior in V1 surfaces.
 
+Mock/demo surfaces are still user-facing scope surfaces. Workflow, Market, and chat controls must not present US stocks or BTC as enabled runnable V1 choices. If roadmap markets are shown for product preview, they must be disabled or clearly marked future/out-of-scope before execution rather than allowing the user to submit and discover the limitation only through a backend validation error.
+
 V1 excludes:
 
 - Trade execution

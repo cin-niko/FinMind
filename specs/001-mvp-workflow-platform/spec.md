@@ -34,6 +34,7 @@ Acceptance scenarios:
 1. Given the admin user is logged in and required seeded/demo data is available, when the user selects a V1 workflow and submits valid inputs, then the system completes bounded analysis and displays structured output sections with citations, freshness metadata, and execution status.
 2. Given a workflow requires a market chart, when the workflow completes, then the result includes a chart artifact linked to the same canonical data and evidence used by the textual answer.
 3. Given a workflow input is missing or invalid, when the user attempts to run the workflow, then the system prevents execution and shows a clear validation message without creating a successful run record.
+4. Given the workflow form is a mock/demo UI, when market or instrument choices are displayed, then only V1-supported VN stock and gold options are enabled for submission; US stock and BTC roadmap options are omitted or shown only as disabled/future preview choices before execution.
 
 ### User Story 2 - Access Login-Required Shell (Priority: P1)
 
@@ -81,6 +82,7 @@ Acceptance scenarios:
 - **FR-002a**: System MUST read admin bootstrap values from `FINMIND_ADMIN_USERNAME`, `FINMIND_ADMIN_PASSWORD`, and `FINMIND_SESSION_SECRET`, and MUST fail closed when any required value is missing or invalid.
 - **FR-003**: System MUST provide a workflow tab where users can choose a predefined V1 workflow, provide validated inputs, run bounded analysis, and inspect completed results.
 - **FR-003a**: System MUST present fixed workflows as catalog cards before showing workflow-specific inputs.
+- **FR-003b**: Workflow market and instrument controls MUST NOT expose US stocks or BTC as enabled selectable V1 options. If mock/demo UI needs to preview roadmap scope, those options MUST be disabled or clearly marked future/out-of-scope before execution rather than relying on backend validation after the user clicks Run.
 - **FR-004**: System MUST model each fixed workflow as a declarative specification covering inputs, required datasets, execution stages, output sections, citation expectations, and chart requirements.
 - **FR-005**: V1 MUST support VN stocks and gold as the first implementation market scope, while preserving contracts and data modeling that can later add US stocks and BTC without replacing the core platform.
 - **FR-006**: V1 MUST ship an initial workflow set that includes TradingAgents-inspired roles such as fundamental analysis, technical analysis, macro analysis, and risk management where relevant to the selected market scope.
@@ -131,7 +133,7 @@ See `../system/state-model.md` for canonical entity definitions.
 - A workflow partially completes: the result distinguishes completed sections, failed sections, and unavailable artifacts.
 - Citations are unavailable for a generated claim: the claim is omitted, qualified, or marked unsupported.
 - Startup admin credentials are missing or invalid: the application fails closed.
-- Unsupported US stock or BTC requests return a V1 scope limitation.
+- Unsupported US stock or BTC requests return a V1 scope limitation before execution where possible. Workflow forms must not let users run an unsupported market when the unsupported state is known at selection time.
 - Chat mock artifact is too large for inline display: render an artifact card and open the full content in the right-side panel.
 - Mobile user opens a chat artifact: use full-screen artifact mode instead of a cramped split panel.
 - Market data is stale: show freshness warnings using real data metadata, not generated prose.
@@ -146,6 +148,7 @@ See `../system/state-model.md` for canonical entity definitions.
 - **SC-006**: At least 95% of supported workflow result views show freshness metadata for every referenced dataset.
 - **SC-007**: Users can identify stale, missing, failed, or out-of-scope data conditions from the UI without reading server logs.
 - **SC-008**: V1 supports at least one stock research path and one non-stock market research path across approved initial workflows.
+- **SC-008a**: Workflow market controls expose only VN stock and gold as enabled runnable choices in V1; any US stock or BTC mock/roadmap preview is disabled or explicitly out-of-scope before Run.
 - **SC-009**: After login, the default surface is `New Chat` and the left rail exposes `New Chat`, `Market`, `Workflows`, and grouped `History`.
 - **SC-010**: A user can submit a chat message, receive a deterministic mock response, see an inline visual or artifact card, and open an artifact in the right-side panel without invoking a production LLM.
 - **SC-011**: Market displays system predefined VN stock and gold watchlist data with chart, freshness, news/source feed, and market table while containing no LLM-generated content.
