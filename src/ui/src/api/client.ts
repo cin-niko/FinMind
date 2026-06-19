@@ -20,6 +20,11 @@ export type Workflow = {
   chart_requirements: string[];
 };
 
+export type WorkflowRunInput = {
+  market: string;
+  symbol?: string;
+};
+
 export type WorkflowRun = {
   id: string;
   kind: "workflow";
@@ -85,11 +90,18 @@ export function listWorkflows(): Promise<Workflow[]> {
   return request<Workflow[]>("/api/workflows");
 }
 
-export function runWorkflow(workflowId: string, market: string): Promise<WorkflowRun> {
+export function runWorkflow(
+  workflowId: string,
+  inputs: WorkflowRunInput
+): Promise<WorkflowRun> {
   return request<WorkflowRun>(`/api/workflows/${workflowId}/run`, {
     method: "POST",
-    body: JSON.stringify({ market })
+    body: JSON.stringify(inputs)
   });
+}
+
+export function listRuns(): Promise<WorkflowRun[]> {
+  return request<WorkflowRun[]>("/api/runs");
 }
 
 export function getRun(runId: string): Promise<WorkflowRun> {

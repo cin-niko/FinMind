@@ -18,6 +18,7 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [market, setMarket] = useState("VN_STOCK");
+  const [symbol, setSymbol] = useState("");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
@@ -40,15 +41,21 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
   const selected = workflows.find((workflow) => workflow.id === selectedId);
   const selectedMarket =
     selected?.market_scope.includes(market) ? market : selected?.market_scope[0] ?? "";
+  const symbolInput = selected?.required_inputs.find((input) => input.name === "symbol");
+  const symbolValue = symbol.trim().toUpperCase();
+  const requiresSymbol = Boolean(symbolInput?.required);
 
   async function handleRun() {
-    if (!selected || !selectedMarket) {
+    if (!selected || !selectedMarket || (requiresSymbol && !symbolValue)) {
       return;
     }
     setRunning(true);
     setError("");
     try {
-      const run = await runWorkflow(selected.id, selectedMarket);
+      const run = await runWorkflow(selected.id, {
+        market: selectedMarket,
+        ...(symbolInput && symbolValue ? { symbol: symbolValue } : {})
+      });
       onRunComplete(run);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
@@ -80,6 +87,7 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
             onClick={() => {
               setSelectedId(workflow.id);
               setMarket(workflow.market_scope[0] ?? "VN_STOCK");
+              setSymbol("");
             }}
             type="button"
           >
@@ -124,9 +132,20 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
             </option>
           </select>
         </label>
+        {symbolInput ? (
+          <label>
+            Symbol
+            <input
+              autoCapitalize="characters"
+              value={symbol}
+              onChange={(event) => setSymbol(event.target.value)}
+              placeholder="VCB"
+            />
+          </label>
+        ) : null}
         <button
           className="primaryButton"
-          disabled={running || !selectedMarket}
+          disabled={running || !selectedMarket || (requiresSymbol && !symbolValue)}
           onClick={handleRun}
           type="button"
         >

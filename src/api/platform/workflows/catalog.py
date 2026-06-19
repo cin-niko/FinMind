@@ -7,7 +7,9 @@ def build_workflow_catalog() -> list[WorkflowSpecification]:
             workflow_id="daily-market-brief",
             title="Daily Market Brief",
             market_scope=(Market.VN_STOCK, Market.GOLD),
-            required_inputs=({"name": "market", "type": "string", "required": True},),
+            required_inputs=(
+                {"name": "market", "type": "string", "required": True},
+            ),
             stages=("technical", "macro", "risk"),
             role_agents=("technical", "macro", "risk"),
             output_sections=("Market Snapshot", "Risk Notes"),
@@ -20,7 +22,7 @@ def build_workflow_catalog() -> list[WorkflowSpecification]:
             market_scope=(Market.VN_STOCK,),
             required_inputs=(
                 {"name": "market", "type": "string", "required": True},
-                {"name": "symbol", "type": "string", "required": False},
+                {"name": "symbol", "type": "string", "required": True},
             ),
             stages=("fundamental", "technical", "risk"),
             role_agents=("fundamental", "technical", "risk"),
@@ -32,7 +34,9 @@ def build_workflow_catalog() -> list[WorkflowSpecification]:
             workflow_id="gold-brief",
             title="Gold Brief",
             market_scope=(Market.GOLD,),
-            required_inputs=({"name": "market", "type": "string", "required": True},),
+            required_inputs=(
+                {"name": "market", "type": "string", "required": True},
+            ),
             stages=("macro", "technical", "risk"),
             role_agents=("macro", "technical", "risk"),
             output_sections=("Gold Snapshot", "Risk Notes"),

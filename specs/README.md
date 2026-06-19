@@ -74,7 +74,7 @@ adr_refs: []
 | FR-001 | `001-mvp-workflow-platform/spec.md`, `system/runtime-config-security.md` | Login required for all protected surfaces. |
 | FR-002 | `001-mvp-workflow-platform/spec.md`, `system/runtime-config-security.md` | Single environment-configured admin. |
 | FR-002a | `001-mvp-workflow-platform/spec.md`, `system/runtime-config-security.md` | `FINMIND_ADMIN_USERNAME`, `FINMIND_ADMIN_PASSWORD`, `FINMIND_SESSION_SECRET`; fail closed. |
-| FR-003 | `001-mvp-workflow-platform/spec.md`, `system/ui-workbench.md` | Workflow tab, catalog cards, bounded workflow execution, and V1-only enabled market controls. |
+| FR-003 | `001-mvp-workflow-platform/spec.md`, `system/ui-workbench.md` | Workflow tab, catalog cards, declared workflow inputs, bounded workflow execution, and V1-only enabled market controls. |
 | FR-004 | `001-mvp-workflow-platform/spec.md`, `system/state-model.md` | Declarative workflow specifications. |
 | FR-005 | `001-mvp-workflow-platform/spec.md`, `system/runtime-config-security.md` | VN stocks and gold in V1; US stocks and BTC roadmap only. |
 | FR-006 | `001-mvp-workflow-platform/spec.md` | TradingAgents-inspired roles in fixed workflows. |
@@ -89,10 +89,10 @@ adr_refs: []
 | FR-015 | `003-evidence-backed-chat/spec.md` | Inline visualization artifacts. |
 | FR-016 | `system/state-model.md`, `001-mvp-workflow-platform/spec.md`, `002-data-operations/spec.md`, `003-evidence-backed-chat/spec.md` | Execution logs across runs, tool calls, ingestion, artifacts, failures, output status. |
 | FR-017 | `003-evidence-backed-chat/spec.md`, `system/contracts.md` | Workflow agents vs generic role agents with shared contracts. |
-| FR-018 | `001-mvp-workflow-platform/spec.md`, `003-evidence-backed-chat/spec.md` | Result views for completed workflow and chat outputs. |
+| FR-018 | `001-mvp-workflow-platform/spec.md`, `003-evidence-backed-chat/spec.md` | Result views and reload-restored history for completed workflow and chat outputs. |
 | FR-019 | `system/runtime-config-security.md`, `001-mvp-workflow-platform/spec.md`, `002-data-operations/spec.md`, `003-evidence-backed-chat/spec.md` | Out-of-scope, unsupported, missing, stale, unavailable citation states; known unsupported workflow choices are blocked or marked before execution. |
 | FR-020 | `system/runtime-config-security.md`, `001-mvp-workflow-platform/spec.md`, `003-evidence-backed-chat/spec.md` | Show evidence/status; hide raw reasoning. |
-| FR-021 | `system/runtime-config-security.md`, `001-mvp-workflow-platform/spec.md` | Cookie-backed sessions. |
+| FR-021 | `system/runtime-config-security.md`, `001-mvp-workflow-platform/spec.md` | Cookie-backed sessions verified with `FINMIND_SESSION_SECRET`. |
 | FR-022 | `system/contracts.md`, `002-data-operations/spec.md` | Provider abstraction. |
 | FR-023 | `system/contracts.md`, `004-extension-hardening/spec.md` | Separated product layers and reusable agent platform. |
 | FR-024 | `004-extension-hardening/spec.md`, `system/contracts.md` | Integration-ready artifacts and execution contracts. |

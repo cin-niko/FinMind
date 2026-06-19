@@ -8,6 +8,14 @@ from api.platform.models import Session
 router = APIRouter(prefix="/api", tags=["runs"])
 
 
+@router.get("/runs")
+def list_runs(
+    request: Request,
+    _session: Annotated[Session, Depends(require_session)],
+) -> list[dict[str, object]]:
+    return request.app.state.platform.workflow_service.list_runs()
+
+
 @router.get("/runs/{run_id}")
 def get_run(
     run_id: str,
@@ -16,5 +24,8 @@ def get_run(
 ) -> dict[str, object]:
     run = request.app.state.platform.workflow_service.get_run(run_id)
     if run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+        )
     return run

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSession, logout, type SessionState, type WorkflowRun } from "./api/client";
+import {
+  getSession,
+  isUnauthorizedError,
+  listRuns,
+  logout,
+  type SessionState,
+  type WorkflowRun
+} from "./api/client";
 import { LoadingState } from "./components/layout";
 import { LoginPage } from "./features/auth/LoginPage";
 import { ArtifactPanel } from "./features/chat/ArtifactPanel";
@@ -35,9 +42,23 @@ export function App() {
   const handleSessionExpired = useCallback(() => {
     setSession({ authenticated: false });
     setCurrentRun(null);
+    setWorkflowRuns([]);
     setSelectedArtifact(null);
     setView("chat");
   }, []);
+
+  useEffect(() => {
+    if (!session?.authenticated) {
+      return;
+    }
+    listRuns()
+      .then(setWorkflowRuns)
+      .catch((caught) => {
+        if (isUnauthorizedError(caught)) {
+          handleSessionExpired();
+        }
+      });
+  }, [handleSessionExpired, session]);
 
   if (!session) {
     return <LoadingState />;
@@ -51,6 +72,7 @@ export function App() {
     const next = await logout().catch(() => ({ authenticated: false }) as const);
     setSession(next);
     setCurrentRun(null);
+    setWorkflowRuns([]);
     setSelectedArtifact(null);
     setView("chat");
   }

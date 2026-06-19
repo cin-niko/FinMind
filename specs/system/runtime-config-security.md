@@ -26,7 +26,7 @@ The application must fail closed when any required value is missing or invalid. 
 
 ## Sessions
 
-V1 uses cookie-backed web sessions for authenticated browser access. Logout and expiration must block protected content again.
+V1 uses cookie-backed web sessions for authenticated browser access. Session cookie values must be signed or otherwise verified using `FINMIND_SESSION_SECRET`; unsigned, malformed, or tampered session cookies must be treated as unauthenticated. Logout and expiration must block protected content again.
 
 ## Scope Gates
 

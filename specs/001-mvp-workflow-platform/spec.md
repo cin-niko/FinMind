@@ -48,6 +48,7 @@ Acceptance scenarios:
 2. Given valid admin credentials from environment variables, when the user logs in, then the system grants access to Phase 1 surfaces.
 3. Given the user logs out or the session expires, when the user attempts to access protected content, then the system returns to the login flow.
 4. Given required admin environment values are missing or invalid at startup, when the app starts, then protected content remains unavailable.
+5. Given a session cookie is unsigned, malformed, or tampered, when the user attempts to access protected content, then the system treats the request as unauthenticated.
 
 ### User Story 3 - Use Chat-First Shell With Mock Artifacts (Priority: P1)
 
@@ -83,6 +84,7 @@ Acceptance scenarios:
 - **FR-003**: System MUST provide a workflow tab where users can choose a predefined V1 workflow, provide validated inputs, run bounded analysis, and inspect completed results.
 - **FR-003a**: System MUST present fixed workflows as catalog cards before showing workflow-specific inputs.
 - **FR-003b**: Workflow market and instrument controls MUST NOT expose US stocks or BTC as enabled selectable V1 options. If mock/demo UI needs to preview roadmap scope, those options MUST be disabled or clearly marked future/out-of-scope before execution rather than relying on backend validation after the user clicks Run.
+- **FR-003c**: Workflow forms MUST render and submit every declared workflow input required by the selected workflow, including symbol inputs for single-instrument research workflows. Execution MUST use those inputs to select the target canonical records rather than defaulting to the first record in a market dataset.
 - **FR-004**: System MUST model each fixed workflow as a declarative specification covering inputs, required datasets, execution stages, output sections, citation expectations, and chart requirements.
 - **FR-005**: V1 MUST support VN stocks and gold as the first implementation market scope, while preserving contracts and data modeling that can later add US stocks and BTC without replacing the core platform.
 - **FR-006**: V1 MUST ship an initial workflow set that includes TradingAgents-inspired roles such as fundamental analysis, technical analysis, macro analysis, and risk management where relevant to the selected market scope.
@@ -93,9 +95,11 @@ Acceptance scenarios:
 - **FR-016**: System MUST record execution logs for workflow runs, generated artifacts, failures, and user-visible output status.
 - **FR-018**: System MUST expose result views where users can inspect completed workflow outputs, citations, charts, freshness, and execution status after the original run.
 - **FR-018a**: System MUST expose one `History` section in the left rail that groups chat conversations and workflow runs under separate `Chat` and `Workflow Runs` subheaders, without date-based grouping in V1.
+- **FR-018b**: Completed workflow runs MUST be listable from the protected API and restored into the `Workflow Runs` history after a full page reload while the authenticated session remains valid.
 - **FR-019**: System MUST show clear out-of-scope behavior for unsupported markets, unsupported instruments, missing data, stale data, and unavailable citations.
 - **FR-020**: System MUST show users evidence, citations, workflow stages, and tool or artifact status while retaining raw agent reasoning internally and excluding it from user-facing result views.
 - **FR-021**: System MUST use cookie-backed web sessions for V1 authenticated application access.
+- **FR-021a**: Session cookie values MUST be signed or otherwise verified using `FINMIND_SESSION_SECRET`; unsigned, malformed, or tampered session cookies MUST NOT authenticate protected content.
 - **FR-022**: System MUST keep provider-specific market data details abstract at the product contract level while allowing implementation-time provider validation for technical and licensing suitability.
 - **FR-023**: System MUST preserve separated product layers for app experience, API access, agent/core logic, and data workflows.
 - **FR-024**: System MUST provide a chat-first shell with left-rail navigation labels `New Chat`, `Market`, `Workflows`, and `History`.
@@ -131,6 +135,7 @@ See `../system/state-model.md` for canonical entity definitions.
 
 - Supported data exists but is stale: workflow outputs must display freshness warnings.
 - A workflow partially completes: the result distinguishes completed sections, failed sections, and unavailable artifacts.
+- Browser page reload after workflow completion: the authenticated UI reloads server-side persisted workflow runs and keeps completed result entries available in `History`.
 - Citations are unavailable for a generated claim: the claim is omitted, qualified, or marked unsupported.
 - Startup admin credentials are missing or invalid: the application fails closed.
 - Unsupported US stock or BTC requests return a V1 scope limitation before execution where possible. Workflow forms must not let users run an unsupported market when the unsupported state is known at selection time.
@@ -147,6 +152,7 @@ See `../system/state-model.md` for canonical entity definitions.
 - **SC-003**: 100% of user-facing material claims in workflow outputs include at least one citation or are explicitly marked unsupported or unavailable.
 - **SC-006**: At least 95% of supported workflow result views show freshness metadata for every referenced dataset.
 - **SC-007**: Users can identify stale, missing, failed, or out-of-scope data conditions from the UI without reading server logs.
+- **SC-007a**: After completing a workflow run and refreshing the page with a valid session, the completed run remains visible under `History` → `Workflow Runs` and can be reopened.
 - **SC-008**: V1 supports at least one stock research path and one non-stock market research path across approved initial workflows.
 - **SC-008a**: Workflow market controls expose only VN stock and gold as enabled runnable choices in V1; any US stock or BTC mock/roadmap preview is disabled or explicitly out-of-scope before Run.
 - **SC-009**: After login, the default surface is `New Chat` and the left rail exposes `New Chat`, `Market`, `Workflows`, and grouped `History`.

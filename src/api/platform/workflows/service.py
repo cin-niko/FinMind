@@ -3,9 +3,21 @@ from uuid import uuid4
 
 from api.platform.artifacts import build_chart_artifact
 from api.platform.evidence import build_citation, build_evidence
-from api.platform.models import CanonicalMarketDataRecord, ExecutionRun, RunStatus, utc_now
-from api.platform.repositories import MarketDataRepository, RunRepository, WorkflowRepository
-from api.platform.workflows.validation import WorkflowValidationError, validate_workflow_inputs
+from api.platform.models import (
+    CanonicalMarketDataRecord,
+    ExecutionRun,
+    RunStatus,
+    utc_now,
+)
+from api.platform.repositories import (
+    MarketDataRepository,
+    RunRepository,
+    WorkflowRepository,
+)
+from api.platform.workflows.validation import (
+    WorkflowValidationError,
+    validate_workflow_inputs,
+)
 from api.schemas import serialize_run
 
 
@@ -20,7 +32,9 @@ class WorkflowService:
             {
                 "id": workflow.workflow_id,
                 "title": workflow.title,
-                "market_scope": [market.value for market in workflow.market_scope],
+                "market_scope": [
+                    market.value for market in workflow.market_scope
+                ],
                 "required_inputs": list(workflow.required_inputs),
                 "stages": list(workflow.stages),
                 "requires_citations": True,
@@ -38,12 +52,26 @@ class WorkflowService:
         workflow = self.workflows.get(workflow_id)
         if workflow is None:
             raise KeyError("Workflow not found")
-        market = validate_workflow_inputs(workflow, inputs)
-        records = self.market_data.list_by_market(market)
+        validated_inputs = validate_workflow_inputs(workflow, inputs)
+        records = self.market_data.list_by_market(validated_inputs.market)
+        if validated_inputs.symbol:
+            records = [
+                record
+                for record in records
+                if record.instrument_id == validated_inputs.symbol
+            ]
         if not records:
             raise WorkflowValidationError("Required market data is missing")
+        run_inputs: dict[str, object] = {
+            "market": validated_inputs.market.value
+        }
+        if validated_inputs.symbol:
+            run_inputs["symbol"] = validated_inputs.symbol
 
-        evidence = [build_evidence(record, workflow.output_sections[0]) for record in records]
+        evidence = [
+            build_evidence(record, workflow.output_sections[0])
+            for record in records
+        ]
         citations = [
             build_citation(record, evidence_item)
             for record, evidence_item in zip(records, evidence, strict=True)
@@ -55,7 +83,7 @@ class WorkflowService:
             kind="workflow",
             status=RunStatus.SUCCESS,
             requested_by=requested_by,
-            inputs=inputs,
+            inputs=run_inputs,
             started_at=started_at,
             completed_at=utc_now(),
             output={
@@ -63,7 +91,9 @@ class WorkflowService:
                     {
                         "title": workflow.output_sections[0],
                         "content": _build_summary(workflow.title, records[0]),
-                        "citations": [citation.citation_id for citation in citations],
+                        "citations": [
+                            citation.citation_id for citation in citations
+                        ],
                     }
                 ],
                 "citations": [
@@ -102,7 +132,10 @@ class WorkflowService:
             },
             logs=[
                 {"event": "workflow_started", "stage": workflow.stages[0]},
-                {"event": "artifact_created", "artifact_id": chart.artifact_id},
+                {
+                    "event": "artifact_created",
+                    "artifact_id": chart.artifact_id,
+                },
                 {"event": "workflow_completed", "status": "success"},
             ],
         )
@@ -115,8 +148,14 @@ class WorkflowService:
             return None
         return serialize_run(run)
 
+    def list_runs(self) -> list[dict[str, object]]:
+        return [serialize_run(run) for run in self.runs.list()]
+
 
 def _build_summary(title: str, record: CanonicalMarketDataRecord) -> str:
     close = record.payload["close"]
     change = record.payload.get("change_percent")
-    return f"{title}: {record.instrument_id} closed at {close} with {change}% change."
+    return (
+        f"{title}: {record.instrument_id} closed at {close} "
+        f"with {change}% change."
+    )
