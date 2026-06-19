@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getSession, logout, type SessionState, type WorkflowRun } from "./api/client";
 import { LoadingState } from "./components/layout";
 import { LoginPage } from "./features/auth/LoginPage";
@@ -32,6 +32,13 @@ export function App() {
     getSession().then(setSession).catch(() => setSession({ authenticated: false }));
   }, []);
 
+  const handleSessionExpired = useCallback(() => {
+    setSession({ authenticated: false });
+    setCurrentRun(null);
+    setSelectedArtifact(null);
+    setView("chat");
+  }, []);
+
   if (!session) {
     return <LoadingState />;
   }
@@ -41,7 +48,7 @@ export function App() {
   }
 
   async function handleLogout() {
-    const next = await logout();
+    const next = await logout().catch(() => ({ authenticated: false }) as const);
     setSession(next);
     setCurrentRun(null);
     setSelectedArtifact(null);
@@ -140,7 +147,12 @@ export function App() {
               />
             ) : null}
             {view === "market" ? <MarketPage /> : null}
-            {view === "workflows" ? <WorkflowPage onRunComplete={handleRunComplete} /> : null}
+            {view === "workflows" ? (
+              <WorkflowPage
+                onRunComplete={handleRunComplete}
+                onSessionExpired={handleSessionExpired}
+              />
+            ) : null}
             {view === "results" ? <ResultView run={currentRun} /> : null}
           </div>
         </div>

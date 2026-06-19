@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Play } from "lucide-react";
-import { listWorkflows, runWorkflow, type Workflow, type WorkflowRun } from "../../api/client";
+import {
+  isUnauthorizedError,
+  listWorkflows,
+  runWorkflow,
+  type Workflow,
+  type WorkflowRun
+} from "../../api/client";
 import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
 
 type Props = {
   onRunComplete: (run: WorkflowRun) => void;
+  onSessionExpired: () => void;
 };
 
-export function WorkflowPage({ onRunComplete }: Props) {
+export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [market, setMarket] = useState("VN_STOCK");
@@ -20,9 +27,15 @@ export function WorkflowPage({ onRunComplete }: Props) {
       .then((items) => {
         setWorkflows(items);
       })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Failed to load workflows"))
+      .catch((caught) => {
+        if (isUnauthorizedError(caught)) {
+          onSessionExpired();
+          return;
+        }
+        setError(caught instanceof Error ? caught.message : "Failed to load workflows");
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [onSessionExpired]);
 
   const selected = workflows.find((workflow) => workflow.id === selectedId);
 
@@ -36,6 +49,10 @@ export function WorkflowPage({ onRunComplete }: Props) {
       const run = await runWorkflow(selected.id, market);
       onRunComplete(run);
     } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        onSessionExpired();
+        return;
+      }
       setError(caught instanceof Error ? caught.message : "Workflow failed");
     } finally {
       setRunning(false);

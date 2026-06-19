@@ -1,5 +1,15 @@
 export type SessionState = { authenticated: false } | { authenticated: true; role: "admin" };
 
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export type Workflow = {
   id: string;
   title: string;
@@ -50,7 +60,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(payload.detail ?? `Request failed with ${response.status}`);
+    throw new ApiError(payload.detail ?? `Request failed with ${response.status}`, response.status);
   }
 
   return (await response.json()) as T;
@@ -84,4 +94,8 @@ export function runWorkflow(workflowId: string, market: string): Promise<Workflo
 
 export function getRun(runId: string): Promise<WorkflowRun> {
   return request<WorkflowRun>(`/api/runs/${runId}`);
+}
+
+export function isUnauthorizedError(caught: unknown): boolean {
+  return caught instanceof ApiError && caught.status === 401;
 }
