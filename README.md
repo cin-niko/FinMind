@@ -24,6 +24,26 @@ Start the API:
 uv run uvicorn api.app:create_app --factory --reload
 ```
 
+## Docker Compose
+
+Start the API and UI together:
+
+```bash
+docker compose up --build
+```
+
+The Compose stack builds package-specific images from `src/api/Dockerfile` and
+`src/ui/Dockerfile`. It uses these default admin credentials unless overridden in
+the shell:
+
+```bash
+FINMIND_ADMIN_USERNAME=analyst
+FINMIND_ADMIN_PASSWORD=secret-pass
+FINMIND_SESSION_SECRET=session-secret-with-length
+```
+
+Open the UI at `http://127.0.0.1:5173`. The API is exposed at `http://127.0.0.1:8000`.
+
 ## Frontend
 
 ```bash
@@ -32,7 +52,7 @@ npm install
 npm run dev
 ```
 
-The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`.
+The Vite development server proxies `/api` requests to `http://127.0.0.1:8000` locally, or to `http://api:8000` inside Docker Compose.
 
 ## Phase 1 Validation
 
