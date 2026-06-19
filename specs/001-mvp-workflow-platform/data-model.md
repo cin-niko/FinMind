@@ -4,7 +4,8 @@ feature: mvp-workflow-platform
 status: draft
 owner: solo
 created: 2026-06-18
-implements: []
+implements:
+  - src/api/platform/models.py
 validated_by:
   - tests/test_platform_services.py
 adr_refs: []

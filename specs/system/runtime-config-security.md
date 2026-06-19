@@ -4,6 +4,9 @@ status: active
 last_review: 2026-06-18
 implements:
   - src/agent_core/settings
+  - src/api/settings.py
+  - src/api/auth.py
+  - src/api/dependencies.py
 validated_by:
   - tests/test_app.py
 adr_refs: []
@@ -23,11 +26,13 @@ The application must fail closed when any required value is missing or invalid. 
 
 ## Sessions
 
-V1 uses cookie-backed web sessions for authenticated browser access. Logout and expiration must block protected content again.
+V1 uses cookie-backed web sessions for authenticated browser access. Session cookie values must be signed or otherwise verified using `FINMIND_SESSION_SECRET`; unsigned, malformed, or tampered session cookies must be treated as unauthenticated. Logout and expiration must block protected content again.
 
 ## Scope Gates
 
 V1 user-facing market coverage is VN stocks and gold only. US stocks and BTC are roadmap markets and must return clear out-of-scope behavior in V1 surfaces.
+
+Mock/demo surfaces are still user-facing scope surfaces. Workflow, Market, and chat controls must not present US stocks or BTC as enabled runnable V1 choices. If roadmap markets are shown for product preview, they must be disabled or clearly marked future/out-of-scope before execution rather than allowing the user to submit and discover the limitation only through a backend validation error.
 
 V1 excludes:
 

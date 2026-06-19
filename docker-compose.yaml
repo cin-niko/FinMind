@@ -1,0 +1,22 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/api/Dockerfile
+    environment:
+      FINMIND_ADMIN_USERNAME: ${FINMIND_ADMIN_USERNAME:-admin}
+      FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
+      FINMIND_SESSION_SECRET: ${FINMIND_SESSION_SECRET:-session-secret-with-length}
+    ports:
+      - "8000:8000"
+
+  ui:
+    build:
+      context: .
+      dockerfile: src/ui/Dockerfile
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api

@@ -1,10 +1,10 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 
-class MessageRole(str, Enum):
+class MessageRole(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -58,7 +58,7 @@ class ChatOptions(BaseModel):
     tool_choice: str | dict[str, object] | None = None
 
 
-class StreamEventType(str, Enum):
+class StreamEventType(StrEnum):
     MESSAGE_START = "message_start"
     TEXT_DELTA = "text_delta"
     TOOL_CALL_DELTA = "tool_call_delta"

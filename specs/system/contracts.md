@@ -4,6 +4,7 @@ status: active
 last_review: 2026-06-18
 implements:
   - src/agent_core
+  - src/api
 validated_by:
   - tests/test_app.py
   - tests/test_platform_services.py
