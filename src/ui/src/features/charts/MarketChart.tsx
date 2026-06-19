@@ -13,15 +13,15 @@ export function MarketChart({ artifact }: { artifact: ChartArtifact }) {
     }
     const chart: IChartApi = createChart(containerRef.current, {
       height: 260,
-      layout: { background: { color: "#111827" }, textColor: "#E5E7EB" },
+      layout: { background: { color: "#FFFFFF" }, textColor: "#172033" },
       grid: {
-        vertLines: { color: "#293548" },
-        horzLines: { color: "#293548" }
+        vertLines: { color: "#E7ECF4" },
+        horzLines: { color: "#E7ECF4" }
       },
-      rightPriceScale: { borderColor: "#293548" },
-      timeScale: { borderColor: "#293548" }
+      rightPriceScale: { borderColor: "#D8DEE8" },
+      timeScale: { borderColor: "#D8DEE8" }
     });
-    const series = chart.addSeries(LineSeries, { color: "#26A69A", lineWidth: 2 });
+    const series = chart.addSeries(LineSeries, { color: "#138A63", lineWidth: 2 });
     series.setData(
       artifact.payload.series.map((point) => ({
         time: point.time.slice(0, 10),

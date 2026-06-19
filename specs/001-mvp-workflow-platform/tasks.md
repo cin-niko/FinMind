@@ -67,3 +67,15 @@ adr_refs: []
 - [x] T036 Run `uv run pytest` and record any remaining failures in `specs/001-mvp-workflow-platform/quickstart.md`.
 - [x] T037 Run UI build and lint commands from `src/ui/package.json` and record any remaining failures in `specs/001-mvp-workflow-platform/quickstart.md`.
 - [ ] T038 Validate quickstart scenarios from `specs/001-mvp-workflow-platform/quickstart.md`.
+
+## UI Refinement: Chat-First Shell
+
+- [ ] T039 Update `src/ui/src/App.tsx` view state so `New Chat` is the default authenticated surface and supports chat, Market, workflows, and artifact detail panel state.
+- [ ] T040 Update `src/ui/src/features/shell/AppShell.tsx` to render left rail labels `New Chat`, `Market`, `Workflows`, and grouped `History` with chat conversations and workflow runs.
+- [ ] T041 Create `src/ui/src/features/chat/ChatPage.tsx` with centered transcript, bottom composer, deterministic mock response handling, first-message chat titles, inline visual blocks, and artifact cards.
+- [ ] T042 Create `src/ui/src/features/chat/ArtifactPanel.tsx` for desktop right-side artifact viewing and mobile full-screen artifact viewing.
+- [ ] T043 Create `src/ui/src/features/data-hub/DataHubPage.tsx` with hybrid watchlist layout, system predefined VN stock/gold data, selected instrument chart, freshness metadata, news/source feed, and market table.
+- [ ] T044 Refactor `src/ui/src/features/workflows/WorkflowPage.tsx` into catalog-card-first workflow selection before workflow-specific inputs.
+- [ ] T045 Update `src/ui/src/styles.css` to the light professional design tokens in `specs/system/ui-workbench.md`, including responsive mobile drawer behavior.
+- [ ] T046 Add or update UI tests/manual validation notes for chat mock response, artifact panel, Market real-data-only boundary, workflow catalog selection, and mobile chat-first behavior.
+- [x] T047 Update the light theme and left rail to the Perplexity-inspired ledger treatment in `specs/system/ui-workbench.md`, including flat icon-and-text nav rows, one neutral selected-row state, and `History` subsections for `Chat` and `Workflow Runs`.

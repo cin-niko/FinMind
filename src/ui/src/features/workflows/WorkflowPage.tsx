@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Play } from "lucide-react";
+import { ArrowLeft, Play } from "lucide-react";
 import { listWorkflows, runWorkflow, type Workflow, type WorkflowRun } from "../../api/client";
 import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
 
@@ -9,7 +9,7 @@ type Props = {
 
 export function WorkflowPage({ onRunComplete }: Props) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [market, setMarket] = useState("VN_STOCK");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -19,7 +19,6 @@ export function WorkflowPage({ onRunComplete }: Props) {
     listWorkflows()
       .then((items) => {
         setWorkflows(items);
-        setSelectedId(items[0]?.id ?? "");
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Failed to load workflows"))
       .finally(() => setLoading(false));
@@ -47,30 +46,57 @@ export function WorkflowPage({ onRunComplete }: Props) {
     return <LoadingState />;
   }
 
-  if (!selected) {
+  if (!workflows.length) {
     return <EmptyState message="No workflows available." />;
+  }
+
+  if (!selected) {
+    return (
+      <div className="workflowCatalog">
+        {error ? <ErrorAlert message={error} /> : null}
+        {workflows.map((workflow) => (
+          <button
+            className="workflowCard"
+            key={workflow.id}
+            onClick={() => {
+              setSelectedId(workflow.id);
+              setMarket(workflow.market_scope[0] ?? "VN_STOCK");
+            }}
+            type="button"
+          >
+            <span className="meta">{workflow.market_scope.join(", ")}</span>
+            <h2>{workflow.title}</h2>
+            <p>Fixed system-defined workflow with cited output, freshness metadata, and chart artifacts.</p>
+            <div className="stageList">
+              {workflow.stages.slice(0, 4).map((stage) => (
+                <span className="stageChip" key={stage}>
+                  {stage}
+                </span>
+              ))}
+            </div>
+          </button>
+        ))}
+      </div>
+    );
   }
 
   return (
     <div className="workflowGrid">
       <section className="panel">
-        <h2>Workflow</h2>
+        <button className="textButton" onClick={() => setSelectedId(null)} type="button">
+          <ArrowLeft size={16} /> Catalog
+        </button>
+        <h2>Run Workflow</h2>
         {error ? <ErrorAlert message={error} /> : null}
-        <label>
-          Catalog
-          <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
-            {workflows.map((workflow) => (
-              <option key={workflow.id} value={workflow.id}>
-                {workflow.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="selectedWorkflowName">{selected.title}</div>
         <label>
           Market
           <select value={market} onChange={(event) => setMarket(event.target.value)}>
-            <option value="VN_STOCK">VN stocks</option>
-            <option value="GOLD">Gold</option>
+            {selected.market_scope.map((scope) => (
+              <option key={scope} value={scope}>
+                {scope === "VN_STOCK" ? "VN stocks" : "Gold"}
+              </option>
+            ))}
             <option value="US_STOCK">US stocks</option>
             <option value="BTC">BTC</option>
           </select>
