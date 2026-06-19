@@ -79,11 +79,14 @@ Navigation is phase-aware:
 
 ### Login
 
-- Compact centered login panel
-- Username and password inputs with labels
+- Centered single-column layout with a large hero title above a soft card panel; no decorative grid or hero background.
+- Login uses the same light ledger token palette as the authenticated workbench: warm off-white shell (`bg-base`), charcoal hero title in Inter, thin warm-gray borders, and no generic blue SaaS chrome.
+- Primary submit control uses the neutral charcoal token (`text-primary` background, `surface-1` text). Teal and amber accents are reserved for in-app focus, run actions, freshness, and warnings, and MUST NOT be used as the login submit color.
+- Username and password inputs use associated `<label htmlFor>` bindings; label text uses secondary color at normal weight (not bold) so it reads as field metadata rather than a heading.
+- Password field MUST provide a show/hide toggle implemented as a `<button type="button">` inside the field with `aria-label` reflecting the current state and `aria-pressed` for assistive tech.
 - Startup configuration failure state
-- Submit button with loading state
-- Error messages use `role="alert"`
+- Submit button with loading state (label switches to a "Signing in" affordance and the control is disabled)
+- Error messages use `role="alert"` and appear above the input fields
 
 ### Workflow
 

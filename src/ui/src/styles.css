@@ -105,17 +105,171 @@ button:focus-visible {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 32px 24px;
+  background: var(--bg-base);
+}
+
+.loginStage {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 28px;
+}
+
+.loginHero {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.loginHero h1 {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 56px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  color: var(--text-primary);
+}
+
+.loginHero p {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .loginPanel {
-  width: min(420px, 100%);
+  position: relative;
   display: grid;
-  gap: 18px;
-  padding: 24px;
+  gap: 14px;
+  padding: 26px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(25, 25, 23, 0.05);
+}
+
+.loginContext {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.loginPanel label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.passwordField {
+  position: relative;
+  display: block;
+}
+
+.passwordField input {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.passwordToggle:hover {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+
+.passwordToggle:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+.loginPanel input {
+  height: 44px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 22px;
+  letter-spacing: normal;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.loginPanel input::placeholder {
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  letter-spacing: normal;
+  opacity: 1;
+}
+
+.loginPanel input:hover {
+  border-color: var(--border-strong);
+}
+
+.loginPanel input:focus {
+  outline: none;
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 3px rgba(25, 25, 23, 0.08);
+}
+
+.loginSubmit {
+  width: 100%;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  padding: 0 14px;
+  border: 1px solid var(--text-primary);
+  border-radius: 10px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    transform 120ms ease,
+    opacity 180ms ease;
+}
+
+.loginSubmit:hover:not(:disabled) {
+  background: #000;
+}
+
+.loginSubmit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loginFootnote {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .shell {
