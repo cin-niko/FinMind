@@ -608,7 +608,7 @@ button:focus-visible {
   gap: 12px;
 }
 
-.dataHubPage,
+.marketPage,
 .workflowCatalog,
 .workflowGrid,
 .resultGrid {
@@ -900,7 +900,7 @@ th {
   }
 
   .chatPage,
-  .dataHubPage,
+  .marketPage,
   .workflowCatalog,
   .workflowGrid,
   .resultGrid {

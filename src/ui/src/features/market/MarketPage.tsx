@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { DATA_HUB_INSTRUMENTS } from "./dataHubData";
+import { MARKET_INSTRUMENTS } from "./marketData";
 
-export function DataHubPage() {
-  const [selectedSymbol, setSelectedSymbol] = useState(DATA_HUB_INSTRUMENTS[0]?.symbol ?? "");
+export function MarketPage() {
+  const [selectedSymbol, setSelectedSymbol] = useState(MARKET_INSTRUMENTS[0]?.symbol ?? "");
   const selected =
-    DATA_HUB_INSTRUMENTS.find((instrument) => instrument.symbol === selectedSymbol) ??
-    DATA_HUB_INSTRUMENTS[0];
+    MARKET_INSTRUMENTS.find((instrument) => instrument.symbol === selectedSymbol) ??
+    MARKET_INSTRUMENTS[0];
 
   if (!selected) {
     return <div className="stateBox">No market data available.</div>;
@@ -15,9 +15,9 @@ export function DataHubPage() {
   const minValue = Math.min(...selected.priceSeries.map((point) => point.value));
 
   return (
-    <section className="dataHubPage" aria-label="Market">
+    <section className="marketPage" aria-label="Market">
       <div className="hubSummary">
-        {DATA_HUB_INSTRUMENTS.map((instrument) => (
+        {MARKET_INSTRUMENTS.map((instrument) => (
           <button
             className={instrument.symbol === selected.symbol ? "hubCard active" : "hubCard"}
             key={instrument.symbol}
@@ -85,7 +85,7 @@ export function DataHubPage() {
               </tr>
             </thead>
             <tbody>
-              {DATA_HUB_INSTRUMENTS.map((instrument) => (
+              {MARKET_INSTRUMENTS.map((instrument) => (
                 <tr key={instrument.symbol}>
                   <td>{instrument.symbol}</td>
                   <td>{instrument.market}</td>

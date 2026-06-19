@@ -74,7 +74,7 @@ adr_refs: []
 - [ ] T040 Update `src/ui/src/features/shell/AppShell.tsx` to render left rail labels `New Chat`, `Market`, `Workflows`, and grouped `History` with chat conversations and workflow runs.
 - [ ] T041 Create `src/ui/src/features/chat/ChatPage.tsx` with centered transcript, bottom composer, deterministic mock response handling, first-message chat titles, inline visual blocks, and artifact cards.
 - [ ] T042 Create `src/ui/src/features/chat/ArtifactPanel.tsx` for desktop right-side artifact viewing and mobile full-screen artifact viewing.
-- [ ] T043 Create `src/ui/src/features/data-hub/DataHubPage.tsx` with hybrid watchlist layout, system predefined VN stock/gold data, selected instrument chart, freshness metadata, news/source feed, and market table.
+- [ ] T043 Create `src/ui/src/features/market/MarketPage.tsx` with hybrid watchlist layout, system predefined VN stock/gold data, selected instrument chart, freshness metadata, news/source feed, and market table.
 - [ ] T044 Refactor `src/ui/src/features/workflows/WorkflowPage.tsx` into catalog-card-first workflow selection before workflow-specific inputs.
 - [ ] T045 Update `src/ui/src/styles.css` to the light professional design tokens in `specs/system/ui-workbench.md`, including responsive mobile drawer behavior.
 - [ ] T046 Add or update UI tests/manual validation notes for chat mock response, artifact panel, Market real-data-only boundary, workflow catalog selection, and mobile chat-first behavior.

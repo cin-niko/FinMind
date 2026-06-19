@@ -1,9 +1,9 @@
-export type DataHubMarket = "VN_STOCK" | "GOLD";
+export type MarketScope = "VN_STOCK" | "GOLD";
 
-export type DataHubInstrument = {
+export type MarketInstrument = {
   symbol: string;
   name: string;
-  market: DataHubMarket;
+  market: MarketScope;
   lastPrice: string;
   changePercent: number;
   volume: string;
@@ -13,7 +13,7 @@ export type DataHubInstrument = {
   news: Array<{ id: string; title: string; source: string; timestamp: string }>;
 };
 
-export const DATA_HUB_INSTRUMENTS: DataHubInstrument[] = [
+export const MARKET_INSTRUMENTS: MarketInstrument[] = [
   {
     symbol: "VCB",
     name: "Vietcombank",
@@ -128,6 +128,6 @@ export const DATA_HUB_INSTRUMENTS: DataHubInstrument[] = [
   }
 ];
 
-export function getInstrumentBySymbol(symbol: string): DataHubInstrument | undefined {
-  return DATA_HUB_INSTRUMENTS.find((instrument) => instrument.symbol === symbol);
+export function getInstrumentBySymbol(symbol: string): MarketInstrument | undefined {
+  return MARKET_INSTRUMENTS.find((instrument) => instrument.symbol === symbol);
 }

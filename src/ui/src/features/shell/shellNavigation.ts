@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { BarChart3, MessageSquarePlus, Workflow } from "lucide-react";
 
-export type PrimaryView = "chat" | "dataHub" | "workflows";
+export type PrimaryView = "chat" | "market" | "workflows";
 
 export type PrimaryNavItem = {
   view: PrimaryView;
@@ -12,7 +12,7 @@ export type PrimaryNavItem = {
 
 export const PRIMARY_NAV_ITEMS: PrimaryNavItem[] = [
   { view: "chat", label: "New Chat", iconName: "MessageSquarePlus", Icon: MessageSquarePlus },
-  { view: "dataHub", label: "Market", iconName: "BarChart3", Icon: BarChart3 },
+  { view: "market", label: "Market", iconName: "BarChart3", Icon: BarChart3 },
   { view: "workflows", label: "Workflows", iconName: "Workflow", Icon: Workflow }
 ];
 
