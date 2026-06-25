@@ -2470,6 +2470,304 @@ def test_postgres_store_checks_collection_membership_and_dataset_rows() -> (
 
 
 # ---------------------------------------------------------------------------
+# Canonical vn_prices_daily chart wiring (post-T046 fix)
+# ---------------------------------------------------------------------------
+
+
+from api.platform.ingestion.store_writer import InstrumentMetadata
+
+
+def _vcb_metadata() -> InstrumentMetadata:
+    return InstrumentMetadata(
+        instrument_id="vn_stock:VCB",
+        symbol="VCB",
+        market="VN_STOCK",
+        asset_class="stock",
+        exchange="HOSE",
+        display_name="Vietcombank",
+        currency="VND",
+        sector="Financials",
+        industry="Banking",
+        sub_industry="Commercial Banking",
+    )
+
+
+def _vn_daily_payload_record(
+    instrument_id: str,
+    trade_date_str: str,
+    *,
+    close: int,
+) -> TimeSeriesRecord:
+    market_time = datetime.fromisoformat(
+        f"{trade_date_str}T00:00:00+00:00"
+    )
+    return TimeSeriesRecord(
+        dataset_id="vn_prices_daily",
+        record_key=f"{instrument_id}:{trade_date_str}",
+        instrument_id=instrument_id,
+        market_time=market_time,
+        collected_at=market_time,
+        source_id="vnstock",
+        payload={
+            "market": "VN_STOCK",
+            "symbol": "VCB",
+            "exchange": "HOSE",
+            "trade_date": trade_date_str,
+            "open": close - 200,
+            "high": close + 300,
+            "low": close - 400,
+            "close": close,
+            "volume": 1_500_000,
+            "currency": "VND",
+        },
+    )
+
+
+def test_list_dataset_for_instrument_filters_and_orders_by_trade_date() -> (
+    None
+):
+    store = InMemoryTimeSeriesStore()
+    older = _vn_daily_payload_record(
+        "vn_stock:VCB", "2026-06-20", close=58000
+    )
+    newer = _vn_daily_payload_record(
+        "vn_stock:VCB", "2026-06-24", close=58300
+    )
+    other = _vn_daily_payload_record(
+        "vn_stock:VPB", "2026-06-24", close=21400
+    )
+    for record in (newer, older, other):
+        store.records[(record.dataset_id, record.record_key)] = record
+
+    rows = store.list_dataset_for_instrument(
+        "vn_prices_daily", "vn_stock:VCB"
+    )
+
+    assert [row.payload["trade_date"] for row in rows] == [
+        "2026-06-20",
+        "2026-06-24",
+    ]
+    assert all(row.instrument_id == "vn_stock:VCB" for row in rows)
+
+
+def test_list_dataset_for_instrument_unknown_dataset_returns_empty() -> (
+    None
+):
+    store = InMemoryTimeSeriesStore()
+    assert (
+        store.list_dataset_for_instrument(
+            "fictional_dataset", "vn_stock:VCB"
+        )
+        == []
+    )
+
+
+def test_read_instrument_returns_metadata_when_seeded() -> None:
+    store = InMemoryTimeSeriesStore()
+    store.instruments.append(_vcb_metadata())
+
+    metadata = store.read_instrument("vn_stock:VCB")
+
+    assert metadata is not None
+    assert metadata.symbol == "VCB"
+    assert metadata.display_name == "Vietcombank"
+    assert store.read_instrument("vn_stock:NOPE") is None
+
+
+def _seed_vcb_canonical(
+    client: TestClient,
+    *,
+    trade_dates: tuple[str, ...] = ("2026-06-23", "2026-06-24"),
+) -> None:
+    store = client.app.state.platform.ingestion_service.store
+    assert isinstance(store, InMemoryTimeSeriesStore)
+    store.collection_memberships.add(("VN100", "vn_stock:VCB"))
+    store.instruments.append(_vcb_metadata())
+    for index, trade_date in enumerate(trade_dates):
+        record = _vn_daily_payload_record(
+            "vn_stock:VCB",
+            trade_date,
+            close=58000 + (index * 100),
+        )
+        store.records[(record.dataset_id, record.record_key)] = record
+
+
+def test_vn_1d_chart_returns_canonical_rows_when_present(
+    client: TestClient,
+) -> None:
+    _seed_vcb_canonical(client)
+
+    response = client.get(
+        "/api/market/instruments/vn_stock:VCB/chart?timeframe=1d"
+    )
+
+    assert response.status_code == 200
+    chart = response.json()
+    assert chart["timeframe"] == "1d"
+    assert chart["instrument"]["symbol"] == "VCB"
+    assert [record["time"] for record in chart["records"]] == [
+        "2026-06-23",
+        "2026-06-24",
+    ]
+    assert chart["records"][-1]["close"] == 58100
+    assert chart["freshness"]["as_of"] == "2026-06-24"
+    assert chart["freshness"]["status"] in {"fresh", "stale"}
+    assert chart["lazy_fetch"]["status"] == "already_present"
+
+
+def test_vn_1d_chart_falls_back_to_demo_when_no_canonical_rows(
+    client: TestClient,
+) -> None:
+    store = client.app.state.platform.ingestion_service.store
+    assert isinstance(store, InMemoryTimeSeriesStore)
+    store.collection_memberships.add(("VN100", "vn_stock:VCB"))
+
+    response = client.get(
+        "/api/market/instruments/vn_stock:VCB/chart?timeframe=1d"
+    )
+
+    assert response.status_code == 200
+    chart = response.json()
+    assert chart["timeframe"] == "1d"
+    assert chart["records"][0]["time"].startswith("2026-06-18T")
+    assert "lazy_fetch" in chart
+
+
+def test_vn_1d_chart_out_of_scope_short_circuits_with_empty_records(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/market/instruments/vn_stock:UNKNOWN/chart?timeframe=1d"
+    )
+
+    assert response.status_code == 200
+    chart = response.json()
+    assert chart["records"] == []
+    assert chart["table"] == []
+    assert chart["lazy_fetch"]["status"] == "out_of_scope"
+
+
+def test_non_1d_vn_chart_uses_demo_path(client: TestClient) -> None:
+    _seed_vcb_canonical(client)
+
+    response = client.get(
+        "/api/market/instruments/vn_stock:VCB/chart?timeframe=4h"
+    )
+
+    assert response.status_code == 200
+    chart = response.json()
+    assert chart["records"][0]["time"] == "2026-06-18T02:00:00+00:00"
+    assert "lazy_fetch" not in chart
+
+
+def test_non_vn_instrument_chart_uses_demo_path(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/market/instruments/us_stock:AAPL/chart?timeframe=1d"
+    )
+
+    assert response.status_code == 200
+    chart = response.json()
+    assert chart["instrument"]["symbol"] == "AAPL"
+    assert "lazy_fetch" not in chart
+
+
+def test_postgres_list_dataset_for_instrument_emits_filtered_select() -> (
+    None
+):
+    class RowCursor(RecordingCursor):
+        def fetchall(self) -> list[dict[str, Any]]:
+            return [
+                {
+                    "market": "VN_STOCK",
+                    "instrument_id": "vn_stock:VCB",
+                    "symbol": "VCB",
+                    "exchange": "HOSE",
+                    "trade_date": datetime(2026, 6, 24).date(),
+                    "open": 58000,
+                    "high": 58400,
+                    "low": 57800,
+                    "close": 58200,
+                    "volume": 1500000,
+                    "value": None,
+                    "currency": "VND",
+                    "adjusted_close": None,
+                    "corporate_action_flag": None,
+                    "collected_at": datetime(2026, 6, 24, tzinfo=UTC),
+                    "source_id": "vnstock",
+                    "freshness_status": "fresh",
+                }
+            ]
+
+    class RowConnection(RecordingConnection):
+        def __init__(self) -> None:
+            super().__init__()
+            self.cursor_instance = RowCursor()
+
+    connection = RowConnection()
+    store = PostgresTimeSeriesStore(
+        connection_factory=lambda: connection
+    )
+
+    rows = store.list_dataset_for_instrument(
+        "vn_prices_daily", "vn_stock:VCB"
+    )
+
+    assert len(rows) == 1
+    assert rows[0].instrument_id == "vn_stock:VCB"
+    assert rows[0].payload["trade_date"] == "2026-06-24"
+    last_sql, params = connection.cursor_instance.statements[-1]
+    assert "FROM vn_prices_daily" in last_sql
+    assert (
+        "WHERE instrument_id = %(instrument_id)s" in last_sql
+    )
+    assert "ORDER BY trade_date ASC" in last_sql
+    assert params == {"instrument_id": "vn_stock:VCB"}
+
+
+def test_postgres_read_instrument_returns_metadata_when_row_exists() -> (
+    None
+):
+    class InstrumentCursor(RecordingCursor):
+        def fetchall(self) -> list[dict[str, Any]]:
+            return [
+                {
+                    "instrument_id": "vn_stock:VCB",
+                    "symbol": "VCB",
+                    "market": "VN_STOCK",
+                    "asset_class": "stock",
+                    "exchange": "HOSE",
+                    "display_name": "Vietcombank",
+                    "currency": "VND",
+                    "sector": "Financials",
+                    "industry": "Banking",
+                    "sub_industry": "Commercial Banking",
+                    "status": "active",
+                }
+            ]
+
+    class InstrumentConnection(RecordingConnection):
+        def __init__(self) -> None:
+            super().__init__()
+            self.cursor_instance = InstrumentCursor()
+
+    connection = InstrumentConnection()
+    store = PostgresTimeSeriesStore(
+        connection_factory=lambda: connection
+    )
+
+    metadata = store.read_instrument("vn_stock:VCB")
+
+    assert metadata is not None
+    assert metadata.symbol == "VCB"
+    assert metadata.market == "VN_STOCK"
+    last_sql, params = connection.cursor_instance.statements[-1]
+    assert "FROM market_instruments" in last_sql
+    assert params == {"instrument_id": "vn_stock:VCB"}
+
+
+# ---------------------------------------------------------------------------
 # T045 — VN-only freshness output with dataset-specific thresholds
 # ---------------------------------------------------------------------------
 

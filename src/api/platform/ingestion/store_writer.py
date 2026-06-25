@@ -10,6 +10,23 @@ from api.platform.freshness import (
 
 
 @dataclass(frozen=True)
+class InstrumentMetadata:
+    """Minimal instrument metadata used by canonical chart rendering."""
+
+    instrument_id: str
+    symbol: str
+    market: str
+    asset_class: str
+    exchange: str | None
+    display_name: str
+    currency: str
+    sector: str | None
+    industry: str | None
+    sub_industry: str | None
+    status: str = "active"
+
+
+@dataclass(frozen=True)
 class IngestionJobRecord:
     job_id: str
     source_id: str
@@ -27,6 +44,14 @@ class TimeSeriesStore(Protocol):
     def upsert_many(self, records: list[TimeSeriesRecord]) -> int: ...
 
     def list_dataset(self, dataset_id: str) -> list[TimeSeriesRecord]: ...
+
+    def list_dataset_for_instrument(
+        self, dataset_id: str, instrument_id: str
+    ) -> list[TimeSeriesRecord]: ...
+
+    def read_instrument(
+        self, instrument_id: str
+    ) -> InstrumentMetadata | None: ...
 
     def list_jobs(self) -> list[IngestionJobRecord]: ...
 
@@ -67,6 +92,7 @@ class InMemoryTimeSeriesStore:
     collection_memberships: set[tuple[str, str]] = field(
         default_factory=set
     )
+    instruments: list[InstrumentMetadata] = field(default_factory=list)
     roadmap_markets_enabled: bool = False
     _next_job_id: int = 1
 
@@ -84,6 +110,36 @@ class InMemoryTimeSeriesStore:
             ],
             key=lambda record: record.market_time,
         )
+
+    def list_dataset_for_instrument(
+        self, dataset_id: str, instrument_id: str
+    ) -> list[TimeSeriesRecord]:
+        records = [
+            record
+            for (record_dataset, _record_key), record in (
+                self.records.items()
+            )
+            if record_dataset == dataset_id
+            and record.instrument_id == instrument_id
+        ]
+        if dataset_id == "vn_prices_daily":
+            return sorted(
+                records,
+                key=lambda record: str(
+                    record.payload.get("trade_date", "")
+                ),
+            )
+        return sorted(
+            records, key=lambda record: record.market_time
+        )
+
+    def read_instrument(
+        self, instrument_id: str
+    ) -> InstrumentMetadata | None:
+        for instrument in self.instruments:
+            if instrument.instrument_id == instrument_id:
+                return instrument
+        return None
 
     def list_jobs(self) -> list[IngestionJobRecord]:
         return sorted(self.jobs, key=lambda job: job.started_at, reverse=True)

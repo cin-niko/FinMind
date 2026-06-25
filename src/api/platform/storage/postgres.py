@@ -8,7 +8,10 @@ from api.platform.freshness import (
     calculate_dataset_freshness,
 )
 from api.platform.ingestion.sources import TimeSeriesRecord
-from api.platform.ingestion.store_writer import IngestionJobRecord
+from api.platform.ingestion.store_writer import (
+    IngestionJobRecord,
+    InstrumentMetadata,
+)
 
 
 class PostgresTimeSeriesStore:
@@ -87,6 +90,39 @@ class PostgresTimeSeriesStore:
                     rows = cursor.fetchall()
                     return [_sjc_record(row) for row in rows]
                 return []
+        finally:
+            connection.close()
+
+    def list_dataset_for_instrument(
+        self, dataset_id: str, instrument_id: str
+    ) -> list[TimeSeriesRecord]:
+        sql = _DATASET_ROWS_BY_INSTRUMENT_SQL.get(dataset_id)
+        if sql is None:
+            return []
+        record_factory = _DATASET_ROWS_BY_INSTRUMENT_FACTORY[dataset_id]
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql, {"instrument_id": instrument_id})
+                rows = cursor.fetchall()
+                return [record_factory(row) for row in rows]
+        finally:
+            connection.close()
+
+    def read_instrument(
+        self, instrument_id: str
+    ) -> InstrumentMetadata | None:
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    _SELECT_INSTRUMENT,
+                    {"instrument_id": instrument_id},
+                )
+                rows = cursor.fetchall()
+                if not rows:
+                    return None
+                return _instrument_metadata(rows[0])
         finally:
             connection.close()
 
@@ -430,6 +466,34 @@ WHERE collection_id = %(collection_id)s
 LIMIT 1
 """
 
+_SELECT_INSTRUMENT = """
+SELECT instrument_id, symbol, market, asset_class, exchange,
+       display_name, currency, sector, industry, sub_industry, status
+FROM market_instruments
+WHERE instrument_id = %(instrument_id)s
+LIMIT 1
+"""
+
+_SELECT_VN_PRICES_DAILY_BY_INSTRUMENT = """
+SELECT *
+FROM vn_prices_daily
+WHERE instrument_id = %(instrument_id)s
+ORDER BY trade_date ASC
+"""
+
+_SELECT_US_PRICES_DAILY_BY_INSTRUMENT = """
+SELECT *
+FROM stock_daily_bars
+WHERE instrument_id = %(instrument_id)s
+ORDER BY trading_date ASC
+"""
+
+_DATASET_ROWS_BY_INSTRUMENT_SQL: dict[str, str] = {
+    "vn_prices_daily": _SELECT_VN_PRICES_DAILY_BY_INSTRUMENT,
+    "us_prices_daily": _SELECT_US_PRICES_DAILY_BY_INSTRUMENT,
+}
+
+
 _DATASET_ROW_EXISTS_SQL = {
     "vn_prices_daily": (
         "SELECT 1 FROM vn_prices_daily "
@@ -620,6 +684,22 @@ def _sjc_params(record: TimeSeriesRecord) -> dict[str, object]:
         "source_id": record.source_id,
         "freshness_status": str(payload.get("freshness_status", "fresh")),
     }
+
+
+def _instrument_metadata(row: dict[str, Any]) -> InstrumentMetadata:
+    return InstrumentMetadata(
+        instrument_id=row["instrument_id"],
+        symbol=row["symbol"],
+        market=row["market"],
+        asset_class=row["asset_class"],
+        exchange=row.get("exchange"),
+        display_name=row["display_name"],
+        currency=row["currency"],
+        sector=row.get("sector"),
+        industry=row.get("industry"),
+        sub_industry=row.get("sub_industry"),
+        status=row.get("status", "active"),
+    )
 
 
 def _stock_record(row: dict[str, Any]) -> TimeSeriesRecord:
@@ -819,6 +899,14 @@ def _new_job(
         record_count=record_count,
         diagnostics=diagnostics,
     )
+
+
+_DATASET_ROWS_BY_INSTRUMENT_FACTORY: dict[
+    str, Callable[[dict[str, Any]], TimeSeriesRecord]
+] = {
+    "vn_prices_daily": _vn_prices_daily_record,
+    "us_prices_daily": _stock_daily_record,
+}
 
 
 _STOCK_DATASETS = {
