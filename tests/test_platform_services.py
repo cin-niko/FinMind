@@ -1563,3 +1563,145 @@ def test_unknown_run_returns_404(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Run not found"
+
+
+def _vn100_csv_path() -> "Path":
+    from pathlib import Path
+
+    return (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "seed"
+        / "vn100.csv"
+    )
+
+
+def test_vn100_seed_csv_has_exactly_100_unique_hose_rows() -> None:
+    from api.platform.ingestion.seed import parse_vn100_csv
+
+    rows = parse_vn100_csv(_vn100_csv_path())
+
+    assert len(rows) == 100
+    symbols = [row.symbol for row in rows]
+    assert len(set(symbols)) == 100
+    assert all(row.exchange == "HOSE" for row in rows)
+    assert all(row.currency == "VND" for row in rows)
+    assert all(row.status == "active" for row in rows)
+    assert all(row.symbol == row.symbol.upper() for row in rows)
+
+
+def test_vn100_seed_loader_emits_expected_sql_and_counts() -> None:
+    from api.platform.ingestion.seed import (
+        VN100_COLLECTION_ID,
+        VN100_EFFECTIVE_FROM,
+        load_vn100_seed,
+    )
+
+    connection = RecordingConnection()
+    store = PostgresTimeSeriesStore(
+        connection_factory=lambda: connection
+    )
+
+    result = load_vn100_seed(_vn100_csv_path(), store)
+
+    statements = connection.cursor_instance.statements
+    instrument_stmts = [
+        (sql, params)
+        for sql, params in statements
+        if "INSERT INTO market_instruments" in sql
+    ]
+    collection_stmts = [
+        (sql, params)
+        for sql, params in statements
+        if "INSERT INTO market_collections" in sql
+    ]
+    membership_stmts = [
+        (sql, params)
+        for sql, params in statements
+        if "INSERT INTO market_collection_memberships" in sql
+    ]
+
+    assert len(instrument_stmts) == 100
+    assert len(collection_stmts) == 1
+    assert len(membership_stmts) == 100
+
+    assert result.instruments_seen == 100
+    assert result.instruments_upserted == 100
+    assert result.collection_upserted == 1
+    assert result.memberships_seen == 100
+    assert result.memberships_upserted == 100
+
+    collection_params = collection_stmts[0][1]
+    assert collection_params is not None
+    assert collection_params["collection_id"] == VN100_COLLECTION_ID
+    assert collection_params["market"] == "VN_STOCK"
+
+    instrument_params = instrument_stmts[0][1]
+    assert instrument_params is not None
+    assert instrument_params["instrument_id"].startswith(
+        "vn_stock:"
+    )
+    assert instrument_params["market"] == "VN_STOCK"
+    assert instrument_params["asset_class"] == "stock"
+    assert instrument_params["exchange"] == "HOSE"
+
+    membership_params = membership_stmts[0][1]
+    assert membership_params is not None
+    assert membership_params["collection_id"] == VN100_COLLECTION_ID
+    assert (
+        membership_params["effective_from"] == VN100_EFFECTIVE_FROM
+    )
+
+    instrument_sql = instrument_stmts[0][0]
+    assert "ON CONFLICT (instrument_id) DO UPDATE" in instrument_sql
+    assert "symbol = EXCLUDED.symbol" not in instrument_sql
+    assert "display_name = EXCLUDED.display_name" in instrument_sql
+
+    collection_sql = collection_stmts[0][0]
+    assert (
+        "ON CONFLICT (market, collection_id) DO NOTHING"
+        in collection_sql
+    )
+
+    membership_sql = membership_stmts[0][0]
+    assert (
+        "ON CONFLICT (collection_id, instrument_id, effective_from)"
+        " DO NOTHING" in membership_sql
+    )
+
+    assert connection.commits == 1
+    assert connection.closed
+
+
+def test_vn100_seed_loader_is_idempotent_on_the_wire() -> None:
+    from api.platform.ingestion.seed import load_vn100_seed
+
+    first_connection = RecordingConnection()
+    first_store = PostgresTimeSeriesStore(
+        connection_factory=lambda: first_connection
+    )
+    load_vn100_seed(_vn100_csv_path(), first_store)
+
+    second_connection = RecordingConnection()
+    second_store = PostgresTimeSeriesStore(
+        connection_factory=lambda: second_connection
+    )
+    load_vn100_seed(_vn100_csv_path(), second_store)
+
+    first = first_connection.cursor_instance.statements
+    second = second_connection.cursor_instance.statements
+
+    assert len(first) == len(second)
+    for (sql_a, params_a), (sql_b, params_b) in zip(
+        first, second, strict=True
+    ):
+        assert sql_a == sql_b
+        assert params_a == params_b
+
+
+def test_vn100_seed_module_exposes_main_entrypoint() -> None:
+    from api.platform.ingestion import seed as seed_module
+
+    assert callable(seed_module.main)
+    assert hasattr(seed_module, "load_vn100_seed")
+    assert hasattr(seed_module, "SeedResult")

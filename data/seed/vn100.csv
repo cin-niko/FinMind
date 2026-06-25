@@ -1,0 +1,101 @@
+symbol,display_name,exchange,sector,industry,currency,status
+VIC,Vingroup JSC,HOSE,Real Estate,Diversified Real Estate,VND,active
+VHM,Vinhomes JSC,HOSE,Real Estate,Residential Real Estate,VND,active
+VRE,Vincom Retail JSC,HOSE,Real Estate,Retail Real Estate,VND,active
+VCB,Joint Stock Commercial Bank for Foreign Trade of Vietnam,HOSE,Financials,Banks,VND,active
+BID,Joint Stock Commercial Bank for Investment and Development of Vietnam,HOSE,Financials,Banks,VND,active
+CTG,Vietnam Joint Stock Commercial Bank for Industry and Trade,HOSE,Financials,Banks,VND,active
+TCB,Vietnam Technological and Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+MBB,Military Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+VPB,Vietnam Prosperity Joint Stock Commercial Bank,HOSE,Financials,Banks,VND,active
+ACB,Asia Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+STB,Saigon Thuong Tin Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+SHB,Saigon Hanoi Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+HDB,Ho Chi Minh City Development Joint Stock Commercial Bank,HOSE,Financials,Banks,VND,active
+TPB,Tien Phong Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+EIB,Vietnam Export Import Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+LPB,Loc Phat Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+OCB,Orient Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+MSB,Vietnam Maritime Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+VIB,Vietnam International Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+SSB,Southeast Asia Commercial Joint Stock Bank,HOSE,Financials,Banks,VND,active
+HPG,Hoa Phat Group JSC,HOSE,Materials,Steel,VND,active
+HSG,Hoa Sen Group JSC,HOSE,Materials,Steel,VND,active
+NKG,Nam Kim Steel JSC,HOSE,Materials,Steel,VND,active
+GAS,PetroVietnam Gas JSC,HOSE,Energy,Oil & Gas,VND,active
+PLX,Vietnam National Petroleum Group,HOSE,Energy,Oil & Gas,VND,active
+PVD,PetroVietnam Drilling and Well Services JSC,HOSE,Energy,Oil & Gas,VND,active
+VNM,Vietnam Dairy Products JSC,HOSE,Consumer Staples,Food Products,VND,active
+MSN,Masan Group Corp,HOSE,Consumer Staples,Diversified Consumer,VND,active
+SAB,Saigon Beer Alcohol Beverage Corp,HOSE,Consumer Staples,Beverages,VND,active
+MWG,Mobile World Investment Corp,HOSE,Consumer Discretionary,Specialty Retail,VND,active
+FPT,FPT Corp,HOSE,Information Technology,IT Services,VND,active
+PNJ,Phu Nhuan Jewelry JSC,HOSE,Consumer Discretionary,Specialty Retail,VND,active
+GVR,Vietnam Rubber Group JSC,HOSE,Materials,Rubber,VND,active
+DGC,Duc Giang Chemicals Group JSC,HOSE,Materials,Chemicals,VND,active
+NVL,No Va Land Investment Group Corp,HOSE,Real Estate,Residential Real Estate,VND,active
+KDH,Khang Dien House Trading and Investment JSC,HOSE,Real Estate,Residential Real Estate,VND,active
+PDR,Phat Dat Real Estate Development Corp,HOSE,Real Estate,Residential Real Estate,VND,active
+DXG,Dat Xanh Group JSC,HOSE,Real Estate,Residential Real Estate,VND,active
+NLG,Nam Long Investment Corp,HOSE,Real Estate,Residential Real Estate,VND,active
+KBC,Kinh Bac City Development Holding Corp,HOSE,Real Estate,Industrial Real Estate,VND,active
+HDG,Ha Do Group JSC,HOSE,Real Estate,Diversified Real Estate,VND,active
+DIG,Development Investment Construction JSC,HOSE,Real Estate,Diversified Real Estate,VND,active
+SCR,Saigon Thuong Tin Real Estate JSC,HOSE,Real Estate,Diversified Real Estate,VND,active
+POW,PetroVietnam Power Corp,HOSE,Utilities,Power Generation,VND,active
+REE,Refrigeration Electrical Engineering Corp,HOSE,Industrials,Electrical Equipment,VND,active
+GEX,Gelex Group JSC,HOSE,Industrials,Industrial Conglomerates,VND,active
+PC1,PC1 Group JSC,HOSE,Industrials,Construction & Engineering,VND,active
+NT2,Petroleum Power Nhon Trach 2 JSC,HOSE,Utilities,Power Generation,VND,active
+SSI,SSI Securities Corp,HOSE,Financials,Capital Markets,VND,active
+VND,VNDirect Securities Corp,HOSE,Financials,Capital Markets,VND,active
+HCM,Ho Chi Minh City Securities Corp,HOSE,Financials,Capital Markets,VND,active
+VCI,Viet Capital Securities JSC,HOSE,Financials,Capital Markets,VND,active
+BVH,Bao Viet Holdings,HOSE,Financials,Insurance,VND,active
+BMI,Bao Minh Insurance Corp,HOSE,Financials,Insurance,VND,active
+VJC,Vietjet Aviation JSC,HOSE,Industrials,Airlines,VND,active
+HVN,Vietnam Airlines JSC,HOSE,Industrials,Airlines,VND,active
+DHG,DHG Pharmaceutical JSC,HOSE,Health Care,Pharmaceuticals,VND,active
+IMP,Imexpharm Corp,HOSE,Health Care,Pharmaceuticals,VND,active
+VHC,Vinh Hoan Corp,HOSE,Consumer Staples,Food Products,VND,active
+ANV,Nam Viet Corp,HOSE,Consumer Staples,Food Products,VND,active
+FMC,Sao Ta Foods JSC,HOSE,Consumer Staples,Food Products,VND,active
+MPC,Minh Phu Seafood Corp,HOSE,Consumer Staples,Food Products,VND,active
+HAH,Hai An Transport and Stevedoring JSC,HOSE,Industrials,Marine Transportation,VND,active
+GMD,Gemadept Corp,HOSE,Industrials,Transportation Infrastructure,VND,active
+VSC,Viconship JSC,HOSE,Industrials,Transportation Infrastructure,VND,active
+DGW,Digiworld Corp,HOSE,Information Technology,Technology Distribution,VND,active
+PET,Petrovietnam General Services Corp,HOSE,Information Technology,Technology Distribution,VND,active
+DPM,PetroVietnam Fertilizer and Chemicals Corp,HOSE,Materials,Chemicals,VND,active
+DCM,Petrovietnam Ca Mau Fertilizer JSC,HOSE,Materials,Chemicals,VND,active
+BMP,Binh Minh Plastics JSC,HOSE,Materials,Plastics,VND,active
+PHR,Phuoc Hoa Rubber JSC,HOSE,Materials,Rubber,VND,active
+DPR,Dong Phu Rubber JSC,HOSE,Materials,Rubber,VND,active
+CTD,Coteccons Construction JSC,HOSE,Industrials,Construction & Engineering,VND,active
+HBC,Hoa Binh Construction Group JSC,HOSE,Industrials,Construction & Engineering,VND,active
+VCG,Vinaconex Corp,HOSE,Industrials,Construction & Engineering,VND,active
+CTR,Viettel Construction JSC,HOSE,Communication Services,Telecommunications,VND,active
+VTP,Viettel Post JSC,HOSE,Industrials,Air Freight & Logistics,VND,active
+KDC,KIDO Group Corp,HOSE,Consumer Staples,Food Products,VND,active
+HT1,Vicem Ha Tien Cement JSC,HOSE,Materials,Construction Materials,VND,active
+BCG,Bamboo Capital JSC,HOSE,Industrials,Industrial Conglomerates,VND,active
+ASM,Sao Mai Group Corp,HOSE,Industrials,Industrial Conglomerates,VND,active
+IDI,International Development and Investment Corp,HOSE,Consumer Staples,Food Products,VND,active
+SBT,Thanh Thanh Cong - Bien Hoa JSC,HOSE,Consumer Staples,Food Products,VND,active
+KOS,Kosy JSC,HOSE,Real Estate,Diversified Real Estate,VND,active
+TLG,Thien Long Group Corp,HOSE,Consumer Discretionary,Office Products,VND,active
+APH,An Phat Holdings JSC,HOSE,Materials,Plastics,VND,active
+FRT,FPT Digital Retail JSC,HOSE,Consumer Discretionary,Specialty Retail,VND,active
+DBC,Dabaco Group JSC,HOSE,Consumer Staples,Food Products,VND,active
+HAG,Hoang Anh Gia Lai JSC,HOSE,Industrials,Industrial Conglomerates,VND,active
+ITA,Tan Tao Investment and Industry Corp,HOSE,Real Estate,Industrial Real Estate,VND,active
+GEG,Gia Lai Electricity JSC,HOSE,Utilities,Power Generation,VND,active
+AAA,An Phat Bioplastics JSC,HOSE,Materials,Plastics,VND,active
+PTB,Phu Tai JSC,HOSE,Materials,Construction Materials,VND,active
+DRC,Da Nang Rubber JSC,HOSE,Consumer Discretionary,Auto Components,VND,active
+CSM,Casumina Rubber JSC,HOSE,Consumer Discretionary,Auto Components,VND,active
+SBA,Song Ba JSC,HOSE,Utilities,Power Generation,VND,active
+TCM,Thanh Cong Textile Garment Investment Trading JSC,HOSE,Consumer Discretionary,Textiles,VND,active
+STK,Century Synthetic Fiber Corp,HOSE,Consumer Discretionary,Textiles,VND,active
+VPI,Van Phu Invest Investment JSC,HOSE,Real Estate,Diversified Real Estate,VND,active
+VGC,Viglacera Corp,HOSE,Materials,Construction Materials,VND,active
