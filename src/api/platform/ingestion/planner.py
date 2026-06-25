@@ -9,6 +9,7 @@ class IngestionFetchRequest:
     period: str | None = None
     from_date: str | None = None
     to_date: str | None = None
+    instrument_id: str | None = None
 
     @classmethod
     def from_payload(cls, payload: dict[str, str]) -> "IngestionFetchRequest":
@@ -23,8 +24,12 @@ class IngestionFetchRequest:
 
     def period_scope(self, periods: list[str]) -> str:
         if self.mode == "historical":
-            return f"{periods[0]}:{periods[-1]}"
-        return periods[0]
+            base = f"{periods[0]}:{periods[-1]}"
+        else:
+            base = periods[0]
+        if self.instrument_id:
+            return f"{self.instrument_id}:{base}"
+        return base
 
 
 def plan_fetch_periods(request: IngestionFetchRequest, now: datetime) -> list[str]:

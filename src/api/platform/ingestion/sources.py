@@ -17,4 +17,9 @@ class TimeSeriesRecord:
 class MarketDataSource(Protocol):
     source_id: str
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]: ...
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]: ...

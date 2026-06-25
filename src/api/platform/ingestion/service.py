@@ -104,7 +104,9 @@ class IngestionService:
         source_id = LAZY_DATASET_VN_PRICES_DAILY
         latest_job = self._run_request(
             request=IngestionFetchRequest(
-                source_id=source_id, mode="latest"
+                source_id=source_id,
+                mode="latest",
+                instrument_id=instrument_id,
             ),
             trigger="lazy",
         )
@@ -132,6 +134,7 @@ class IngestionService:
                 source_id=source_id,
                 mode="period",
                 period=period_token,
+                instrument_id=instrument_id,
             ),
             trigger="lazy",
         )
@@ -246,7 +249,10 @@ class IngestionService:
             records = [
                 record
                 for fetch_period in periods
-                for record in source.fetch(fetch_period)
+                for record in source.fetch(
+                    fetch_period,
+                    instrument_id=request.instrument_id,
+                )
             ]
             upserted = self.store.upsert_many(records)
         except ProviderFetchError as exc:

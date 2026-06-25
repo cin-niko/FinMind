@@ -23,7 +23,12 @@ class FreeMarketDataSource:
     provider: str
     fetch_json: FetchJson
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         raise NotImplementedError
 
 
@@ -35,14 +40,21 @@ class VnstockVNStockSource(FreeMarketDataSource):
         symbols: tuple[str, ...] = ("VCB", "VPB"),
         timeout_seconds: float = 15.0,
     ) -> None:
+        self._symbols = symbols
+        self._api_key = api_key
         super().__init__(
             source_id="vn_prices",
             provider="vnstock",
             fetch_json=fetch_json or _vnstock_fetcher(symbols, api_key, timeout_seconds),
         )
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
-        payload = self.fetch_json(period)
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
+        payload = self._load_payload(period, instrument_id)
         rows = _records_from_payload(self.source_id, payload)
         capabilities = _capabilities_from_payload(payload)
         records: list[TimeSeriesRecord] = []
@@ -81,6 +93,16 @@ class VnstockVNStockSource(FreeMarketDataSource):
             )
         return records
 
+    def _load_payload(
+        self,
+        period: str,
+        instrument_id: str | None,
+    ) -> object:
+        if instrument_id is not None:
+            symbols = _resolve_vn_symbols(self._symbols, instrument_id)
+            return _vnstock_hourly_payload(period, symbols, self._api_key)
+        return self.fetch_json(period)
+
 
 class VnstockVNStockDailySource(FreeMarketDataSource):
     def __init__(
@@ -90,6 +112,8 @@ class VnstockVNStockDailySource(FreeMarketDataSource):
         symbols: tuple[str, ...] = ("VCB", "VPB"),
         timeout_seconds: float = 15.0,
     ) -> None:
+        self._symbols = symbols
+        self._api_key = api_key
         super().__init__(
             source_id="vn_prices_daily",
             provider="vnstock",
@@ -97,8 +121,13 @@ class VnstockVNStockDailySource(FreeMarketDataSource):
             or _vnstock_daily_fetcher(symbols, api_key, timeout_seconds),
         )
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
-        payload = self.fetch_json(period)
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
+        payload = self._load_payload(period, instrument_id)
         rows = _records_from_payload(self.source_id, payload)
         capabilities = _capabilities_from_payload(payload)
         records: list[TimeSeriesRecord] = []
@@ -141,6 +170,16 @@ class VnstockVNStockDailySource(FreeMarketDataSource):
             )
         return records
 
+    def _load_payload(
+        self,
+        period: str,
+        instrument_id: str | None,
+    ) -> object:
+        if instrument_id is not None:
+            symbols = _resolve_vn_symbols(self._symbols, instrument_id)
+            return _vnstock_daily_payload(period, symbols, self._api_key)
+        return self.fetch_json(period)
+
 
 class YFinanceUSStockSource(FreeMarketDataSource):
     def __init__(
@@ -155,7 +194,12 @@ class YFinanceUSStockSource(FreeMarketDataSource):
             fetch_json=fetch_json or _yfinance_us_stock_fetcher(symbols, timeout_seconds),
         )
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         payload = self.fetch_json(period)
         rows = _records_from_payload(self.source_id, payload)
         capabilities = _capabilities_from_payload(payload)
@@ -210,7 +254,12 @@ class StooqUSStockDailySource(FreeMarketDataSource):
             or _stooq_us_stock_daily_fetcher(symbols, timeout_seconds),
         )
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         payload = self.fetch_json(period)
         rows = _records_from_payload(self.source_id, payload)
         capabilities = _capabilities_from_payload(payload)
@@ -263,7 +312,12 @@ class YFinanceXauusdSource(FreeMarketDataSource):
             fetch_json=fetch_json or _yfinance_xauusd_fetcher(timeout_seconds),
         )
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         payload = self.fetch_json(period)
         rows = _records_from_payload(self.source_id, payload)
         capabilities = _capabilities_from_payload(payload)
@@ -315,7 +369,12 @@ class AlphaVantageXauusdDailySource(FreeMarketDataSource):
             or _alpha_vantage_xauusd_daily_fetcher(api_key, timeout_seconds),
         )
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         payload = self.fetch_json(period)
         period_start = _period_start(period).date()
         period_end = _period_end(period).date()
@@ -384,7 +443,12 @@ class SJCOfficialGoldSource(FreeMarketDataSource):
             ),
         )
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         payload = self.fetch_json(period)
         rows = _sjc_rows_from_payload(self.source_id, payload, period)
         capabilities = _capabilities_from_payload(payload)
@@ -684,36 +748,91 @@ def _stooq_us_stock_daily_fetcher(
     return fetch_json
 
 
+def _resolve_vn_symbols(
+    default: tuple[str, ...],
+    instrument_id: str | None,
+) -> tuple[str, ...]:
+    if instrument_id and instrument_id.startswith("vn_stock:"):
+        return (instrument_id.split(":", 1)[1].upper(),)
+    return default
+
+
+def _vnstock_hourly_payload(
+    period: str,
+    symbols: tuple[str, ...],
+    api_key: str | None,
+) -> object:
+    if api_key:
+        os.environ["VNSTOCK_API_KEY"] = api_key
+    start = _period_start(period)
+    end = start + timedelta(days=1)
+    records: list[dict[str, object]] = []
+    for symbol in symbols:
+        raw_history = _fetch_vnstock_symbol_history(
+            symbol=symbol,
+            start=start.date().isoformat(),
+            end=end.date().isoformat(),
+        )
+        records.extend(_normalize_vnstock_history(symbol, raw_history))
+    return {
+        "capabilities": {
+            "interval": "1h",
+            "provider": "vnstock",
+            "coverage": "best_effort",
+            "from": start.date().isoformat(),
+            "to": end.date().isoformat(),
+            "covered_from": start.date().isoformat(),
+            "covered_to": end.date().isoformat(),
+        },
+        "records": records,
+    }
+
+
+def _vnstock_daily_payload(
+    period: str,
+    symbols: tuple[str, ...],
+    api_key: str | None,
+) -> object:
+    if api_key:
+        os.environ["VNSTOCK_API_KEY"] = api_key
+    start = _period_start(period)
+    end_candidate = (
+        _period_end(period)
+        if ":" in period
+        else start
+    )
+    end = end_candidate if end_candidate >= start else start
+    records: list[dict[str, object]] = []
+    for symbol in symbols:
+        raw_history = _fetch_vnstock_symbol_daily_history(
+            symbol=symbol,
+            start=start.date().isoformat(),
+            end=end.date().isoformat(),
+        )
+        records.extend(
+            _normalize_vnstock_daily_history(symbol, raw_history)
+        )
+    return {
+        "capabilities": {
+            "interval": "1d",
+            "provider": "vnstock",
+            "coverage": "rolling",
+            "from": start.date().isoformat(),
+            "to": end.date().isoformat(),
+            "covered_from": start.date().isoformat(),
+            "covered_to": end.date().isoformat(),
+        },
+        "records": records,
+    }
+
+
 def _vnstock_fetcher(
     symbols: tuple[str, ...],
     api_key: str | None,
     _timeout_seconds: float,
 ) -> FetchJson:
     def fetch_json(period: str) -> object:
-        if api_key:
-            os.environ["VNSTOCK_API_KEY"] = api_key
-        start = _period_start(period)
-        end = start + timedelta(days=1)
-        records: list[dict[str, object]] = []
-        for symbol in symbols:
-            raw_history = _fetch_vnstock_symbol_history(
-                symbol=symbol,
-                start=start.date().isoformat(),
-                end=end.date().isoformat(),
-            )
-            records.extend(_normalize_vnstock_history(symbol, raw_history))
-        return {
-            "capabilities": {
-                "interval": "1h",
-                "provider": "vnstock",
-                "coverage": "best_effort",
-                "from": start.date().isoformat(),
-                "to": end.date().isoformat(),
-                "covered_from": start.date().isoformat(),
-                "covered_to": end.date().isoformat(),
-            },
-            "records": records,
-        }
+        return _vnstock_hourly_payload(period, symbols, api_key)
 
     return fetch_json
 
@@ -724,37 +843,7 @@ def _vnstock_daily_fetcher(
     _timeout_seconds: float,
 ) -> FetchJson:
     def fetch_json(period: str) -> object:
-        if api_key:
-            os.environ["VNSTOCK_API_KEY"] = api_key
-        start = _period_start(period)
-        end_candidate = (
-            _period_end(period)
-            if ":" in period
-            else start
-        )
-        end = end_candidate if end_candidate >= start else start
-        records: list[dict[str, object]] = []
-        for symbol in symbols:
-            raw_history = _fetch_vnstock_symbol_daily_history(
-                symbol=symbol,
-                start=start.date().isoformat(),
-                end=end.date().isoformat(),
-            )
-            records.extend(
-                _normalize_vnstock_daily_history(symbol, raw_history)
-            )
-        return {
-            "capabilities": {
-                "interval": "1d",
-                "provider": "vnstock",
-                "coverage": "rolling",
-                "from": start.date().isoformat(),
-                "to": end.date().isoformat(),
-                "covered_from": start.date().isoformat(),
-                "covered_to": end.date().isoformat(),
-            },
-            "records": records,
-        }
+        return _vnstock_daily_payload(period, symbols, api_key)
 
     return fetch_json
 

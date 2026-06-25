@@ -15,7 +15,12 @@ class DemoMarketDataSource:
             raise ValueError(f"Unsupported demo source: {source_id}")
         self.source_id = source_id
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         if self.source_id == "us_prices":
             return _us_price_records(period)
         if self.source_id == "us_prices_daily":

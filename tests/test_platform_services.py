@@ -295,7 +295,12 @@ class RecordingSource:
     def __init__(self) -> None:
         self.periods: list[str] = []
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         self.periods.append(period)
         period_start = period.split(":", maxsplit=1)[0]
         market_time = datetime.fromisoformat(period_start).replace(tzinfo=UTC)
@@ -351,7 +356,12 @@ def test_historical_vn_backfill_records_partial_coverage_diagnostics() -> None:
     class PartialCoverageSource:
         source_id = "vn_prices"
 
-        def fetch(self, period: str) -> list[TimeSeriesRecord]:
+        def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
             market_time = datetime.fromisoformat(period).replace(tzinfo=UTC)
             return [
                 TimeSeriesRecord(
@@ -520,7 +530,12 @@ def test_us_daily_history_backfill_runs_only_us_daily_range_once() -> None:
             super().__init__()
             self.source_id = source_id
 
-        def fetch(self, period: str) -> list[TimeSeriesRecord]:
+        def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
             self.periods.append(period)
             market_time = datetime(2026, 5, 22, tzinfo=UTC)
             return [
@@ -582,7 +597,12 @@ def test_us_xauusd_history_backfill_runs_only_us_and_xauusd_sources() -> None:
             super().__init__()
             self.source_id = source_id
 
-        def fetch(self, period: str) -> list[TimeSeriesRecord]:
+        def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
             self.periods.append(period)
             market_time = datetime(2026, 5, 22, tzinfo=UTC)
             return [
@@ -924,7 +944,12 @@ def test_ingestion_service_records_provider_system_exit_as_failed_job() -> None:
     class ExitingSource:
         source_id = "vn_prices"
 
-        def fetch(self, _period: str) -> list[TimeSeriesRecord]:
+        def fetch(
+            self,
+            _period: str,
+            *,
+            instrument_id: str | None = None,
+        ) -> list[TimeSeriesRecord]:
             raise SystemExit("Rate limit exceeded. raw provider details")
 
     service = IngestionService(
@@ -1939,7 +1964,12 @@ class VNDailyRangeSource:
     def __init__(self) -> None:
         self.periods: list[str] = []
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         self.periods.append(period)
         market_time = datetime(2026, 6, 18, tzinfo=UTC)
         return [
@@ -2055,7 +2085,12 @@ def test_vn_history_preset_marks_hourly_failure_as_skipped() -> None:
     class FailingHourly:
         source_id = "vn_prices"
 
-        def fetch(self, _period: str) -> list[TimeSeriesRecord]:
+        def fetch(
+            self,
+            _period: str,
+            *,
+            instrument_id: str | None = None,
+        ) -> list[TimeSeriesRecord]:
             raise ProviderFetchError("vnstock 1h rate limited")
 
     daily = VNDailyRangeSource()
@@ -2253,21 +2288,34 @@ class _LazyVNDailySource:
 
     def __init__(self) -> None:
         self.periods: list[str] = []
+        self.instrument_ids: list[str | None] = []
 
-    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
         self.periods.append(period)
+        self.instrument_ids.append(instrument_id)
+        symbol = (
+            instrument_id.split(":", 1)[1]
+            if instrument_id and instrument_id.startswith("vn_stock:")
+            else "VCB"
+        )
+        resolved_id = f"vn_stock:{symbol}"
         market_time = datetime(2026, 6, 25, tzinfo=UTC)
         return [
             TimeSeriesRecord(
                 dataset_id="vn_prices_daily",
-                record_key=f"vn_stock:VCB:{period}",
-                instrument_id="vn_stock:VCB",
+                record_key=f"{resolved_id}:{period}",
+                instrument_id=resolved_id,
                 market_time=market_time,
                 collected_at=market_time,
                 source_id="vnstock",
                 payload={
                     "market": "VN_STOCK",
-                    "symbol": "VCB",
+                    "symbol": symbol,
                     "exchange": "HOSE",
                     "trade_date": "2026-06-25",
                     "open": 57400,
@@ -2317,6 +2365,10 @@ def test_lazy_fetch_triggers_latest_and_period_for_vn100_first_access() -> (
     modes = [job.diagnostics["mode"] for job in result.jobs]
     assert modes == ["latest", "period"]
     assert source.periods == ["2026-06-25", "2026-05-26:2026-06-25"]
+    assert source.instrument_ids == [
+        "vn_stock:VCB",
+        "vn_stock:VCB",
+    ]
     assert store.has_dataset_rows(
         "vn_prices_daily", "vn_stock:VCB"
     )
@@ -2372,7 +2424,7 @@ def test_lazy_fetch_reports_blocked_when_overlap_guard_active() -> None:
     service, store, source = _lazy_service()
     store.create_running_job(
         source_id="vn_prices_daily",
-        period="2026-06-25",
+        period="vn_stock:VCB:2026-06-25",
         trigger="scheduled",
     )
 
@@ -2428,6 +2480,80 @@ def test_lazy_fetch_rejects_unsupported_dataset() -> None:
     assert "vn_prices_daily" in result.reason
     assert result.jobs == []
     assert source.periods == []
+
+
+def test_lazy_fetch_passes_hpg_instrument_to_source() -> None:
+    service, store, source = _lazy_service()
+    store.collection_memberships.add(("VN100", "vn_stock:HPG"))
+
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:HPG",
+    )
+
+    assert result.status == "success"
+    assert source.instrument_ids == ["vn_stock:HPG", "vn_stock:HPG"]
+    assert store.has_dataset_rows("vn_prices_daily", "vn_stock:HPG")
+
+
+def test_lazy_overlap_does_not_block_different_instruments() -> None:
+    service, store, _source = _lazy_service()
+    store.collection_memberships.add(("VN100", "vn_stock:FPT"))
+    store.create_running_job(
+        source_id="vn_prices_daily",
+        period="vn_stock:HPG:2026-06-25",
+        trigger="lazy",
+    )
+
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:FPT",
+    )
+
+    assert result.status == "success"
+
+
+def test_lazy_overlap_blocks_same_instrument() -> None:
+    service, store, source = _lazy_service()
+    store.create_running_job(
+        source_id="vn_prices_daily",
+        period="vn_stock:VCB:2026-06-25",
+        trigger="lazy",
+    )
+
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:VCB",
+    )
+
+    assert result.status == "blocked"
+    assert source.periods == []
+
+
+def test_vnstock_daily_source_resolves_symbol_from_instrument_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[tuple[str, ...]] = []
+
+    def spy_payload(
+        period: str,
+        symbols: tuple[str, ...],
+        api_key: str | None,
+    ) -> object:
+        captured.append(symbols)
+        return {
+            "capabilities": {"interval": "1d", "provider": "vnstock"},
+            "records": [],
+        }
+
+    monkeypatch.setattr(
+        free_sources, "_vnstock_daily_payload", spy_payload
+    )
+    source = VnstockVNStockDailySource(symbols=("VCB", "VPB"))
+    source.fetch("2026-06-25", instrument_id="vn_stock:HPG")
+    source.fetch("2026-06-25")
+
+    assert captured == [("HPG",), ("VCB", "VPB")]
 
 
 def test_postgres_store_checks_collection_membership_and_dataset_rows() -> (
