@@ -1,4 +1,22 @@
 services:
+  db:
+    build:
+      context: .
+      dockerfile: src/api/platform/storage/Dockerfile
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-finmind}
+      POSTGRES_USER: ${POSTGRES_USER:-finmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finmind}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - finmind-db-data:/var/lib/postgresql/data
+
   api:
     build:
       context: .
@@ -7,16 +25,63 @@ services:
       FINMIND_ADMIN_USERNAME: ${FINMIND_ADMIN_USERNAME:-admin}
       FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
       FINMIND_SESSION_SECRET: ${FINMIND_SESSION_SECRET:-session-secret-with-length}
+      FINMIND_DATABASE_URL: ${FINMIND_DATABASE_URL:-postgresql://finmind:finmind@db:5432/finmind}
+      FINMIND_VN_PROVIDER: ${FINMIND_VN_PROVIDER:-mock}
+      FINMIND_US_PROVIDER: ${FINMIND_US_PROVIDER:-mock}
+      FINMIND_XAUUSD_PROVIDER: ${FINMIND_XAUUSD_PROVIDER:-mock}
+      FINMIND_XAUUSD_DAILY_FALLBACK: ${FINMIND_XAUUSD_DAILY_FALLBACK:-alpha_vantage}
+      FINMIND_SJC_PROVIDER: ${FINMIND_SJC_PROVIDER:-mock}
+      FINMIND_VNSTOCK_API_KEY: ${FINMIND_VNSTOCK_API_KEY:-}
+      FINMIND_ALPHA_VANTAGE_API_KEY: ${FINMIND_ALPHA_VANTAGE_API_KEY:-}
+      FINMIND_PROVIDER_TIMEOUT_SECONDS: ${FINMIND_PROVIDER_TIMEOUT_SECONDS:-15}
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
 
   ui:
     build:
       context: .
       dockerfile: src/ui/Dockerfile
     environment:
-      VITE_API_PROXY_TARGET: http://api:8000
+      VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET:-http://api:8000}
     ports:
       - "5173:5173"
     depends_on:
       - api
+
+  backfill:
+    profiles:
+      - backfill
+    build:
+      context: .
+      dockerfile: src/api/Dockerfile
+    environment:
+      FINMIND_ADMIN_USERNAME: ${FINMIND_ADMIN_USERNAME:-admin}
+      FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
+      FINMIND_SESSION_SECRET: ${FINMIND_SESSION_SECRET:-session-secret-with-length}
+      FINMIND_DATABASE_URL: ${FINMIND_DATABASE_URL:-postgresql://finmind:finmind@db:5432/finmind}
+      FINMIND_VN_PROVIDER: ${FINMIND_VN_PROVIDER:-mock}
+      FINMIND_US_PROVIDER: ${FINMIND_US_PROVIDER:-mock}
+      FINMIND_XAUUSD_PROVIDER: ${FINMIND_XAUUSD_PROVIDER:-mock}
+      FINMIND_XAUUSD_DAILY_FALLBACK: ${FINMIND_XAUUSD_DAILY_FALLBACK:-alpha_vantage}
+      FINMIND_SJC_PROVIDER: ${FINMIND_SJC_PROVIDER:-mock}
+      FINMIND_VNSTOCK_API_KEY: ${FINMIND_VNSTOCK_API_KEY:-}
+      FINMIND_ALPHA_VANTAGE_API_KEY: ${FINMIND_ALPHA_VANTAGE_API_KEY:-}
+      FINMIND_PROVIDER_TIMEOUT_SECONDS: ${FINMIND_PROVIDER_TIMEOUT_SECONDS:-15}
+      FINMIND_BACKFILL_PRESET: ${FINMIND_BACKFILL_PRESET:-market-history}
+      FINMIND_BACKFILL_FROM_DATE: ${FINMIND_BACKFILL_FROM_DATE:-2026-05-22}
+      FINMIND_BACKFILL_TO_DATE: ${FINMIND_BACKFILL_TO_DATE:-2026-06-22}
+    command:
+      [
+        "sh",
+        "-c",
+        "/app/.venv/bin/python -m api.platform.ingestion.backfill --preset \"$${FINMIND_BACKFILL_PRESET}\" --from-date \"$${FINMIND_BACKFILL_FROM_DATE}\" --to-date \"$${FINMIND_BACKFILL_TO_DATE}\"",
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  finmind-db-data:

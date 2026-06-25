@@ -11,6 +11,6 @@ def create_app() -> FastAPI:
     app = FastAPI(title="FinMind API")
     app.state.settings = settings
     app.state.session_service = SessionService(settings)
-    app.state.platform = create_demo_platform()
+    app.state.platform = create_demo_platform(settings)
     register_routes(app)
     return app

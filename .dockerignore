@@ -10,5 +10,6 @@
 .env
 .env.*
 !.env.example
+!.env.sample
 src/ui/node_modules
 src/ui/dist
