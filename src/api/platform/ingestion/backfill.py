@@ -17,8 +17,21 @@ MARKET_HISTORY_PRESET = "market-history"
 MARKET_LATEST_PRESET = "market-latest"
 US_DAILY_HISTORY_PRESET = "us-daily-history"
 US_XAUUSD_HISTORY_PRESET = "us-xauusd-history"
+VN_HISTORY_PRESET = "vn-history"
 FREE_1H_WINDOW_DAYS = 60
 MARKET_LATEST_SOURCES = ("us_prices", "xauusd_prices", "sjc_gold_prices")
+VN_HISTORY_SOURCES = ("vn_prices_daily", "vn_prices")
+ROADMAP_PRESETS: frozenset[str] = frozenset(
+    {
+        MARKET_HISTORY_PRESET,
+        MARKET_LATEST_PRESET,
+        US_DAILY_HISTORY_PRESET,
+        US_XAUUSD_HISTORY_PRESET,
+    }
+)
+ROADMAP_DISABLED_REASON = (
+    "roadmap markets disabled (FINMIND_ROADMAP_MARKETS=false)"
+)
 
 
 @dataclass(frozen=True)
@@ -215,6 +228,94 @@ def run_us_xauusd_history_backfill(
     return results
 
 
+def run_vn_history_backfill(
+    service: IngestionService,
+    from_date: str,
+    to_date: str,
+) -> list[BackfillPlanResult]:
+    """Run the phase 002 VN-only operator history plan.
+
+    `vn_prices_daily` is the required canonical leg. `vn_prices` is a
+    best-effort 1h leg whose failures are reported as ``skipped`` so they
+    do not fail the overall preset.
+    """
+
+    start = _parse_date(from_date, "from_date")
+    end = _parse_date(to_date, "to_date")
+    if end < start:
+        raise ValueError("to_date must be on or after from_date")
+
+    results: list[BackfillPlanResult] = [
+        _run_range_source_backfill(
+            service=service,
+            source_id="vn_prices_daily",
+            from_date=start.isoformat(),
+            to_date=end.isoformat(),
+        )
+    ]
+    one_hour_start = max(
+        start, end - timedelta(days=FREE_1H_WINDOW_DAYS - 1)
+    )
+    hourly_from = one_hour_start.isoformat()
+    hourly_to = end.isoformat()
+    if "vn_prices" not in service.sources:
+        results.append(
+            BackfillPlanResult(
+                source_id="vn_prices",
+                status="skipped",
+                from_date=hourly_from,
+                to_date=hourly_to,
+                reason="vn_prices is not configured in this runtime",
+            )
+        )
+        return results
+    try:
+        job = run_historical_backfill(
+            service=service,
+            source_id="vn_prices",
+            from_date=hourly_from,
+            to_date=hourly_to,
+        )
+    except ProviderFetchError as exc:
+        results.append(
+            BackfillPlanResult(
+                source_id="vn_prices",
+                status="skipped",
+                from_date=hourly_from,
+                to_date=hourly_to,
+                reason=(
+                    "vn_prices 1h best-effort skipped after provider "
+                    f"failure: {exc}"
+                ),
+            )
+        )
+        return results
+    if job.status == "failed":
+        results.append(
+            BackfillPlanResult(
+                source_id="vn_prices",
+                status="skipped",
+                from_date=hourly_from,
+                to_date=hourly_to,
+                reason=(
+                    "vn_prices 1h best-effort skipped after provider "
+                    f"failure: {job.diagnostics.get('error', 'unknown')}"
+                ),
+            )
+        )
+        return results
+    results.append(
+        BackfillPlanResult(
+            source_id="vn_prices",
+            status=job.status,
+            from_date=hourly_from,
+            to_date=hourly_to,
+            job=job,
+        )
+    )
+    return results
+
+
 def _run_range_source_backfill(
     service: IngestionService,
     source_id: str,
@@ -352,6 +453,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             MARKET_LATEST_PRESET,
             US_DAILY_HISTORY_PRESET,
             US_XAUUSD_HISTORY_PRESET,
+            VN_HISTORY_PRESET,
         ],
         help="Run a predefined operator backfill plan.",
     )
@@ -359,7 +461,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--to-date")
     args = parser.parse_args(argv)
 
-    service = create_ingestion_service(Settings.from_env())
+    settings = Settings.from_env()
+    if (
+        args.preset in ROADMAP_PRESETS
+        and not settings.roadmap_markets_enabled
+    ):
+        print(
+            json.dumps(
+                {
+                    "preset": args.preset,
+                    "status": "skipped",
+                    "reason": ROADMAP_DISABLED_REASON,
+                },
+                ensure_ascii=True,
+            )
+        )
+        return 0
+
+    service = create_ingestion_service(settings)
     if args.preset == MARKET_LATEST_PRESET:
         results = run_market_latest_fetch(service=service)
         print(
@@ -376,6 +495,40 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not args.from_date or not args.to_date:
         parser.error("--from-date and --to-date are required unless --preset market-latest")
+
+    if args.preset == VN_HISTORY_PRESET:
+        try:
+            results = run_vn_history_backfill(
+                service=service,
+                from_date=args.from_date,
+                to_date=args.to_date,
+            )
+        except ValueError as exc:
+            print(
+                json.dumps(
+                    {"status": "failed", "error": str(exc)},
+                    ensure_ascii=True,
+                )
+            )
+            return 1
+        print(
+            json.dumps(
+                {
+                    "preset": VN_HISTORY_PRESET,
+                    "status": _overall_status(results),
+                    "results": [result.to_dict() for result in results],
+                },
+                ensure_ascii=True,
+            )
+        )
+        return (
+            0
+            if all(
+                result.status in {"success", "skipped"}
+                for result in results
+            )
+            else 1
+        )
 
     if args.preset == MARKET_HISTORY_PRESET:
         try:

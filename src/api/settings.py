@@ -22,6 +22,7 @@ class Settings:
     provider_timeout_seconds: float = 15.0
     session_cookie_name: str = "finmind_session"
     session_ttl_seconds: int = 8 * 60 * 60
+    roadmap_markets_enabled: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -90,6 +91,19 @@ class Settings:
             raise SettingsError("FINMIND_PROVIDER_TIMEOUT_SECONDS must be numeric") from exc
         if provider_timeout_seconds <= 0:
             raise SettingsError("FINMIND_PROVIDER_TIMEOUT_SECONDS must be positive")
+        roadmap_raw = (
+            os.getenv("FINMIND_ROADMAP_MARKETS", "").strip().lower()
+        )
+        truthy = {"true", "1"}
+        falsy = {"", "false", "0"}
+        if roadmap_raw in truthy:
+            roadmap_markets_enabled = True
+        elif roadmap_raw in falsy:
+            roadmap_markets_enabled = False
+        else:
+            raise SettingsError(
+                "FINMIND_ROADMAP_MARKETS must be true/false/1/0"
+            )
         return cls(
             admin_username=required["FINMIND_ADMIN_USERNAME"],
             admin_password=required["FINMIND_ADMIN_PASSWORD"],
@@ -105,4 +119,5 @@ class Settings:
             vnstock_api_key=credentials["FINMIND_VNSTOCK_API_KEY"] or None,
             alpha_vantage_api_key=credentials["FINMIND_ALPHA_VANTAGE_API_KEY"] or None,
             provider_timeout_seconds=provider_timeout_seconds,
+            roadmap_markets_enabled=roadmap_markets_enabled,
         )

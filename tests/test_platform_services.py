@@ -1,5 +1,6 @@
+import json
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -9,12 +10,22 @@ from fastapi.testclient import TestClient
 from api.app import create_app
 from api.platform.ingestion.demo_sources import DemoMarketDataSource
 import api.platform.ingestion.free_sources as free_sources
+from api.platform.ingestion import backfill as backfill_module
 from api.platform.ingestion.backfill import (
+    FREE_1H_WINDOW_DAYS,
+    MARKET_HISTORY_PRESET,
+    MARKET_LATEST_PRESET,
+    ROADMAP_DISABLED_REASON,
+    US_DAILY_HISTORY_PRESET,
+    US_XAUUSD_HISTORY_PRESET,
+    VN_HISTORY_PRESET,
+    main as backfill_main,
     run_historical_backfill,
     run_market_history_backfill,
     run_market_latest_fetch,
     run_us_daily_history_backfill,
     run_us_xauusd_history_backfill,
+    run_vn_history_backfill,
 )
 from api.platform.ingestion.free_sources import (
     AlphaVantageXauusdDailySource,
@@ -1914,3 +1925,318 @@ def test_create_real_sources_registers_vn_prices_daily() -> None:
     assert daily.source_id == "vn_prices_daily"
     assert daily.provider == "vnstock"
     assert sources["vn_prices"].source_id == "vn_prices"
+
+
+class VNDailyRangeSource:
+    """Records `period` ranges as `vn_prices_daily` for tests."""
+
+    source_id = "vn_prices_daily"
+
+    def __init__(self) -> None:
+        self.periods: list[str] = []
+
+    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+        self.periods.append(period)
+        market_time = datetime(2026, 6, 18, tzinfo=UTC)
+        return [
+            TimeSeriesRecord(
+                dataset_id="vn_prices_daily",
+                record_key="vn_stock:VCB:2026-06-18",
+                instrument_id="vn_stock:VCB",
+                market_time=market_time,
+                collected_at=market_time,
+                source_id="vnstock",
+                payload={
+                    "market": "VN_STOCK",
+                    "symbol": "VCB",
+                    "exchange": "HOSE",
+                    "trade_date": "2026-06-18",
+                    "open": 57400,
+                    "high": 58600,
+                    "low": 57300,
+                    "close": 58300,
+                    "volume": 1530000,
+                    "currency": "VND",
+                },
+            )
+        ]
+
+
+def test_vn_history_preset_runs_daily_required_and_hourly_best_effort() -> (
+    None
+):
+    daily = VNDailyRangeSource()
+    hourly = RecordingSource()
+    service = IngestionService(
+        sources={"vn_prices_daily": daily, "vn_prices": hourly},
+        store=InMemoryTimeSeriesStore(),
+        clock=lambda: datetime(2026, 6, 21, 8, tzinfo=UTC),
+    )
+
+    results = run_vn_history_backfill(
+        service=service,
+        from_date="2026-06-18",
+        to_date="2026-06-25",
+    )
+
+    by_source = {result.source_id: result for result in results}
+    assert set(by_source) == {"vn_prices_daily", "vn_prices"}
+    assert by_source["vn_prices_daily"].status == "success"
+    assert by_source["vn_prices_daily"].from_date == "2026-06-18"
+    assert by_source["vn_prices_daily"].to_date == "2026-06-25"
+    assert by_source["vn_prices_daily"].job is not None
+    assert (
+        by_source["vn_prices_daily"].job.diagnostics["mode"]
+        == "historical_range"
+    )
+    assert daily.periods == ["2026-06-18:2026-06-25"]
+    assert by_source["vn_prices"].status == "success"
+    assert by_source["vn_prices"].from_date == "2026-06-18"
+    assert by_source["vn_prices"].to_date == "2026-06-25"
+    assert hourly.periods[0] == "2026-06-18"
+
+
+def test_vn_history_preset_clamps_hourly_leg_to_free_1h_window() -> None:
+    daily = VNDailyRangeSource()
+    hourly = RecordingSource()
+    service = IngestionService(
+        sources={"vn_prices_daily": daily, "vn_prices": hourly},
+        store=InMemoryTimeSeriesStore(),
+        clock=lambda: datetime(2026, 6, 21, 8, tzinfo=UTC),
+    )
+
+    from_date = "2025-01-01"
+    to_date = "2026-06-25"
+    results = run_vn_history_backfill(
+        service=service,
+        from_date=from_date,
+        to_date=to_date,
+    )
+
+    by_source = {result.source_id: result for result in results}
+    assert by_source["vn_prices_daily"].from_date == from_date
+    assert by_source["vn_prices_daily"].to_date == to_date
+    expected_start = (
+        datetime.fromisoformat(to_date).date()
+        - timedelta(days=FREE_1H_WINDOW_DAYS - 1)
+    )
+    assert (
+        by_source["vn_prices"].from_date == expected_start.isoformat()
+    )
+    assert by_source["vn_prices"].to_date == to_date
+
+
+def test_vn_history_preset_skips_hourly_when_source_missing() -> None:
+    daily = VNDailyRangeSource()
+    service = IngestionService(
+        sources={"vn_prices_daily": daily},
+        store=InMemoryTimeSeriesStore(),
+        clock=lambda: datetime(2026, 6, 21, 8, tzinfo=UTC),
+    )
+
+    results = run_vn_history_backfill(
+        service=service,
+        from_date="2026-06-18",
+        to_date="2026-06-25",
+    )
+
+    by_source = {result.source_id: result for result in results}
+    assert by_source["vn_prices_daily"].status == "success"
+    assert by_source["vn_prices"].status == "skipped"
+    assert by_source["vn_prices"].reason
+    assert "not configured" in by_source["vn_prices"].reason
+
+
+def test_vn_history_preset_marks_hourly_failure_as_skipped() -> None:
+    class FailingHourly:
+        source_id = "vn_prices"
+
+        def fetch(self, _period: str) -> list[TimeSeriesRecord]:
+            raise ProviderFetchError("vnstock 1h rate limited")
+
+    daily = VNDailyRangeSource()
+    service = IngestionService(
+        sources={
+            "vn_prices_daily": daily,
+            "vn_prices": FailingHourly(),
+        },
+        store=InMemoryTimeSeriesStore(),
+        clock=lambda: datetime(2026, 6, 21, 8, tzinfo=UTC),
+    )
+
+    results = run_vn_history_backfill(
+        service=service,
+        from_date="2026-06-18",
+        to_date="2026-06-25",
+    )
+
+    by_source = {result.source_id: result for result in results}
+    assert by_source["vn_prices_daily"].status == "success"
+    assert by_source["vn_prices"].status == "skipped"
+    assert by_source["vn_prices"].reason
+    assert "best-effort" in by_source["vn_prices"].reason
+
+
+def _set_admin_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
+    monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
+    monkeypatch.setenv(
+        "FINMIND_SESSION_SECRET", "session-secret-with-length"
+    )
+
+
+@pytest.mark.parametrize(
+    "preset, extra_args",
+    (
+        (MARKET_LATEST_PRESET, ()),
+        (
+            MARKET_HISTORY_PRESET,
+            ("--from-date", "2026-06-18", "--to-date", "2026-06-25"),
+        ),
+        (
+            US_DAILY_HISTORY_PRESET,
+            ("--from-date", "2026-06-18", "--to-date", "2026-06-25"),
+        ),
+        (
+            US_XAUUSD_HISTORY_PRESET,
+            ("--from-date", "2026-06-18", "--to-date", "2026-06-25"),
+        ),
+    ),
+)
+def test_roadmap_presets_short_circuit_when_flag_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    preset: str,
+    extra_args: tuple[str, ...],
+) -> None:
+    _set_admin_env(monkeypatch)
+    monkeypatch.delenv("FINMIND_ROADMAP_MARKETS", raising=False)
+
+    def boom(*_a: object, **_kw: object) -> object:
+        raise AssertionError(
+            "roadmap runner must not be invoked when flag is disabled"
+        )
+
+    monkeypatch.setattr(backfill_module, "create_ingestion_service", boom)
+    monkeypatch.setattr(backfill_module, "run_market_latest_fetch", boom)
+    monkeypatch.setattr(
+        backfill_module, "run_market_history_backfill", boom
+    )
+    monkeypatch.setattr(
+        backfill_module, "run_us_daily_history_backfill", boom
+    )
+    monkeypatch.setattr(
+        backfill_module, "run_us_xauusd_history_backfill", boom
+    )
+
+    exit_code = backfill_main(["--preset", preset, *extra_args])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["preset"] == preset
+    assert payload["status"] == "skipped"
+    assert payload["reason"] == ROADMAP_DISABLED_REASON
+
+
+def test_roadmap_flag_enabled_invokes_underlying_runner(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _set_admin_env(monkeypatch)
+    monkeypatch.setenv("FINMIND_ROADMAP_MARKETS", "true")
+
+    monkeypatch.setattr(
+        backfill_module,
+        "create_ingestion_service",
+        lambda _settings: "sentinel-service",
+    )
+    called: list[object] = []
+
+    def fake_runner(*, service: object) -> list[object]:
+        called.append(service)
+        return []
+
+    monkeypatch.setattr(
+        backfill_module, "run_market_latest_fetch", fake_runner
+    )
+
+    exit_code = backfill_main(["--preset", MARKET_LATEST_PRESET])
+
+    assert exit_code == 0
+    assert called == ["sentinel-service"]
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["preset"] == MARKET_LATEST_PRESET
+    assert payload["results"] == []
+
+
+def test_vn_history_preset_main_dispatches_without_roadmap_flag(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _set_admin_env(monkeypatch)
+    monkeypatch.delenv("FINMIND_ROADMAP_MARKETS", raising=False)
+
+    monkeypatch.setattr(
+        backfill_module,
+        "create_ingestion_service",
+        lambda _settings: "sentinel-service",
+    )
+    captured: dict[str, object] = {}
+
+    def fake_vn_runner(
+        *,
+        service: object,
+        from_date: str,
+        to_date: str,
+    ) -> list[object]:
+        captured["service"] = service
+        captured["from"] = from_date
+        captured["to"] = to_date
+        return []
+
+    monkeypatch.setattr(
+        backfill_module, "run_vn_history_backfill", fake_vn_runner
+    )
+
+    exit_code = backfill_main(
+        [
+            "--preset",
+            VN_HISTORY_PRESET,
+            "--from-date",
+            "2026-06-18",
+            "--to-date",
+            "2026-06-25",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured == {
+        "service": "sentinel-service",
+        "from": "2026-06-18",
+        "to": "2026-06-25",
+    }
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["preset"] == VN_HISTORY_PRESET
+    assert payload["status"] == "success"
+
+
+def test_settings_parses_roadmap_markets_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from api.settings import Settings
+
+    _set_admin_env(monkeypatch)
+    monkeypatch.delenv("FINMIND_ROADMAP_MARKETS", raising=False)
+    assert Settings.from_env().roadmap_markets_enabled is False
+
+    monkeypatch.setenv("FINMIND_ROADMAP_MARKETS", "TRUE")
+    assert Settings.from_env().roadmap_markets_enabled is True
+
+    monkeypatch.setenv("FINMIND_ROADMAP_MARKETS", "1")
+    assert Settings.from_env().roadmap_markets_enabled is True
+
+    monkeypatch.setenv("FINMIND_ROADMAP_MARKETS", "False")
+    assert Settings.from_env().roadmap_markets_enabled is False
+
+    monkeypatch.setenv("FINMIND_ROADMAP_MARKETS", "0")
+    assert Settings.from_env().roadmap_markets_enabled is False
