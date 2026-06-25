@@ -24,6 +24,35 @@ All user-facing app and API surfaces require successful login before protected c
 
 The application must fail closed when any required value is missing or invalid. Fail closed means protected content is not available to unauthenticated visitors.
 
+Phase 002 data operations add production-only provider and database configuration:
+
+- `FINMIND_DATABASE_URL`
+- `FINMIND_VN_PROVIDER`
+- `FINMIND_XAUUSD_PROVIDER`
+- `FINMIND_XAUUSD_DAILY_FALLBACK`
+- `FINMIND_SJC_PROVIDER`
+- `FINMIND_VNSTOCK_API_KEY`
+- `FINMIND_ALPHA_VANTAGE_API_KEY`
+- `FINMIND_PROVIDER_TIMEOUT_SECONDS`
+
+Provider credentials are server-side runtime configuration and are scoped to their
+provider-specific variables. API responses, UI diagnostics, logs, tests, and fixture
+data must not expose API keys, bearer tokens, authorization headers, or raw
+secret-bearing request details.
+
+The initial real-source set uses `vnstock` for VN stock history, yfinance/Yahoo
+Finance for recent XAUUSD intraday history, Alpha Vantage free gold history as XAUUSD
+daily fallback, and official SJC website/chart surfaces for SJC daily quotes. Real
+provider values are selected per dataset with `FINMIND_VN_PROVIDER`,
+`FINMIND_XAUUSD_PROVIDER`, and `FINMIND_SJC_PROVIDER`; `mock` remains the default for
+local deterministic data. Free-source limitations such as rate limits, recent-only
+intraday history, unavailable backfill ranges, and scraper parse failures must be
+surfaced as non-secret capability diagnostics rather than hidden or replaced with
+synthetic data. VN stock pre-production historical backfill and post-launch latest
+fetches use the same 1h ingestion path. Phase 002 starts with a 1-month operational
+US and Gold baseline backfill while VNStock historical backfill is paused; incomplete longer free-provider coverage does not
+block launch when missing ranges are recorded as diagnostics.
+
 ## Sessions
 
 V1 uses cookie-backed web sessions for authenticated browser access. Session cookie values must be signed or otherwise verified using `FINMIND_SESSION_SECRET`; unsigned, malformed, or tampered session cookies must be treated as unauthenticated. Logout and expiration must block protected content again.
@@ -45,7 +74,7 @@ V1 excludes:
 
 ## Data Safety
 
-Ingestion reruns must be idempotent for the same dataset and period. Unsafe overlap must be blocked or serialized with visible status. Failure diagnostics must never expose secrets.
+Ingestion reruns must be idempotent for the same dataset and period. Unsafe overlap must be blocked with visible status. Failure diagnostics must never expose secrets.
 
 ## Evidence Safety
 

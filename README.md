@@ -26,6 +26,12 @@ uv run uvicorn api.app:create_app --factory --reload
 
 ## Docker Compose
 
+Create a local environment file:
+
+```bash
+cp .env.sample .env
+```
+
 Start the API and UI together:
 
 ```bash
@@ -33,14 +39,38 @@ docker compose up --build
 ```
 
 The Compose stack builds package-specific images from `src/api/Dockerfile` and
-`src/ui/Dockerfile`. It uses these default admin credentials unless overridden in
-the shell:
+`src/ui/Dockerfile`. It reads `.env` automatically. The sample starts in deterministic
+demo provider mode and uses these admin credentials:
 
 ```bash
 FINMIND_ADMIN_USERNAME=analyst
 FINMIND_ADMIN_PASSWORD=secret-pass
 FINMIND_SESSION_SECRET=session-secret-with-length
 ```
+
+Phase 002 data operations use TimescaleDB/PostgreSQL from Compose. The sample starts
+with deterministic mock providers:
+
+```bash
+FINMIND_VN_PROVIDER=mock
+FINMIND_XAUUSD_PROVIDER=mock
+FINMIND_SJC_PROVIDER=mock
+```
+
+To use the implemented free real providers, edit `.env`:
+
+```bash
+FINMIND_VN_PROVIDER=vnstock
+FINMIND_XAUUSD_PROVIDER=yfinance
+FINMIND_XAUUSD_DAILY_FALLBACK=alpha_vantage
+FINMIND_SJC_PROVIDER=sjc_official
+FINMIND_VNSTOCK_API_KEY=your-vnstock-key
+FINMIND_ALPHA_VANTAGE_API_KEY=optional-alpha-vantage-key
+```
+
+Provider credentials are not shared across adapters. `FINMIND_VNSTOCK_API_KEY` is
+required when `FINMIND_VN_PROVIDER=vnstock`; `FINMIND_ALPHA_VANTAGE_API_KEY` is used
+only by the Alpha Vantage XAUUSD daily fallback.
 
 Open the UI at `http://127.0.0.1:5173`. The API is exposed at `http://127.0.0.1:8000`.
 

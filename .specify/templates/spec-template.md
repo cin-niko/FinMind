@@ -103,6 +103,17 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+### Shared Contracts & Evidence *(mandatory for platform, data, API, or UI changes)*
+
+- **Owning specs**: [List `specs/system/*` and feature specs that are canonical for
+  changed contracts]
+- **Provider boundaries**: [State what remains provider-agnostic and what is allowed
+  only at implementation/configuration level]
+- **Evidence/freshness**: [State what citations, freshness, artifacts, diagnostics, or
+  no-raw-reasoning requirements apply]
+- **Verification expectations**: [State the minimum tests, builds, quickstart, or
+  database/provider checks required before completion]
+
 ## Success Criteria *(mandatory)*
 
 <!--

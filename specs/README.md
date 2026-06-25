@@ -80,9 +80,20 @@ adr_refs: []
 | FR-006 | `001-mvp-workflow-platform/spec.md` | TradingAgents-inspired roles in fixed workflows. |
 | FR-007 | `003-evidence-backed-chat/spec.md` | Chat deferred until shared workflow/evidence contracts exist. |
 | FR-008 | `system/state-model.md`, `001-mvp-workflow-platform/spec.md`, `002-data-operations/spec.md` | Seeded/demo storage in Phase 1; ingestion-backed storage in Phase 2. |
+| FR-008a | `002-data-operations/spec.md` | PostgreSQL-compatible TimescaleDB is the canonical phase 002 database service; tests and local verification use Docker Compose TimescaleDB/PostgreSQL. |
+| FR-008b | `002-data-operations/spec.md`, `002-data-operations/data-model.md` | PostgreSQL stores shared metadata/evidence tables plus typed time-series tables for stock 1h bars, XAUUSD 1h bars, and SJC daily quotes. |
+| FR-008c | `002-data-operations/spec.md`, `002-data-operations/data-model.md` | PostgreSQL typed time-series uniqueness, overlap checks, and traceability constraints. |
+| FR-008d | `002-data-operations/spec.md`, `002-data-operations/data-model.md` | Market-specific typed schemas for `vn_prices` 1h OHLCV records, `xauusd_prices` 1h OHLC records, and `sjc_gold_prices` daily quote records. |
+| FR-008e | `002-data-operations/spec.md`, `002-data-operations/data-model.md` | Price time-series tables are TimescaleDB hypertables or equivalent PostgreSQL time partitions. |
+| FR-008f | `002-data-operations/spec.md`, `002-data-operations/data-model.md` | Market instrument classification metadata for asset class, sector, industry, exchange, currency, status, and display name. |
+| FR-008g | `002-data-operations/spec.md`, `002-data-operations/data-model.md` | Market collections and effective-dated memberships for indexes, watchlists, sectors, and themes. |
 | FR-009 | `002-data-operations/spec.md` | Market data, price series, indicators, reports, macro/news material. |
+| FR-009a | `002-data-operations/spec.md` | Initial phase 002 populated datasets are `vn_prices`, `xauusd_prices`, and `sjc_gold_prices`; other source types remain connector extension points until required by approved workflows. |
 | FR-010 | `002-data-operations/spec.md` | Scheduled and admin-triggered ingestion. |
+| FR-010a | `002-data-operations/spec.md`, `system/contracts.md` | Scheduled ingestion uses an explicit scheduler/worker contract rather than app startup or demo history only. |
+| FR-010b | `002-data-operations/spec.md`, `system/contracts.md` | Protected worker API endpoint invokes scheduled ingestion for supported datasets. |
 | FR-011 | `002-data-operations/spec.md` | Idempotent manual ingestion with status and diagnostics. |
+| FR-011a | `002-data-operations/spec.md`, `system/state-model.md`, `system/runtime-config-security.md` | Overlapping ingestion for the same dataset and period is blocked with visible status. |
 | FR-012 | `system/state-model.md`, `001-mvp-workflow-platform/spec.md` | Evidence objects. |
 | FR-013 | `system/contracts.md`, `001-mvp-workflow-platform/spec.md`, `003-evidence-backed-chat/spec.md` | Citations and freshness for material claims. |
 | FR-014 | `001-mvp-workflow-platform/spec.md`, `003-evidence-backed-chat/spec.md` | Chart artifacts for workflow and chat outputs. |
@@ -90,6 +101,9 @@ adr_refs: []
 | FR-016 | `system/state-model.md`, `001-mvp-workflow-platform/spec.md`, `002-data-operations/spec.md`, `003-evidence-backed-chat/spec.md` | Execution logs across runs, tool calls, ingestion, artifacts, failures, output status. |
 | FR-017 | `003-evidence-backed-chat/spec.md`, `system/contracts.md` | Workflow agents vs generic role agents with shared contracts. |
 | FR-018 | `001-mvp-workflow-platform/spec.md`, `003-evidence-backed-chat/spec.md` | Result views and reload-restored history for completed workflow and chat outputs. |
+| FR-018a | `002-data-operations/spec.md` | Dataset-specific freshness calculation for `vn_prices`, `xauusd_prices`, `sjc_gold_prices`, missing records, and failed latest ingestion. |
+| FR-018b | `002-data-operations/spec.md`, `system/ui-workbench.md` | Market page with VN Markets selector, required VN index mini charts, sortable 10-row instrument list, and final filterable heatmap. |
+| FR-018c | `002-data-operations/spec.md`, `system/ui-workbench.md` | Instrument detail charts support `1h`, `4h`, `1d`, and `1M` timeframe selections where available. |
 | FR-019 | `system/runtime-config-security.md`, `001-mvp-workflow-platform/spec.md`, `002-data-operations/spec.md`, `003-evidence-backed-chat/spec.md` | Out-of-scope, unsupported, missing, stale, unavailable citation states; known unsupported workflow choices are blocked or marked before execution. |
 | FR-020 | `system/runtime-config-security.md`, `001-mvp-workflow-platform/spec.md`, `003-evidence-backed-chat/spec.md` | Show evidence/status; hide raw reasoning. |
 | FR-021 | `system/runtime-config-security.md`, `001-mvp-workflow-platform/spec.md` | Cookie-backed sessions verified with `FINMIND_SESSION_SECRET`. |

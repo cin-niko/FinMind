@@ -22,7 +22,7 @@ The authenticated app shell consumes JSON APIs for:
 - Session state: `GET /api/session`, `POST /api/login`, `POST /api/logout`
 - Workflow catalog and runs: `GET /api/workflows`, `POST /api/workflows/{workflow_id}/run`
 - Result inspection: `GET /api/runs/{run_id}`
-- Admin ingestion and market data after the data-operations feature: `GET /api/admin/ingestion`, `POST /api/admin/fetch`, `GET /api/market-data/{dataset_id}`
+- Admin ingestion, worker ingestion, and market data after the data-operations feature: `GET /api/admin/ingestion`, `POST /api/admin/fetch`, `POST /api/worker/ingestion/scheduled`, `GET /api/market-data/{dataset_id}`, `GET /api/market/overview`, `GET /api/market/instruments/{instrument_id}/chart`
 - Evidence-backed chat after the chat feature: `POST /api/chat`
 
 All protected APIs require an active cookie-backed session. Raw agent reasoning is never returned.
@@ -66,7 +66,7 @@ User-facing execution status must not include hidden model reasoning transcripts
 
 ## Provider Abstraction
 
-Product contracts must stay provider-neutral. Source connector implementation may validate provider suitability, licensing, credentials, and schema details, but public feature specs and user-facing contracts should refer to supported datasets and source identities rather than locking the product to one vendor.
+Product contracts must stay provider-neutral. Source connector implementation may validate provider suitability, licensing, credentials, free-source capability limits, and schema details, but public user-facing contracts should refer to supported datasets and source identities rather than locking the product to one vendor. Feature implementation specs may define an adapter profile such as the phase 002 free profile when it is needed for reproducible local operation.
 
 ## Layering Contract
 

@@ -40,7 +40,16 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Specs-first: identify all owning `specs/system/*` and `specs/[###-feature]/*`
+  documents that must change before implementation.
+- Bounded phase: confirm the work stays within the feature phase or document the
+  explicit spec change that expands scope.
+- Evidence surface: confirm user-facing outputs expose citations, freshness, stages,
+  artifacts, and grounded results without raw agent reasoning or secrets.
+- Provider/data discipline: confirm provider-specific implementation details remain
+  behind connector contracts, with typed canonical schemas for persisted data.
+- Verification: list the pytest, frontend, database, provider, and quickstart checks
+  required before completion.
 
 ## Project Structure
 

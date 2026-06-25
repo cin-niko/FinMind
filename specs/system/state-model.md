@@ -60,7 +60,33 @@ Represents a supported VN stock or gold instrument.
 - `market`: `VN_STOCK` or `GOLD`
 - `display_name`: user-facing name
 - `currency`: quote currency
+- `asset_class`: stock, commodity, or a later approved class
+- `exchange`: exchange, board, or venue label when applicable
+- `sector`: sector classification when applicable
+- `industry`: industry classification when applicable
+- `sub_industry`: optional deeper classification when applicable
 - `status`: active, inactive, unsupported
+
+### MarketCollection
+
+Represents a reusable market grouping for indexes, predefined watchlists, sectors, and themes.
+
+- `collection_id`: stable collection identifier
+- `market`: supported market scope
+- `name`: user-facing label
+- `collection_type`: index, watchlist, sector, or theme
+- `description`: optional short description
+- `sort_order`: optional UI ordering
+
+### MarketCollectionMembership
+
+Represents an effective-dated link between an instrument and a market collection.
+
+- `collection_id`: linked market collection
+- `instrument_id`: linked market instrument
+- `weight`: optional index/watchlist weight
+- `effective_from`: membership start date
+- `effective_to`: membership end date when no longer active
 
 ### CanonicalMarketDataRecord
 
@@ -79,6 +105,7 @@ Rules:
 
 - `(dataset_id, record_key)` must be unique.
 - Reruns for the same logical record update or replace the canonical record instead of duplicating it.
+- Feature implementations may store high-volume observations in typed time-series tables while preserving this logical contract for identity, freshness, evidence, citations, and artifacts.
 
 ### SourceDocument
 
@@ -110,7 +137,7 @@ Scheduled or manual data fetch operation.
 Rules:
 
 - Manual reruns for the same dataset and period must be idempotent.
-- Unsafe overlapping runs for the same dataset and period must be prevented or serialized.
+- Unsafe overlapping runs for the same dataset and period must be blocked with visible status.
 
 ### WorkflowSpecification
 

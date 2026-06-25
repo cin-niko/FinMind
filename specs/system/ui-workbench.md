@@ -106,8 +106,13 @@ Navigation is phase-aware:
 
 ### Market Data
 
-- Market uses a hybrid watchlist layout for VN stocks and gold only
-- System-predefined watchlist in V1, user-editable watchlists later
+- Market uses a dashboard layout for VN stocks and gold only.
+- Header includes market selector (`VN Markets`, `Commodity`) without a separate watchlist selector in phase 002.
+- VN market overview includes top index mini charts for `VNINDEX`, `VN100`, `VN30`, `HNXINDEX`, and `UPCOM` in one horizontal scroll row sized to fit four cards on desktop when space allows.
+- Market heatmap supports collection filters such as all, VN30, VN100, sector, and theme groups, with signed percentage values in each heatmap cell.
+- Instrument list supports collection/sector filters and sorting by symbol, price, change, volume/value, sector, and freshness.
+- Desktop market layout includes a right-side rail with Watchlist first and a tabbed Gainers/Losers card second, derived from the current market overview data and styled consistently with the chat/workbench panels.
+- Market overview ends with the heatmap; phase 002 does not show a trailing instrument detail card.
 - Freshness summary
 - Chart panel
 - News/source feed
