@@ -9,6 +9,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock ./
 COPY src/agent_core ./src/agent_core
 COPY src/api ./src/api
+COPY data/seed ./data/seed
 
 RUN uv sync --frozen --no-dev
 
