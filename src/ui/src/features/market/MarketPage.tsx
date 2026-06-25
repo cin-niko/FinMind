@@ -1,106 +1,418 @@
-import { useState } from "react";
-import { MARKET_INSTRUMENTS } from "./marketData";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getMarketOverview,
+  type MarketOverview
+} from "../../api/client";
+import {
+  buildHeatmapFilters,
+  getGainersLosers,
+  getHeatmapRowsForFilter,
+  getIndexCardMetrics,
+  getVisibleInstrumentRows,
+  getWatchlistRows,
+  toggleSort,
+  type HeatmapFilter,
+  type MarketSortKey,
+  type SortState
+} from "./marketViewModel";
+
+type MarketChoice = "VN" | "US" | "Commodity";
+type MoverTab = "gainers" | "losers";
+type CollectionHeatmapOverview = {
+  filterId: string;
+  overview: MarketOverview;
+};
 
 export function MarketPage() {
-  const [selectedSymbol, setSelectedSymbol] = useState(MARKET_INSTRUMENTS[0]?.symbol ?? "");
-  const selected =
-    MARKET_INSTRUMENTS.find((instrument) => instrument.symbol === selectedSymbol) ??
-    MARKET_INSTRUMENTS[0];
+  const [market, setMarket] = useState<MarketChoice>("VN");
+  const [heatmapFilterId, setHeatmapFilterId] = useState("all");
+  const [sortState, setSortState] = useState<SortState>({ key: "change_percent", direction: "desc" });
+  const [overview, setOverview] = useState<MarketOverview | null>(null);
+  const [collectionHeatmapOverview, setCollectionHeatmapOverview] = useState<CollectionHeatmapOverview | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState("vn_stock:VCB");
+  const [moverTab, setMoverTab] = useState<MoverTab>("gainers");
 
-  if (!selected) {
-    return <div className="stateBox">No market data available.</div>;
+  useEffect(() => {
+    let cancelled = false;
+    setOverviewError(null);
+    getMarketOverview(market, "all")
+      .then((nextOverview) => {
+        if (cancelled) {
+          return;
+        }
+        setOverview(nextOverview);
+        setCollectionHeatmapOverview(null);
+        const firstInstrument = nextOverview.instrument_rows[0];
+        if (firstInstrument) {
+          setSelectedInstrumentId((current) =>
+            nextOverview.instrument_rows.some((row) => row.id === current)
+              ? current
+              : firstInstrument.id
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setOverviewError(error instanceof Error ? error.message : "Market data unavailable");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [market]);
+
+  const sortedRows = useMemo(() => {
+    const rows = overview?.instrument_rows ?? [];
+    return getVisibleInstrumentRows(rows, sortState);
+  }, [overview, sortState]);
+
+  const heatmapFilters = useMemo(() => {
+    return overview ? buildHeatmapFilters(overview) : [];
+  }, [overview]);
+
+  const activeHeatmapFilter = useMemo(() => {
+    return heatmapFilters.find((filter) => filter.id === heatmapFilterId);
+  }, [heatmapFilterId, heatmapFilters]);
+
+  useEffect(() => {
+    if (!activeHeatmapFilter || activeHeatmapFilter.kind !== "collection") {
+      setCollectionHeatmapOverview(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCollectionHeatmapOverview(null);
+    getMarketOverview(market, activeHeatmapFilter.id)
+      .then((nextOverview) => {
+        if (!cancelled) {
+          setCollectionHeatmapOverview({
+            filterId: activeHeatmapFilter.id,
+            overview: nextOverview
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCollectionHeatmapOverview(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeHeatmapFilter, market]);
+
+  const filteredHeatmapRows = useMemo(() => {
+    if (!overview) {
+      return [];
+    }
+    const scopedHeatmapOverview =
+      collectionHeatmapOverview?.filterId === heatmapFilterId
+        ? collectionHeatmapOverview.overview
+        : undefined;
+    return getHeatmapRowsForFilter(overview, heatmapFilterId, scopedHeatmapOverview);
+  }, [collectionHeatmapOverview, heatmapFilterId, overview]);
+  const watchlistRows = useMemo(() => getWatchlistRows(overview?.instrument_rows ?? []), [overview]);
+  const movers = useMemo(() => getGainersLosers(overview?.instrument_rows ?? []), [overview]);
+  const activeMoverRows = moverTab === "gainers" ? movers.gainers : movers.losers;
+
+  if (overviewError) {
+    return <div className="stateBox" role="alert">{overviewError}</div>;
   }
 
-  const maxValue = Math.max(...selected.priceSeries.map((point) => point.value));
-  const minValue = Math.min(...selected.priceSeries.map((point) => point.value));
+  if (!overview) {
+    return <div className="stateBox">Loading market data...</div>;
+  }
 
   return (
-    <section className="marketPage" aria-label="Market">
-      <div className="hubSummary">
-        {MARKET_INSTRUMENTS.map((instrument) => (
-          <button
-            className={instrument.symbol === selected.symbol ? "hubCard active" : "hubCard"}
-            key={instrument.symbol}
-            onClick={() => setSelectedSymbol(instrument.symbol)}
-            type="button"
-          >
-            <span>{instrument.symbol}</span>
-            <strong>{instrument.lastPrice}</strong>
-            <small className={instrument.changePercent >= 0 ? "up" : "down"}>
-              {instrument.changePercent >= 0 ? "+" : ""}
-              {instrument.changePercent}%
-            </small>
-          </button>
-        ))}
+    <section className="marketPage marketWorkbench">
+      <div className="marketToolbar">
+        <label className="marketChoiceControl">
+          Market
+          <span className={market === "VN" || market === "US" ? "marketChoiceSelect hasFlag" : "marketChoiceSelect"}>
+            {market === "VN" ? <span className="marketFlag vnFlag" aria-hidden="true" /> : null}
+            {market === "US" ? <span className="marketFlag usFlag" aria-hidden="true" /> : null}
+            <select
+              value={market}
+              onChange={(event) => {
+                const nextMarket = event.target.value as MarketChoice;
+                setMarket(nextMarket);
+                setHeatmapFilterId("all");
+              }}
+            >
+              <option value="VN">VN Markets</option>
+              <option value="US">US Markets</option>
+              <option value="Commodity">Commodity</option>
+            </select>
+          </span>
+        </label>
       </div>
-      <div className="hubGrid">
-        <section className="panel selectedInstrument">
-          <div className="panelHeader">
-            <div>
-              <h2>{selected.name}</h2>
-              <span className="meta">
-                {selected.market} · freshness {selected.freshness} · volume {selected.volume}
-              </span>
-            </div>
-            <span className="badge">Real demo data</span>
-          </div>
-          <p className="dataSummary">{selected.summary}</p>
-          <div className="sparkChart" aria-label={`${selected.symbol} price series`}>
-            {selected.priceSeries.map((point) => {
-              const range = Math.max(maxValue - minValue, 1);
-              const height = 24 + ((point.value - minValue) / range) * 86;
-              return (
-                <span
-                  key={point.time}
-                  style={{ height: `${height}px` }}
-                  title={`${point.time}: ${point.value}`}
-                />
-              );
-            })}
-          </div>
-        </section>
-        <section className="panel">
-          <h2>News / Sources</h2>
-          <div className="sourceFeed">
-            {selected.news.map((item) => (
-              <article key={item.id}>
-                <h3>{item.title}</h3>
-                <span className="meta">
-                  {item.source} · {item.timestamp}
-                </span>
-              </article>
+
+      <div className="marketLayout">
+        <main className="marketMainColumn">
+          <section className="indexStrip" aria-label="Top indexes">
+            {overview.index_charts.map((indexChart) => (
+              <IndexMiniCard indexChart={indexChart} key={indexChart.symbol} />
             ))}
+          </section>
+
+          <div className="marketDashboardGrid">
+            <section className="panel instrumentListPanel" aria-label="Instrument list">
+              <div className="panelHeader compactHeader">
+                <div>
+                  <h2>Instruments</h2>
+                  <span className="meta">Showing top 10 rows by the active sort</span>
+                </div>
+              </div>
+              <div className="marketDataTable">
+                <table>
+                  <thead>
+                    <tr>
+                      <SortableHeader
+                        label="Symbol"
+                        sortKey="symbol"
+                        sortState={sortState}
+                        onSort={setSortState}
+                      />
+                      <SortableHeader
+                        label="Sector"
+                        sortKey="sector"
+                        sortState={sortState}
+                        onSort={setSortState}
+                      />
+                      <SortableHeader
+                        label="Price"
+                        sortKey="last"
+                        sortState={sortState}
+                        onSort={setSortState}
+                      />
+                      <SortableHeader
+                        label="Change"
+                        sortKey="change_percent"
+                        sortState={sortState}
+                        onSort={setSortState}
+                      />
+                      <SortableHeader
+                        label="Volume"
+                        sortKey="volume"
+                        sortState={sortState}
+                        onSort={setSortState}
+                      />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRows.map((row) => (
+                      <tr
+                        className={row.id === selectedInstrumentId ? "selectedRow" : ""}
+                        key={row.id}
+                        onClick={() => setSelectedInstrumentId(row.id)}
+                      >
+                        <td>
+                          <button className="symbolButton" type="button">{row.symbol}</button>
+                        </td>
+                        <td>{row.sector ?? "-"}</td>
+                        <td>{formatNumber(row.last)}</td>
+                        <td className={row.change_percent >= 0 ? "up" : "down"}>
+                          {formatPercent(row.change_percent)}
+                        </td>
+                        <td>{formatCompact(row.volume)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="panel marketHeatmap" aria-label="Market heatmap">
+              <div className="panelHeader compactHeader">
+                <div>
+                  <h2>Market Heatmap</h2>
+                  <span className="meta">Filter by collection or sector</span>
+                </div>
+              </div>
+              <div className="collectionTabs" role="list" aria-label="Market heatmap filters">
+                {heatmapFilters.map((filter) => (
+                  <button
+                    className={filter.id === heatmapFilterId ? "tabButton active" : "tabButton"}
+                    key={filter.id}
+                    onClick={() => handleHeatmapFilter(filter)}
+                    type="button"
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+              <div className="heatmapGrid">
+                {filteredHeatmapRows.map((cell) => (
+                  <button
+                    className={cell.change_percent >= 0 ? "heatCell positive" : "heatCell negative"}
+                    key={cell.id}
+                    onClick={() => setSelectedInstrumentId(cell.id)}
+                    style={{ minHeight: `${Math.max(72, Math.min(142, cell.value / 130000000))}px` }}
+                    type="button"
+                  >
+                    <strong>{cell.symbol}</strong>
+                    <span>{formatPercent(cell.change_percent)}</span>
+                    <small>{cell.sector ?? "Unclassified"}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
           </div>
-        </section>
-        <section className="panel marketTable">
-          <h2>Watchlist</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Instrument</th>
-                <th>Market</th>
-                <th>Last</th>
-                <th>Change</th>
-                <th>Freshness</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MARKET_INSTRUMENTS.map((instrument) => (
-                <tr key={instrument.symbol}>
-                  <td>{instrument.symbol}</td>
-                  <td>{instrument.market}</td>
-                  <td>{instrument.lastPrice}</td>
-                  <td className={instrument.changePercent >= 0 ? "up" : "down"}>
-                    {instrument.changePercent >= 0 ? "+" : ""}
-                    {instrument.changePercent}%
-                  </td>
-                  <td>{instrument.freshness}</td>
-                </tr>
+        </main>
+
+        <aside className="marketRightRail" aria-label="Market side panel">
+          <section className="railPanel" aria-label="Watchlist">
+            <div className="railHeader">
+              <h2>Watchlist</h2>
+            </div>
+            <div className="railList">
+              {watchlistRows.map((row) => (
+                <MarketRailRow
+                  isSelected={row.id === selectedInstrumentId}
+                  key={row.id}
+                  onSelect={() => setSelectedInstrumentId(row.id)}
+                  row={row}
+                />
               ))}
-            </tbody>
-          </table>
-        </section>
+            </div>
+          </section>
+
+          <section className="railPanel moverPanel" aria-label="Gainers and losers">
+            <div className="moverTabs" role="tablist" aria-label="Mover groups">
+              <button
+                aria-selected={moverTab === "gainers"}
+                className={moverTab === "gainers" ? "moverTab active" : "moverTab"}
+                onClick={() => setMoverTab("gainers")}
+                role="tab"
+                type="button"
+              >
+                Gainers
+              </button>
+              <button
+                aria-selected={moverTab === "losers"}
+                className={moverTab === "losers" ? "moverTab active" : "moverTab"}
+                onClick={() => setMoverTab("losers")}
+                role="tab"
+                type="button"
+              >
+                Losers
+              </button>
+            </div>
+            <div className="railList compact" role="tabpanel">
+              {activeMoverRows.length ? (
+                activeMoverRows.map((row) => (
+                  <MarketRailRow
+                    isSelected={row.id === selectedInstrumentId}
+                    key={row.id}
+                    onSelect={() => setSelectedInstrumentId(row.id)}
+                    row={row}
+                  />
+                ))
+              ) : (
+                <span className="railEmpty">No {moverTab} in this view</span>
+              )}
+            </div>
+          </section>
+        </aside>
       </div>
+
     </section>
   );
+
+  function handleHeatmapFilter(filter: HeatmapFilter) {
+    setHeatmapFilterId(filter.id);
+  }
+}
+
+function IndexMiniCard({ indexChart }: { indexChart: MarketOverview["index_charts"][number] }) {
+  const metrics = getIndexCardMetrics(indexChart);
+  const directionClass = indexChart.change_percent >= 0 ? "up" : "down";
+
+  return (
+    <article className="indexMiniChart">
+      <div className="indexCardHeader">
+        <div>
+          <span className="indexName">{indexChart.name}</span>
+          <strong>{formatNumber(indexChart.last)}</strong>
+        </div>
+        <div className="indexChangeStack">
+          <span className={directionClass}>{formatPercent(indexChart.change_percent)}</span>
+          <small>{formatSignedNumber(metrics.changeValue)}</small>
+        </div>
+      </div>
+      <svg className="indexLineChart" viewBox="0 0 240 64" role="img" aria-label={`${indexChart.name} mini chart`}>
+        <path className="indexBaseline" d="M 0 32 L 240 32" />
+        <path className={directionClass === "up" ? "indexArea positive" : "indexArea negative"} d={metrics.areaPath} />
+        <path className={directionClass === "up" ? "indexLine positive" : "indexLine negative"} d={metrics.linePath} />
+      </svg>
+    </article>
+  );
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  sortState,
+  onSort
+}: {
+  label: string;
+  sortKey: MarketSortKey;
+  sortState: SortState;
+  onSort: (nextState: SortState) => void;
+}) {
+  const active = sortState.key === sortKey;
+  return (
+    <th aria-sort={active ? (sortState.direction === "asc" ? "ascending" : "descending") : "none"}>
+      <button
+        className={active ? "sortableHeader active" : "sortableHeader"}
+        onClick={() => onSort(toggleSort(sortState, sortKey))}
+        type="button"
+      >
+        {label}
+        <span aria-hidden="true">{active ? (sortState.direction === "asc" ? "▲" : "▼") : "↕"}</span>
+      </button>
+    </th>
+  );
+}
+
+function MarketRailRow({
+  isSelected,
+  onSelect,
+  row
+}: {
+  isSelected: boolean;
+  onSelect: () => void;
+  row: MarketOverview["instrument_rows"][number];
+}) {
+  return (
+    <button className={isSelected ? "railInstrumentRow selected" : "railInstrumentRow"} onClick={onSelect} type="button">
+      <span className="railSymbolMark">{row.symbol.slice(0, 2)}</span>
+      <span className="railInstrumentMeta">
+        <strong>{row.symbol}</strong>
+        <small>{row.sector ?? row.exchange ?? "Market"}</small>
+      </span>
+      <span className="railPriceBlock">
+        <strong>{formatNumber(row.last)}</strong>
+        <small className={row.change_percent >= 0 ? "up" : "down"}>{formatPercent(row.change_percent)}</small>
+      </span>
+    </button>
+  );
+}
+
+function formatPercent(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatSignedNumber(value: number) {
+  return `${value >= 0 ? "+" : ""}${formatNumber(value)}`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+}
+
+function formatCompact(value: number) {
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }

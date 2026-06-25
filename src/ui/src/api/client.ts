@@ -56,6 +56,112 @@ export type WorkflowRun = {
   };
 };
 
+export type MarketOverview = {
+  available_markets: string[];
+  selected_market: "VN" | "US" | "Commodity";
+  watchlists: MarketCollection[];
+  collections: MarketCollection[];
+  index_charts: Array<{
+    symbol: string;
+    name: string;
+    last: number;
+    change_percent: number;
+    series: Array<{ time: string; value: number }>;
+  }>;
+  heatmap: MarketInstrumentRow[];
+  instrument_rows: MarketInstrumentRow[];
+};
+
+export type MarketCollection = {
+  id: string;
+  name: string;
+  type: "index" | "watchlist" | "sector" | "theme";
+};
+
+export type MarketInstrumentRow = {
+  id: string;
+  symbol: string;
+  name: string;
+  market: string;
+  asset_class: string;
+  exchange: string | null;
+  currency: string;
+  sector: string | null;
+  industry: string | null;
+  sub_industry: string | null;
+  last: number;
+  change_percent: number;
+  volume: number;
+  value: number;
+  freshness: string;
+  source_id?: string;
+  as_of?: string;
+};
+
+export type InstrumentChart = {
+  instrument: {
+    id: string;
+    symbol: string;
+    name: string;
+    market: string;
+    asset_class: string;
+    exchange: string | null;
+    currency: string;
+    sector: string | null;
+    industry: string | null;
+    sub_industry: string | null;
+  };
+  timeframe: "1h" | "4h" | "1d" | "1M";
+  freshness: { status: string; as_of: string };
+  records: Array<{
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+  }>;
+  table: Array<{
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+  }>;
+};
+
+export type IngestionJob = {
+  job_id: string;
+  source_id: string;
+  dataset_id: string;
+  period: string;
+  trigger: "manual" | "scheduled" | "backfill";
+  status: "queued" | "running" | "success" | "failed" | "blocked";
+  started_at: string;
+  completed_at: string | null;
+  record_count: number;
+  diagnostics: Record<string, unknown>;
+};
+
+export type DatasetFreshness = {
+  dataset: string;
+  status: "fresh" | "stale" | "missing" | "failed";
+  as_of: string | null;
+  record_count: number;
+};
+
+export type IngestionStatus = {
+  jobs: IngestionJob[];
+  freshness: DatasetFreshness[];
+};
+
+export type IngestionFetchRequest = {
+  source_id: string;
+  mode: "latest" | "period";
+  period?: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     credentials: "include",
@@ -106,6 +212,38 @@ export function listRuns(): Promise<WorkflowRun[]> {
 
 export function getRun(runId: string): Promise<WorkflowRun> {
   return request<WorkflowRun>(`/api/runs/${runId}`);
+}
+
+export function getMarketOverview(
+  market: "VN" | "US" | "Commodity",
+  collectionId?: string
+): Promise<MarketOverview> {
+  const params = new URLSearchParams({ market });
+  if (collectionId) {
+    params.set("collection_id", collectionId);
+  }
+  return request<MarketOverview>(`/api/market/overview?${params.toString()}`);
+}
+
+export function getInstrumentChart(
+  instrumentId: string,
+  timeframe: InstrumentChart["timeframe"]
+): Promise<InstrumentChart> {
+  const params = new URLSearchParams({ timeframe });
+  return request<InstrumentChart>(
+    `/api/market/instruments/${encodeURIComponent(instrumentId)}/chart?${params.toString()}`
+  );
+}
+
+export function getIngestionStatus(): Promise<IngestionStatus> {
+  return request<IngestionStatus>("/api/admin/ingestion");
+}
+
+export function triggerManualFetch(payload: IngestionFetchRequest): Promise<IngestionJob> {
+  return request<IngestionJob>("/api/admin/fetch", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
 
 export function isUnauthorizedError(caught: unknown): boolean {

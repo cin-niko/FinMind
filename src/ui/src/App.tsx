@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getSession,
   isUnauthorizedError,
+  getIngestionStatus,
   listRuns,
   logout,
+  triggerManualFetch,
+  type IngestionFetchRequest,
+  type IngestionStatus,
   type SessionState,
   type WorkflowRun
 } from "./api/client";
@@ -20,11 +24,12 @@ import {
   type ChatConversation
 } from "./features/chat/mockChat";
 import { MarketPage } from "./features/market/MarketPage";
+import { AdminIngestionPage } from "./features/admin/AdminIngestionPage";
 import { ResultView } from "./features/results/ResultView";
 import { AppShell } from "./features/shell/AppShell";
 import { WorkflowPage } from "./features/workflows/WorkflowPage";
 
-type View = "chat" | "market" | "workflows" | "results";
+type View = "chat" | "market" | "workflows" | "results" | "admin";
 
 export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -33,6 +38,7 @@ export function App() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [currentRun, setCurrentRun] = useState<WorkflowRun | null>(null);
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
+  const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<ChatArtifact | null>(null);
 
   useEffect(() => {
@@ -58,6 +64,13 @@ export function App() {
           handleSessionExpired();
         }
       });
+    getIngestionStatus()
+      .then(setIngestionStatus)
+      .catch((caught) => {
+        if (isUnauthorizedError(caught)) {
+          handleSessionExpired();
+        }
+      });
   }, [handleSessionExpired, session]);
 
   if (!session) {
@@ -73,6 +86,7 @@ export function App() {
     setSession(next);
     setCurrentRun(null);
     setWorkflowRuns([]);
+    setIngestionStatus(null);
     setSelectedArtifact(null);
     setView("chat");
   }
@@ -130,8 +144,15 @@ export function App() {
     chat: currentConversation ? getConversationTitle(currentConversation) : "New Chat",
     market: "Market",
     workflows: "Workflows",
-    results: "Workflow Result"
+    results: "Workflow Result",
+    admin: "Admin Ingestion"
   };
+
+  async function handleManualFetch(payload: IngestionFetchRequest) {
+    await triggerManualFetch(payload);
+    const nextStatus = await getIngestionStatus();
+    setIngestionStatus(nextStatus);
+  }
 
   return (
     <AppShell
@@ -169,6 +190,13 @@ export function App() {
               />
             ) : null}
             {view === "market" ? <MarketPage /> : null}
+            {view === "admin" ? (
+              <AdminIngestionPage
+                status={ingestionStatus}
+                onRefresh={() => getIngestionStatus().then(setIngestionStatus)}
+                onRunFetch={handleManualFetch}
+              />
+            ) : null}
             {view === "workflows" ? (
               <WorkflowPage
                 onRunComplete={handleRunComplete}

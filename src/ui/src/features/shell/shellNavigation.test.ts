@@ -3,7 +3,7 @@ import { HISTORY_SECTIONS, PRIMARY_NAV_ITEMS } from "./shellNavigation";
 
 assert.deepEqual(
   PRIMARY_NAV_ITEMS.map((item) => item.label),
-  ["New Chat", "Market", "Workflows"]
+  ["New Chat", "Market", "Workflows", "Admin"]
 );
 
 assert.deepEqual(
