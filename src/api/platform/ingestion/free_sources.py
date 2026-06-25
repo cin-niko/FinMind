@@ -98,10 +98,6 @@ class YFinanceUSStockSource(FreeMarketDataSource):
     def fetch(self, period: str) -> list[TimeSeriesRecord]:
         payload = self.fetch_json(period)
         rows = _records_from_payload(self.source_id, payload)
-        if not rows:
-            raise ProviderFetchError(
-                "alpha_vantage fetch failed for xauusd_prices_daily: no daily records"
-            )
         capabilities = _capabilities_from_payload(payload)
         records: list[TimeSeriesRecord] = []
         for row in rows:
@@ -261,7 +257,15 @@ class AlphaVantageXauusdDailySource(FreeMarketDataSource):
 
     def fetch(self, period: str) -> list[TimeSeriesRecord]:
         payload = self.fetch_json(period)
-        rows = _records_from_payload(self.source_id, payload)
+        period_start = _period_start(period).date()
+        period_end = _period_end(period).date()
+        rows = [
+            row
+            for row in _records_from_payload(self.source_id, payload)
+            if period_start
+            <= datetime.fromisoformat(str(row.get("trading_date"))).date()
+            <= period_end
+        ]
         if not rows:
             raise ProviderFetchError(
                 "alpha_vantage fetch failed for xauusd_prices_daily: no daily records"
@@ -747,7 +751,7 @@ def _alpha_vantage_xauusd_daily_fetcher(
         params = {
             "function": "TIME_SERIES_DAILY",
             "symbol": "GLD",
-            "outputsize": "full",
+            "outputsize": "compact",
             "apikey": api_key,
         }
         def request_payload() -> object:

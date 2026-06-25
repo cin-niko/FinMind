@@ -24,6 +24,7 @@ from api.platform.ingestion.free_sources import (
     VnstockVNStockSource,
     YFinanceXauusdSource,
     create_real_sources,
+    _alpha_vantage_xauusd_daily_fetcher,
     _stooq_us_stock_daily_fetcher,
 )
 from api.platform.ingestion.service import IngestionService
@@ -280,7 +281,8 @@ class RecordingSource:
 
     def fetch(self, period: str) -> list[TimeSeriesRecord]:
         self.periods.append(period)
-        market_time = datetime.fromisoformat(period).replace(tzinfo=UTC)
+        period_start = period.split(":", maxsplit=1)[0]
+        market_time = datetime.fromisoformat(period_start).replace(tzinfo=UTC)
         return [
             TimeSeriesRecord(
                 dataset_id="vn_prices",
@@ -461,7 +463,8 @@ def test_market_history_backfill_plan_uses_free_source_limits() -> None:
     assert by_source["sjc_gold_prices"].status == "skipped"
     assert by_source["sjc_gold_prices"].reason
     assert "current quote" in by_source["sjc_gold_prices"].reason
-    assert sources["us_prices_daily"].periods[0] == "2026-06-18"
+    assert sources["us_prices_daily"].periods == ["2026-06-18:2026-06-25"]
+    assert sources["xauusd_prices_daily"].periods == ["2026-06-18:2026-06-25"]
     assert sources["xauusd_prices"].periods[0] == "2026-06-18"
     assert sources["vn_prices"].periods == []
     assert sources["sjc_gold_prices"].periods == []
@@ -1082,6 +1085,99 @@ def test_alpha_vantage_adapter_normalizes_xauusd_daily_fallback() -> None:
     assert record.record_key == "gold:XAUUSD:2026-06-18"
     assert record.payload["fallback"] == "daily"
     assert record.payload["capabilities"]["fallback_for"] == "xauusd_prices"
+
+
+def test_alpha_vantage_adapter_filters_daily_fallback_to_requested_range() -> None:
+    def fetch_json(_period: str) -> dict[str, object]:
+        return {
+            "capabilities": {
+                "interval": "1d",
+                "fallback_for": "xauusd_prices",
+                "reason": "free 1h history unavailable",
+            },
+            "records": [
+                {
+                    "trading_date": "2026-06-17",
+                    "open": 2300,
+                    "high": 2310,
+                    "low": 2290,
+                    "close": 2305,
+                },
+                {
+                    "trading_date": "2026-06-18",
+                    "open": 2320,
+                    "high": 2332,
+                    "low": 2315,
+                    "close": 2329,
+                },
+                {
+                    "trading_date": "2026-06-25",
+                    "open": 2340,
+                    "high": 2350,
+                    "low": 2330,
+                    "close": 2345,
+                },
+            ],
+        }
+
+    source = AlphaVantageXauusdDailySource(fetch_json=fetch_json)
+
+    records = source.fetch("2026-06-18:2026-06-25")
+
+    assert [record.record_key for record in records] == [
+        "gold:XAUUSD:2026-06-18",
+        "gold:XAUUSD:2026-06-25",
+    ]
+
+
+def test_alpha_vantage_fetcher_uses_free_compact_daily_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "Time Series (Daily)": {
+                    "2026-06-18": {
+                        "1. open": "2320",
+                        "2. high": "2332",
+                        "3. low": "2315",
+                        "4. close": "2329",
+                    }
+                }
+            }
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            captured["timeout"] = timeout
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def get(self, url: str, params: dict[str, object]) -> FakeResponse:
+            captured["url"] = url
+            captured["params"] = params
+            return FakeResponse()
+
+    monkeypatch.setattr(free_sources.httpx, "Client", FakeClient)
+
+    fetch_json = _alpha_vantage_xauusd_daily_fetcher("alpha-key", timeout_seconds=12)
+    payload = fetch_json("2026-06-18:2026-06-25")
+
+    assert captured["params"] == {
+        "function": "TIME_SERIES_DAILY",
+        "symbol": "GLD",
+        "outputsize": "compact",
+        "apikey": "alpha-key",
+    }
+    assert payload["records"]
 
 
 def test_alpha_vantage_daily_fallback_fails_empty_history() -> None:

@@ -94,6 +94,16 @@ def run_market_history_backfill(
                 )
             )
             continue
+        if source_id in {"us_prices_daily", "xauusd_prices_daily"}:
+            results.append(
+                _run_range_source_backfill(
+                    service=service,
+                    source_id=source_id,
+                    from_date=start,
+                    to_date=end,
+                )
+            )
+            continue
         job = run_historical_backfill(
             service=service,
             source_id=source_id,
