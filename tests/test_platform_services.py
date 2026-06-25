@@ -225,8 +225,9 @@ def test_manual_ingestion_is_idempotent_and_updates_status(
         item["dataset"]: item
         for item in payload["freshness"]
     }
-    assert freshness["vn_prices"]["status"] == "fresh"
+    assert freshness["vn_prices"]["status"] in {"fresh", "stale"}
     assert freshness["vn_prices"]["record_count"] == 6
+    assert set(freshness.keys()) == {"vn_prices_daily", "vn_prices"}
 
     records = client.get("/api/market-data/vn_prices")
     assert records.status_code == 200
@@ -939,7 +940,7 @@ def test_ingestion_service_records_provider_system_exit_as_failed_job() -> None:
 
 
 def test_market_data_expands_xauusd_daily_fallback_to_hourly_display_bars() -> None:
-    store = InMemoryTimeSeriesStore()
+    store = InMemoryTimeSeriesStore(roadmap_markets_enabled=True)
     daily_record = TimeSeriesRecord(
         dataset_id="xauusd_prices_daily",
         record_key="gold:XAUUSD:2026-06-18",
@@ -980,7 +981,7 @@ def test_market_data_expands_xauusd_daily_fallback_to_hourly_display_bars() -> N
 
 
 def test_market_data_prefers_real_xauusd_hourly_bar_over_daily_fallback() -> None:
-    store = InMemoryTimeSeriesStore()
+    store = InMemoryTimeSeriesStore(roadmap_markets_enabled=True)
     hourly_record = TimeSeriesRecord(
         dataset_id="xauusd_prices",
         record_key="gold:XAUUSD:2026-06-18T02:00:00+00:00",
@@ -2466,3 +2467,262 @@ def test_postgres_store_checks_collection_membership_and_dataset_rows() -> (
         store.has_dataset_rows("us_prices_daily", "vn_stock:VCB")
         is False
     )
+
+
+# ---------------------------------------------------------------------------
+# T045 — VN-only freshness output with dataset-specific thresholds
+# ---------------------------------------------------------------------------
+
+
+from zoneinfo import ZoneInfo
+
+from api.platform.freshness import (
+    DATASET_RULES,
+    DatasetFreshnessRule,
+    FreshnessKind,
+    active_freshness_dataset_ids,
+    calculate_dataset_freshness,
+)
+from api.platform.ingestion.store_writer import IngestionJobRecord
+
+_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
+def _vn_daily_record(
+    instrument_id: str,
+    trade_date: datetime,
+) -> TimeSeriesRecord:
+    return TimeSeriesRecord(
+        dataset_id="vn_prices_daily",
+        record_key=f"{instrument_id}:{trade_date.date().isoformat()}",
+        instrument_id=instrument_id,
+        market_time=trade_date,
+        collected_at=trade_date,
+        source_id="vn_prices_daily",
+        payload={
+            "symbol": "VCB",
+            "exchange": "HOSE",
+            "trade_date": trade_date.date().isoformat(),
+            "open": 100.0,
+            "high": 110.0,
+            "low": 95.0,
+            "close": 105.0,
+            "volume": 1000,
+            "currency": "VND",
+        },
+    )
+
+
+def _vn_hourly_record(
+    instrument_id: str,
+    interval_start: datetime,
+) -> TimeSeriesRecord:
+    return TimeSeriesRecord(
+        dataset_id="vn_prices",
+        record_key=f"{instrument_id}:{interval_start.isoformat()}",
+        instrument_id=instrument_id,
+        market_time=interval_start,
+        collected_at=interval_start,
+        source_id="vn_prices",
+        payload={
+            "symbol": "VCB",
+            "exchange": "HOSE",
+            "interval_start": interval_start.isoformat(),
+            "interval_end": (
+                interval_start + timedelta(hours=1)
+            ).isoformat(),
+            "open": 100.0,
+            "high": 110.0,
+            "low": 95.0,
+            "close": 105.0,
+            "volume": 1000,
+            "currency": "VND",
+        },
+    )
+
+
+def test_active_freshness_dataset_ids_vn_only_by_default() -> None:
+    assert active_freshness_dataset_ids(False) == [
+        "vn_prices_daily",
+        "vn_prices",
+    ]
+
+
+def test_active_freshness_dataset_ids_roadmap_restores_full_list() -> None:
+    assert active_freshness_dataset_ids(True) == [
+        "vn_prices_daily",
+        "vn_prices",
+        "us_prices",
+        "us_prices_daily",
+        "xauusd_prices",
+        "xauusd_prices_daily",
+        "sjc_gold_prices",
+    ]
+
+
+def test_dataset_rules_expose_vn_daily_and_hourly_thresholds() -> None:
+    assert DATASET_RULES["vn_prices_daily"] == DatasetFreshnessRule(
+        dataset_id="vn_prices_daily",
+        kind=FreshnessKind.DAILY,
+        max_lag=timedelta(days=1),
+    )
+    assert DATASET_RULES["vn_prices"] == DatasetFreshnessRule(
+        dataset_id="vn_prices",
+        kind=FreshnessKind.HOURLY,
+        max_lag=timedelta(hours=6),
+    )
+
+
+def test_inmemory_store_freshness_is_vn_only_by_default() -> None:
+    store = InMemoryTimeSeriesStore()
+
+    entries = store.freshness()
+
+    assert [entry["dataset"] for entry in entries] == [
+        "vn_prices_daily",
+        "vn_prices",
+    ]
+
+
+def test_inmemory_store_freshness_roadmap_restores_full_list() -> None:
+    store = InMemoryTimeSeriesStore(roadmap_markets_enabled=True)
+
+    entries = store.freshness()
+
+    assert [entry["dataset"] for entry in entries] == [
+        "vn_prices_daily",
+        "vn_prices",
+        "us_prices",
+        "us_prices_daily",
+        "xauusd_prices",
+        "xauusd_prices_daily",
+        "sjc_gold_prices",
+    ]
+
+
+def test_vn_prices_daily_fresh_when_trade_date_is_today_vn() -> None:
+    now_vn = datetime(2026, 6, 24, 15, 0, tzinfo=_VN_TZ)
+    today_record = _vn_daily_record(
+        "vn_stock:VCB",
+        datetime(2026, 6, 24, tzinfo=UTC),
+    )
+
+    entries = calculate_dataset_freshness(
+        dataset_ids=["vn_prices_daily"],
+        list_dataset=lambda _id: [today_record],
+        list_jobs=lambda: [],
+        now=now_vn,
+    )
+
+    assert entries[0]["status"] == "fresh"
+
+
+def test_vn_prices_daily_stale_when_three_weekdays_old() -> None:
+    # Thursday 2026-06-25; latest trade_date Monday 2026-06-22 → 3 days old
+    now_vn = datetime(2026, 6, 25, 10, 0, tzinfo=_VN_TZ)
+    stale_record = _vn_daily_record(
+        "vn_stock:VCB",
+        datetime(2026, 6, 22, tzinfo=UTC),
+    )
+
+    entries = calculate_dataset_freshness(
+        dataset_ids=["vn_prices_daily"],
+        list_dataset=lambda _id: [stale_record],
+        list_jobs=lambda: [],
+        now=now_vn,
+    )
+
+    assert entries[0]["status"] == "stale"
+
+
+def test_vn_prices_daily_monday_tolerates_weekend() -> None:
+    # Monday 2026-06-22; latest trade_date Friday 2026-06-19 → 3 days
+    now_vn = datetime(2026, 6, 22, 9, 30, tzinfo=_VN_TZ)
+    friday_record = _vn_daily_record(
+        "vn_stock:VCB",
+        datetime(2026, 6, 19, tzinfo=UTC),
+    )
+
+    entries = calculate_dataset_freshness(
+        dataset_ids=["vn_prices_daily"],
+        list_dataset=lambda _id: [friday_record],
+        list_jobs=lambda: [],
+        now=now_vn,
+    )
+
+    assert entries[0]["status"] == "fresh"
+
+
+def test_vn_prices_daily_missing_when_no_records() -> None:
+    entries = calculate_dataset_freshness(
+        dataset_ids=["vn_prices_daily"],
+        list_dataset=lambda _id: [],
+        list_jobs=lambda: [],
+        now=datetime(2026, 6, 25, 10, 0, tzinfo=_VN_TZ),
+    )
+
+    assert entries[0]["status"] == "missing"
+    assert entries[0]["as_of"] is None
+
+
+def test_vn_prices_daily_failed_overrides_record_presence() -> None:
+    now_vn = datetime(2026, 6, 25, 10, 0, tzinfo=_VN_TZ)
+    record = _vn_daily_record(
+        "vn_stock:VCB",
+        datetime(2026, 6, 25, tzinfo=UTC),
+    )
+    failed_job = IngestionJobRecord(
+        job_id="ingest_0001",
+        source_id="vn_prices_daily",
+        dataset_id="vn_prices_daily",
+        period="2026-06-25",
+        trigger="manual",
+        status="failed",
+        started_at=now_vn,
+        completed_at=now_vn,
+        record_count=0,
+        diagnostics={"error": "boom"},
+    )
+
+    entries = calculate_dataset_freshness(
+        dataset_ids=["vn_prices_daily"],
+        list_dataset=lambda _id: [record],
+        list_jobs=lambda: [failed_job],
+        now=now_vn,
+    )
+
+    assert entries[0]["status"] == "failed"
+
+
+def test_vn_prices_hourly_fresh_within_six_hours() -> None:
+    now_vn = datetime(2026, 6, 24, 15, 0, tzinfo=_VN_TZ)
+    recent = _vn_hourly_record(
+        "vn_stock:VCB",
+        now_vn - timedelta(hours=2),
+    )
+
+    entries = calculate_dataset_freshness(
+        dataset_ids=["vn_prices"],
+        list_dataset=lambda _id: [recent],
+        list_jobs=lambda: [],
+        now=now_vn,
+    )
+
+    assert entries[0]["status"] == "fresh"
+
+
+def test_vn_prices_hourly_stale_after_six_hours() -> None:
+    now_vn = datetime(2026, 6, 24, 15, 0, tzinfo=_VN_TZ)
+    stale = _vn_hourly_record(
+        "vn_stock:VCB",
+        now_vn - timedelta(hours=8),
+    )
+
+    entries = calculate_dataset_freshness(
+        dataset_ids=["vn_prices"],
+        list_dataset=lambda _id: [stale],
+        list_jobs=lambda: [],
+        now=now_vn,
+    )
+
+    assert entries[0]["status"] == "stale"

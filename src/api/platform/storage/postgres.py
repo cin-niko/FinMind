@@ -3,7 +3,10 @@ from datetime import UTC, date, datetime
 from typing import Any
 from uuid import uuid4
 
-from api.platform.freshness import calculate_dataset_freshness
+from api.platform.freshness import (
+    active_freshness_dataset_ids,
+    calculate_dataset_freshness,
+)
 from api.platform.ingestion.sources import TimeSeriesRecord
 from api.platform.ingestion.store_writer import IngestionJobRecord
 
@@ -13,11 +16,13 @@ class PostgresTimeSeriesStore:
         self,
         database_url: str | None = None,
         connection_factory: Callable[[], Any] | None = None,
+        roadmap_markets_enabled: bool = False,
     ) -> None:
         if database_url is None and connection_factory is None:
             raise ValueError("database_url or connection_factory is required")
         self._database_url = database_url
         self._connection_factory = connection_factory
+        self._roadmap_markets_enabled = roadmap_markets_enabled
 
     def upsert_many(self, records: list[TimeSeriesRecord]) -> int:
         connection = self._connect()
@@ -179,14 +184,9 @@ class PostgresTimeSeriesStore:
 
     def freshness(self) -> list[dict[str, object]]:
         return calculate_dataset_freshness(
-            dataset_ids=[
-                "us_prices",
-                "us_prices_daily",
-                "vn_prices",
-                "vn_prices_daily",
-                "xauusd_prices",
-                "sjc_gold_prices",
-            ],
+            dataset_ids=active_freshness_dataset_ids(
+                self._roadmap_markets_enabled
+            ),
             list_dataset=self.list_dataset,
             list_jobs=self.list_jobs,
         )

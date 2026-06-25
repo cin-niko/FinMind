@@ -51,9 +51,17 @@ def create_ingestion_service(settings: Settings | None = None) -> IngestionServi
 
 
 def _create_ingestion_store(settings: Settings | None) -> TimeSeriesStore:
+    roadmap_enabled = bool(
+        settings and settings.roadmap_markets_enabled
+    )
     if settings is not None and settings.database_url:
-        return PostgresTimeSeriesStore(database_url=settings.database_url)
-    return InMemoryTimeSeriesStore()
+        return PostgresTimeSeriesStore(
+            database_url=settings.database_url,
+            roadmap_markets_enabled=roadmap_enabled,
+        )
+    return InMemoryTimeSeriesStore(
+        roadmap_markets_enabled=roadmap_enabled,
+    )
 
 
 def _create_ingestion_sources(settings: Settings | None):

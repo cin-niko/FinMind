@@ -3,7 +3,10 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from api.platform.ingestion.sources import TimeSeriesRecord
-from api.platform.freshness import calculate_dataset_freshness
+from api.platform.freshness import (
+    active_freshness_dataset_ids,
+    calculate_dataset_freshness,
+)
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,7 @@ class InMemoryTimeSeriesStore:
     collection_memberships: set[tuple[str, str]] = field(
         default_factory=set
     )
+    roadmap_markets_enabled: bool = False
     _next_job_id: int = 1
 
     def upsert_many(self, records: list[TimeSeriesRecord]) -> int:
@@ -151,13 +155,9 @@ class InMemoryTimeSeriesStore:
 
     def freshness(self) -> list[dict[str, object]]:
         return calculate_dataset_freshness(
-            dataset_ids=[
-                "us_prices",
-                "us_prices_daily",
-                "vn_prices",
-                "xauusd_prices",
-                "sjc_gold_prices",
-            ],
+            dataset_ids=active_freshness_dataset_ids(
+                self.roadmap_markets_enabled
+            ),
             list_dataset=self.list_dataset,
             list_jobs=self.list_jobs,
         )
