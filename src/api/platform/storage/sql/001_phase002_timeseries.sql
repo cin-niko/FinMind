@@ -84,6 +84,31 @@ CREATE TABLE IF NOT EXISTS stock_daily_bars (
 
 SELECT create_hypertable('stock_daily_bars', 'trading_date', if_not_exists => TRUE);
 
+CREATE TABLE IF NOT EXISTS vn_prices_daily (
+    market TEXT NOT NULL,
+    instrument_id TEXT NOT NULL REFERENCES market_instruments(instrument_id),
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    trade_date DATE NOT NULL,
+    open NUMERIC NOT NULL CHECK (open >= 0),
+    high NUMERIC NOT NULL CHECK (high >= 0),
+    low NUMERIC NOT NULL CHECK (low >= 0),
+    close NUMERIC NOT NULL CHECK (close >= 0),
+    volume BIGINT NOT NULL CHECK (volume >= 0),
+    value NUMERIC,
+    currency TEXT NOT NULL,
+    adjusted_close NUMERIC,
+    corporate_action_flag BOOLEAN,
+    collected_at TIMESTAMPTZ NOT NULL,
+    source_id TEXT NOT NULL,
+    freshness_status TEXT NOT NULL,
+    PRIMARY KEY (market, instrument_id, trade_date),
+    CHECK (high >= open AND high >= low AND high >= close),
+    CHECK (low <= open AND low <= high AND low <= close)
+);
+
+SELECT create_hypertable('vn_prices_daily', 'trade_date', if_not_exists => TRUE);
+
 CREATE TABLE IF NOT EXISTS xauusd_1h_bars (
     instrument_id TEXT NOT NULL REFERENCES market_instruments(instrument_id),
     symbol TEXT NOT NULL,

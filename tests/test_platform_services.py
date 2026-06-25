@@ -1399,6 +1399,127 @@ def test_postgres_store_upserts_records_into_typed_timeseries_tables() -> None:
     assert connection.closed
 
 
+def test_postgres_store_upserts_vn_prices_daily_records() -> None:
+    connection = RecordingConnection()
+    store = PostgresTimeSeriesStore(connection_factory=lambda: connection)
+    record = TimeSeriesRecord(
+        dataset_id="vn_prices_daily",
+        record_key="vn_stock:VCB:2026-06-18",
+        instrument_id="vn_stock:VCB",
+        market_time=datetime(2026, 6, 18, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 18, 8, 30, tzinfo=UTC),
+        source_id="vnstock",
+        payload={
+            "market": "VN_STOCK",
+            "symbol": "VCB",
+            "exchange": "HOSE",
+            "trade_date": "2026-06-18",
+            "open": 57400,
+            "high": 58600,
+            "low": 57300,
+            "close": 58300,
+            "volume": 1530000,
+            "currency": "VND",
+        },
+    )
+
+    upserted = store.upsert_many([record, record])
+
+    statements = "\n".join(
+        statement
+        for statement, _params in connection.cursor_instance.statements
+    )
+    assert upserted == 2
+    assert "INSERT INTO vn_prices_daily" in statements
+    assert (
+        "ON CONFLICT (market, instrument_id, trade_date)" in statements
+    )
+
+
+def test_postgres_store_reads_vn_prices_daily_records() -> None:
+    class ReadingCursor(RecordingCursor):
+        def fetchall(self) -> list[dict[str, Any]]:
+            if not self.statements:
+                return []
+            last_sql, _ = self.statements[-1]
+            if "FROM vn_prices_daily" not in last_sql:
+                return []
+            return [
+                {
+                    "market": "VN_STOCK",
+                    "instrument_id": "vn_stock:VCB",
+                    "symbol": "VCB",
+                    "exchange": "HOSE",
+                    "trade_date": datetime(2026, 6, 18).date(),
+                    "open": 57400,
+                    "high": 58600,
+                    "low": 57300,
+                    "close": 58300,
+                    "volume": 1530000,
+                    "value": None,
+                    "currency": "VND",
+                    "adjusted_close": None,
+                    "corporate_action_flag": None,
+                    "collected_at": datetime(
+                        2026, 6, 18, 8, 30, tzinfo=UTC
+                    ),
+                    "source_id": "vnstock",
+                    "freshness_status": "fresh",
+                }
+            ]
+
+    class ReadingConnection(RecordingConnection):
+        def __init__(self) -> None:
+            super().__init__()
+            self.cursor_instance = ReadingCursor()
+
+    connection = ReadingConnection()
+    store = PostgresTimeSeriesStore(
+        connection_factory=lambda: connection
+    )
+
+    records = store.list_dataset("vn_prices_daily")
+
+    assert len(records) == 1
+    record = records[0]
+    assert record.dataset_id == "vn_prices_daily"
+    assert record.instrument_id == "vn_stock:VCB"
+    assert record.payload["trade_date"] == "2026-06-18"
+    assert record.payload["close"] == 58300
+
+
+def test_vn_prices_daily_sql_migration_defines_typed_table() -> None:
+    from pathlib import Path
+
+    migration = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "api"
+        / "platform"
+        / "storage"
+        / "sql"
+        / "001_phase002_timeseries.sql"
+    ).read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS vn_prices_daily" in migration
+    assert "trade_date DATE NOT NULL" in migration
+    assert (
+        "PRIMARY KEY (market, instrument_id, trade_date)" in migration
+    )
+    assert (
+        "CHECK (high >= open AND high >= low AND high >= close)"
+        in migration
+    )
+    assert (
+        "CHECK (low <= open AND low <= high AND low <= close)"
+        in migration
+    )
+    assert (
+        "create_hypertable('vn_prices_daily', 'trade_date'"
+        in migration
+    )
+
+
 def test_single_symbol_workflow_targets_requested_symbol(
     client: TestClient,
 ) -> None:

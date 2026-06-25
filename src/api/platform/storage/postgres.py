@@ -29,6 +29,11 @@ class PostgresTimeSeriesStore:
                         cursor.execute(_UPSERT_STOCK_BAR, _stock_params(record))
                     elif record.dataset_id == "us_prices_daily":
                         cursor.execute(_UPSERT_STOCK_DAILY_BAR, _stock_daily_params(record))
+                    elif record.dataset_id == "vn_prices_daily":
+                        cursor.execute(
+                            _UPSERT_VN_PRICES_DAILY,
+                            _vn_prices_daily_params(record),
+                        )
                     elif record.dataset_id == "xauusd_prices":
                         cursor.execute(_UPSERT_XAUUSD_BAR, _xauusd_params(record))
                     elif record.dataset_id == "xauusd_prices_daily":
@@ -60,6 +65,10 @@ class PostgresTimeSeriesStore:
                     cursor.execute(_SELECT_STOCK_DAILY_BARS, {"market": "US_STOCK"})
                     rows = cursor.fetchall()
                     return [_stock_daily_record(row) for row in rows]
+                if dataset_id == "vn_prices_daily":
+                    cursor.execute(_SELECT_VN_PRICES_DAILY, None)
+                    rows = cursor.fetchall()
+                    return [_vn_prices_daily_record(row) for row in rows]
                 if dataset_id == "xauusd_prices":
                     cursor.execute(_SELECT_XAUUSD_BARS, None)
                     rows = cursor.fetchall()
@@ -143,6 +152,7 @@ class PostgresTimeSeriesStore:
                 "us_prices",
                 "us_prices_daily",
                 "vn_prices",
+                "vn_prices_daily",
                 "xauusd_prices",
                 "sjc_gold_prices",
             ],
@@ -280,6 +290,32 @@ ON CONFLICT (market, instrument_id, trading_date) DO UPDATE SET
     freshness_status = EXCLUDED.freshness_status
 """
 
+_UPSERT_VN_PRICES_DAILY = """
+INSERT INTO vn_prices_daily (
+    market, instrument_id, symbol, exchange, trade_date, open, high, low,
+    close, volume, value, currency, adjusted_close, corporate_action_flag,
+    collected_at, source_id, freshness_status
+) VALUES (
+    %(market)s, %(instrument_id)s, %(symbol)s, %(exchange)s, %(trade_date)s,
+    %(open)s, %(high)s, %(low)s, %(close)s, %(volume)s, %(value)s,
+    %(currency)s, %(adjusted_close)s, %(corporate_action_flag)s,
+    %(collected_at)s, %(source_id)s, %(freshness_status)s
+)
+ON CONFLICT (market, instrument_id, trade_date) DO UPDATE SET
+    open = EXCLUDED.open,
+    high = EXCLUDED.high,
+    low = EXCLUDED.low,
+    close = EXCLUDED.close,
+    volume = EXCLUDED.volume,
+    value = EXCLUDED.value,
+    currency = EXCLUDED.currency,
+    adjusted_close = EXCLUDED.adjusted_close,
+    corporate_action_flag = EXCLUDED.corporate_action_flag,
+    collected_at = EXCLUDED.collected_at,
+    source_id = EXCLUDED.source_id,
+    freshness_status = EXCLUDED.freshness_status
+"""
+
 _UPSERT_XAUUSD_BAR = """
 INSERT INTO xauusd_1h_bars (
     instrument_id, symbol, interval_start, interval_end, open, high, low, close,
@@ -386,6 +422,13 @@ WHERE market = %(market)s
 ORDER BY trading_date ASC, instrument_id ASC
 """
 
+_SELECT_VN_PRICES_DAILY = """
+SELECT *
+FROM vn_prices_daily
+WHERE market = 'VN_STOCK'
+ORDER BY trade_date ASC, instrument_id ASC
+"""
+
 _SELECT_XAUUSD_BARS = """
 SELECT *
 FROM xauusd_1h_bars
@@ -449,6 +492,31 @@ def _stock_daily_params(record: TimeSeriesRecord) -> dict[str, object]:
         "collected_at": record.collected_at,
         "source_id": record.source_id,
         "freshness_status": str(payload.get("freshness_status", "fresh")),
+    }
+
+
+def _vn_prices_daily_params(record: TimeSeriesRecord) -> dict[str, object]:
+    payload = record.payload
+    return {
+        "market": str(payload.get("market", "VN_STOCK")),
+        "instrument_id": record.instrument_id,
+        "symbol": _required(payload, "symbol"),
+        "exchange": _required(payload, "exchange"),
+        "trade_date": _parse_date(_required(payload, "trade_date")),
+        "open": _required(payload, "open"),
+        "high": _required(payload, "high"),
+        "low": _required(payload, "low"),
+        "close": _required(payload, "close"),
+        "volume": _required(payload, "volume"),
+        "value": payload.get("value"),
+        "currency": _required(payload, "currency"),
+        "adjusted_close": payload.get("adjusted_close"),
+        "corporate_action_flag": payload.get("corporate_action_flag"),
+        "collected_at": record.collected_at,
+        "source_id": record.source_id,
+        "freshness_status": str(
+            payload.get("freshness_status", "fresh")
+        ),
     }
 
 
@@ -553,6 +621,36 @@ def _stock_daily_record(row: dict[str, Any]) -> TimeSeriesRecord:
             "symbol": row["symbol"],
             "exchange": row["exchange"],
             "trading_date": trading_date.isoformat(),
+            "open": row["open"],
+            "high": row["high"],
+            "low": row["low"],
+            "close": row["close"],
+            "volume": row["volume"],
+            "value": row["value"],
+            "currency": row["currency"],
+            "adjusted_close": row["adjusted_close"],
+            "corporate_action_flag": row["corporate_action_flag"],
+            "freshness_status": row["freshness_status"],
+        },
+    )
+
+
+def _vn_prices_daily_record(row: dict[str, Any]) -> TimeSeriesRecord:
+    trade_date = _as_date(row["trade_date"])
+    return TimeSeriesRecord(
+        dataset_id="vn_prices_daily",
+        record_key=f"{row['instrument_id']}:{trade_date.isoformat()}",
+        instrument_id=row["instrument_id"],
+        market_time=datetime.combine(
+            trade_date, datetime.min.time(), tzinfo=UTC
+        ),
+        collected_at=_as_datetime(row["collected_at"]),
+        source_id=row["source_id"],
+        payload={
+            "market": row["market"],
+            "symbol": row["symbol"],
+            "exchange": row["exchange"],
+            "trade_date": trade_date.isoformat(),
             "open": row["open"],
             "high": row["high"],
             "low": row["low"],
@@ -677,14 +775,22 @@ def _new_job(
     )
 
 
+_STOCK_DATASETS = {
+    "us_prices",
+    "us_prices_daily",
+    "vn_prices",
+    "vn_prices_daily",
+}
+
+
 def _market_for_record(record: TimeSeriesRecord) -> str:
-    if record.dataset_id in {"us_prices", "vn_prices"}:
+    if record.dataset_id in _STOCK_DATASETS:
         return str(record.payload.get("market", "VN_STOCK"))
     return "GOLD"
 
 
 def _asset_class_for_record(record: TimeSeriesRecord) -> str:
-    if record.dataset_id in {"us_prices", "vn_prices"}:
+    if record.dataset_id in _STOCK_DATASETS:
         return "stock"
     return "commodity"
 
