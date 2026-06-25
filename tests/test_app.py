@@ -131,6 +131,7 @@ def test_app_builds_with_dataset_provider_config(
         "us_prices",
         "us_prices_daily",
         "vn_prices",
+        "vn_prices_daily",
         "xauusd_prices",
         "xauusd_prices_daily",
         "sjc_gold_prices",
@@ -138,6 +139,8 @@ def test_app_builds_with_dataset_provider_config(
     assert sources["us_prices"].provider == "yfinance"
     assert sources["us_prices_daily"].provider == "stooq"
     assert sources["vn_prices"].provider == "vnstock"
+    assert sources["vn_prices_daily"].provider == "vnstock"
+    assert sources["vn_prices_daily"].source_id == "vn_prices_daily"
 
 
 def test_app_defaults_to_mock_dataset_providers(admin_env: None) -> None:

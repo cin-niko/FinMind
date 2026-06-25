@@ -12,6 +12,7 @@ from api.platform.ingestion.free_sources import (
     SJCOfficialGoldSource,
     StooqUSStockDailySource,
     YFinanceUSStockSource,
+    VnstockVNStockDailySource,
     VnstockVNStockSource,
     YFinanceXauusdSource,
 )
@@ -64,6 +65,10 @@ def _create_ingestion_sources(settings: Settings | None):
         sources["vn_prices"] = DemoMarketDataSource("vn_prices")
     else:
         sources["vn_prices"] = VnstockVNStockSource(
+            api_key=settings.vnstock_api_key,
+            timeout_seconds=settings.provider_timeout_seconds,
+        )
+        sources["vn_prices_daily"] = VnstockVNStockDailySource(
             api_key=settings.vnstock_api_key,
             timeout_seconds=settings.provider_timeout_seconds,
         )

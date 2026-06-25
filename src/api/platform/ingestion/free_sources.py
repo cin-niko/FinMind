@@ -1,7 +1,7 @@
 from collections.abc import Callable, Mapping
 import csv
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from html.parser import HTMLParser
 from io import StringIO
 import os
@@ -74,6 +74,66 @@ class VnstockVNStockSource(FreeMarketDataSource):
                     record_key=f"{row['instrument_id']}:{interval_start.isoformat()}",
                     instrument_id=str(row["instrument_id"]),
                     market_time=interval_start,
+                    collected_at=_collected_at(row),
+                    source_id=self.provider,
+                    payload=normalized,
+                )
+            )
+        return records
+
+
+class VnstockVNStockDailySource(FreeMarketDataSource):
+    def __init__(
+        self,
+        fetch_json: FetchJson | None = None,
+        api_key: str | None = None,
+        symbols: tuple[str, ...] = ("VCB", "VPB"),
+        timeout_seconds: float = 15.0,
+    ) -> None:
+        super().__init__(
+            source_id="vn_prices_daily",
+            provider="vnstock",
+            fetch_json=fetch_json
+            or _vnstock_daily_fetcher(symbols, api_key, timeout_seconds),
+        )
+
+    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+        payload = self.fetch_json(period)
+        rows = _records_from_payload(self.source_id, payload)
+        capabilities = _capabilities_from_payload(payload)
+        records: list[TimeSeriesRecord] = []
+        for row in rows:
+            _require_fields(
+                self.source_id,
+                row,
+                (
+                    "instrument_id",
+                    "symbol",
+                    "exchange",
+                    "trade_date",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "currency",
+                ),
+            )
+            trade_date = str(row["trade_date"])
+            market_time = _parse_datetime(
+                f"{trade_date}T00:00:00+00:00"
+            )
+            normalized = dict(row)
+            normalized["market"] = str(
+                normalized.get("market", "VN_STOCK")
+            )
+            normalized["capabilities"] = capabilities
+            records.append(
+                TimeSeriesRecord(
+                    dataset_id=self.source_id,
+                    record_key=f"{row['instrument_id']}:{trade_date}",
+                    instrument_id=str(row["instrument_id"]),
+                    market_time=market_time,
                     collected_at=_collected_at(row),
                     source_id=self.provider,
                     payload=normalized,
@@ -374,6 +434,10 @@ def create_real_sources(
             api_key=vnstock_api_key,
             timeout_seconds=timeout_seconds,
         ),
+        VnstockVNStockDailySource(
+            api_key=vnstock_api_key,
+            timeout_seconds=timeout_seconds,
+        ),
         YFinanceXauusdSource(timeout_seconds=timeout_seconds),
         AlphaVantageXauusdDailySource(
             api_key=alpha_vantage_api_key,
@@ -652,6 +716,129 @@ def _vnstock_fetcher(
         }
 
     return fetch_json
+
+
+def _vnstock_daily_fetcher(
+    symbols: tuple[str, ...],
+    api_key: str | None,
+    _timeout_seconds: float,
+) -> FetchJson:
+    def fetch_json(period: str) -> object:
+        if api_key:
+            os.environ["VNSTOCK_API_KEY"] = api_key
+        start = _period_start(period)
+        end_candidate = (
+            _period_end(period)
+            if ":" in period
+            else start
+        )
+        end = end_candidate if end_candidate >= start else start
+        records: list[dict[str, object]] = []
+        for symbol in symbols:
+            raw_history = _fetch_vnstock_symbol_daily_history(
+                symbol=symbol,
+                start=start.date().isoformat(),
+                end=end.date().isoformat(),
+            )
+            records.extend(
+                _normalize_vnstock_daily_history(symbol, raw_history)
+            )
+        return {
+            "capabilities": {
+                "interval": "1d",
+                "provider": "vnstock",
+                "coverage": "rolling",
+                "from": start.date().isoformat(),
+                "to": end.date().isoformat(),
+                "covered_from": start.date().isoformat(),
+                "covered_to": end.date().isoformat(),
+            },
+            "records": records,
+        }
+
+    return fetch_json
+
+
+def _fetch_vnstock_symbol_daily_history(
+    symbol: str,
+    start: str,
+    end: str,
+) -> object:
+    try:
+        quote_class = _vnstock_quote_class()
+    except ImportError as exc:
+        raise ProviderFetchError(
+            "vnstock adapter for vn_prices_daily requires the vnstock"
+            " package"
+        ) from exc
+
+    try:
+        quote = quote_class(
+            source="VCI",
+            symbol=symbol,
+            random_agent=False,
+            show_log=False,
+        )
+        return quote.history(start=start, end=end, interval="1D")
+    except SystemExit as exc:  # pragma: no cover - provider boundary
+        raise ProviderFetchError(
+            _safe_provider_exit("vnstock", "vn_prices_daily", exc)
+        ) from exc
+    except Exception as exc:  # pragma: no cover - provider boundary
+        raise ProviderFetchError(
+            "vnstock fetch failed for vn_prices_daily: "
+            f"{exc.__class__.__name__}"
+        ) from exc
+
+
+def _normalize_vnstock_daily_history(
+    symbol: str,
+    raw_history: object,
+) -> list[dict[str, object]]:
+    rows = _rows_from_tabular(raw_history)
+    records: list[dict[str, object]] = []
+    for row in rows:
+        trade_date = _vnstock_row_date(row)
+        if trade_date is None:
+            continue
+        records.append(
+            {
+                "instrument_id": f"vn_stock:{symbol}",
+                "symbol": symbol,
+                "exchange": str(row.get("exchange", "HOSE")),
+                "trade_date": trade_date.isoformat(),
+                "open": row.get("open"),
+                "high": row.get("high"),
+                "low": row.get("low"),
+                "close": row.get("close"),
+                "volume": row.get("volume"),
+                "value": row.get("value"),
+                "currency": str(row.get("currency", "VND")),
+            }
+        )
+    return records
+
+
+def _vnstock_row_date(row: Mapping[str, Any]) -> date | None:
+    for key in (
+        "trade_date",
+        "trading_date",
+        "date",
+        "time",
+        "datetime",
+        "tradingDate",
+    ):
+        value = row.get(key)
+        if value is None:
+            continue
+        text = str(value)
+        try:
+            if "T" in text or " " in text:
+                return _parse_datetime(text).date()
+            return date.fromisoformat(text[:10])
+        except ValueError:
+            continue
+    return None
 
 
 def _fetch_vnstock_symbol_history(symbol: str, start: str, end: str) -> object:

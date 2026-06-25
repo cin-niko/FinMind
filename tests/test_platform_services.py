@@ -21,6 +21,7 @@ from api.platform.ingestion.free_sources import (
     SJCOfficialGoldSource,
     StooqUSStockDailySource,
     YFinanceUSStockSource,
+    VnstockVNStockDailySource,
     VnstockVNStockSource,
     YFinanceXauusdSource,
     create_real_sources,
@@ -647,6 +648,7 @@ def test_create_real_sources_returns_supported_dataset_adapters() -> None:
         "us_prices",
         "us_prices_daily",
         "vn_prices",
+        "vn_prices_daily",
         "xauusd_prices",
         "xauusd_prices_daily",
         "sjc_gold_prices",
@@ -1705,3 +1707,210 @@ def test_vn100_seed_module_exposes_main_entrypoint() -> None:
     assert callable(seed_module.main)
     assert hasattr(seed_module, "load_vn100_seed")
     assert hasattr(seed_module, "SeedResult")
+
+
+def test_vnstock_daily_adapter_normalizes_vn_prices_daily() -> None:
+    def fetch_json(period: str) -> dict[str, object]:
+        assert period == "2026-06-18"
+        return {
+            "capabilities": {
+                "interval": "1d",
+                "provider": "vnstock",
+                "coverage": "rolling",
+                "from": "2026-06-18",
+                "to": "2026-06-18",
+            },
+            "records": [
+                {
+                    "symbol": "VCB",
+                    "instrument_id": "vn_stock:VCB",
+                    "exchange": "HOSE",
+                    "trade_date": "2026-06-18",
+                    "open": 57400,
+                    "high": 58600,
+                    "low": 57300,
+                    "close": 58300,
+                    "volume": 1530000,
+                    "value": 89215000000,
+                    "currency": "VND",
+                }
+            ],
+        }
+
+    source = VnstockVNStockDailySource(fetch_json=fetch_json)
+
+    records = source.fetch("2026-06-18")
+
+    assert len(records) == 1
+    record = records[0]
+    assert record.dataset_id == "vn_prices_daily"
+    assert record.source_id == "vnstock"
+    assert record.instrument_id == "vn_stock:VCB"
+    assert record.record_key == "vn_stock:VCB:2026-06-18"
+    assert record.market_time == datetime(2026, 6, 18, tzinfo=UTC)
+    assert record.payload["trade_date"] == "2026-06-18"
+    assert record.payload["close"] == 58300
+    assert record.payload["market"] == "VN_STOCK"
+    assert "interval_start" not in record.payload
+    assert record.payload["capabilities"]["interval"] == "1d"
+
+
+def test_vnstock_daily_fetcher_uses_quote_api_with_1d_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    class FakeQuote:
+        def __init__(
+            self,
+            source: str,
+            symbol: str,
+            random_agent: bool,
+            show_log: bool,
+        ) -> None:
+            calls.append(
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "random_agent": random_agent,
+                    "show_log": show_log,
+                }
+            )
+
+        def history(
+            self, start: str, end: str, interval: str
+        ) -> list[dict[str, object]]:
+            calls.append(
+                {"start": start, "end": end, "interval": interval}
+            )
+            return [
+                {
+                    "time": "2026-06-17",
+                    "open": 56900,
+                    "high": 57500,
+                    "low": 56700,
+                    "close": 57400,
+                    "volume": 1410000,
+                },
+                {
+                    "time": "2026-06-18",
+                    "open": 57400,
+                    "high": 58600,
+                    "low": 57300,
+                    "close": 58300,
+                    "volume": 1530000,
+                },
+            ]
+
+    monkeypatch.setattr(
+        free_sources, "_vnstock_quote_class", lambda: FakeQuote
+    )
+
+    source = VnstockVNStockDailySource(
+        api_key="vnstock-key", symbols=("VCB",)
+    )
+
+    records = source.fetch("2026-06-17:2026-06-18")
+
+    assert len(records) == 2
+    assert {r.record_key for r in records} == {
+        "vn_stock:VCB:2026-06-17",
+        "vn_stock:VCB:2026-06-18",
+    }
+    assert calls == [
+        {
+            "source": "VCI",
+            "symbol": "VCB",
+            "random_agent": False,
+            "show_log": False,
+        },
+        {
+            "start": "2026-06-17",
+            "end": "2026-06-18",
+            "interval": "1D",
+        },
+    ]
+
+
+def test_vnstock_daily_records_persist_via_vn_prices_daily_upsert() -> (
+    None
+):
+    def fetch_json(_period: str) -> dict[str, object]:
+        return {
+            "capabilities": {"interval": "1d", "provider": "vnstock"},
+            "records": [
+                {
+                    "symbol": "VPB",
+                    "instrument_id": "vn_stock:VPB",
+                    "exchange": "HOSE",
+                    "trade_date": "2026-06-18",
+                    "open": 21400,
+                    "high": 21800,
+                    "low": 21200,
+                    "close": 21700,
+                    "volume": 5_120_000,
+                    "currency": "VND",
+                }
+            ],
+        }
+
+    source = VnstockVNStockDailySource(fetch_json=fetch_json)
+    records = source.fetch("2026-06-18")
+
+    connection = RecordingConnection()
+    store = PostgresTimeSeriesStore(
+        connection_factory=lambda: connection
+    )
+    upserted = store.upsert_many(records)
+
+    statements = "\n".join(
+        statement
+        for statement, _params in connection.cursor_instance.statements
+    )
+    assert upserted == 1
+    assert "INSERT INTO vn_prices_daily" in statements
+    assert (
+        "ON CONFLICT (market, instrument_id, trade_date)" in statements
+    )
+    assert "INSERT INTO stock_1h_bars" not in statements
+
+
+def test_vnstock_hourly_path_remains_unchanged_for_vn_prices() -> None:
+    def hourly_fetch_json(_period: str) -> dict[str, object]:
+        return {
+            "capabilities": {"interval": "1h", "provider": "vnstock"},
+            "records": [
+                {
+                    "symbol": "VCB",
+                    "instrument_id": "vn_stock:VCB",
+                    "exchange": "HOSE",
+                    "interval_start": "2026-06-18T02:00:00+00:00",
+                    "interval_end": "2026-06-18T03:00:00+00:00",
+                    "open": 57400,
+                    "high": 58600,
+                    "low": 57300,
+                    "close": 58300,
+                    "volume": 390000,
+                    "currency": "VND",
+                }
+            ],
+        }
+
+    hourly = VnstockVNStockSource(fetch_json=hourly_fetch_json)
+    records = hourly.fetch("2026-06-18")
+
+    assert len(records) == 1
+    assert records[0].dataset_id == "vn_prices"
+    assert "interval_start" in records[0].payload
+    assert "trade_date" not in records[0].payload
+
+
+def test_create_real_sources_registers_vn_prices_daily() -> None:
+    sources = create_real_sources()
+
+    assert "vn_prices_daily" in sources
+    daily = sources["vn_prices_daily"]
+    assert isinstance(daily, VnstockVNStockDailySource)
+    assert daily.source_id == "vn_prices_daily"
+    assert daily.provider == "vnstock"
+    assert sources["vn_prices"].source_id == "vn_prices"
