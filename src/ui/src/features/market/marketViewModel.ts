@@ -1,5 +1,55 @@
 import type { MarketInstrumentRow, MarketOverview } from "../../api/client";
 
+/** Markets considered "roadmap" in V1; hidden unless the backend opts in. */
+export const ROADMAP_MARKETS: readonly string[] = [
+  "US_STOCK",
+  "GOLD",
+  "XAUUSD",
+  "SJC"
+];
+
+/** Read the roadmap flag from a market overview payload (defaults to false). */
+export function readRoadmapMarketsEnabled(
+  overview: Pick<MarketOverview, "meta"> | null | undefined
+): boolean {
+  return Boolean(overview?.meta?.roadmap_markets_enabled);
+}
+
+/** Predicate: is this row part of the V1 VN scope? */
+export function isV1ScopeRow(row: MarketInstrumentRow): boolean {
+  return row.market === "VN_STOCK";
+}
+
+/** Filter instrument rows to V1 scope unless the roadmap flag is on. */
+export function filterRoadmapInstruments(
+  rows: MarketInstrumentRow[],
+  roadmapEnabled: boolean
+): MarketInstrumentRow[] {
+  if (roadmapEnabled) {
+    return rows;
+  }
+  return rows.filter(isV1ScopeRow);
+}
+
+/** Heuristic VN index symbol prefixes used to gate the mini-chart strip. */
+const VN_INDEX_PREFIXES = ["VN", "HNX", "UPCOM"];
+
+function isVNIndexSymbol(symbol: string): boolean {
+  const upper = symbol.toUpperCase();
+  return VN_INDEX_PREFIXES.some((prefix) => upper.startsWith(prefix));
+}
+
+/** Filter index mini-charts to VN-only unless the roadmap flag is on. */
+export function filterRoadmapIndexCharts<
+  T extends { symbol: string }
+>(charts: T[], roadmapEnabled: boolean): T[] {
+  if (roadmapEnabled) {
+    return charts;
+  }
+  return charts.filter((chart) => isVNIndexSymbol(chart.symbol));
+}
+
+
 export type MarketSortKey = "symbol" | "sector" | "last" | "change_percent" | "volume";
 export type SortDirection = "asc" | "desc";
 export type SortState = {

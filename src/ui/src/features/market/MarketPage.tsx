@@ -3,20 +3,24 @@ import {
   getMarketOverview,
   type MarketOverview
 } from "../../api/client";
+import { InstrumentChartPanel } from "../charts/InstrumentChartPanel";
 import {
   buildHeatmapFilters,
+  filterRoadmapIndexCharts,
+  filterRoadmapInstruments,
   getGainersLosers,
   getHeatmapRowsForFilter,
   getIndexCardMetrics,
   getVisibleInstrumentRows,
   getWatchlistRows,
+  readRoadmapMarketsEnabled,
   toggleSort,
   type HeatmapFilter,
   type MarketSortKey,
   type SortState
 } from "./marketViewModel";
 
-type MarketChoice = "VN" | "US" | "Commodity";
+const MARKET_SCOPE: "VN" = "VN";
 type MoverTab = "gainers" | "losers";
 type CollectionHeatmapOverview = {
   filterId: string;
@@ -24,7 +28,6 @@ type CollectionHeatmapOverview = {
 };
 
 export function MarketPage() {
-  const [market, setMarket] = useState<MarketChoice>("VN");
   const [heatmapFilterId, setHeatmapFilterId] = useState("all");
   const [sortState, setSortState] = useState<SortState>({ key: "change_percent", direction: "desc" });
   const [overview, setOverview] = useState<MarketOverview | null>(null);
@@ -36,7 +39,7 @@ export function MarketPage() {
   useEffect(() => {
     let cancelled = false;
     setOverviewError(null);
-    getMarketOverview(market, "all")
+    getMarketOverview(MARKET_SCOPE, "all")
       .then((nextOverview) => {
         if (cancelled) {
           return;
@@ -60,16 +63,54 @@ export function MarketPage() {
     return () => {
       cancelled = true;
     };
-  }, [market]);
+  }, []);
 
-  const sortedRows = useMemo(() => {
-    const rows = overview?.instrument_rows ?? [];
-    return getVisibleInstrumentRows(rows, sortState);
-  }, [overview, sortState]);
+  const roadmapMarketsEnabled = useMemo(
+    () => readRoadmapMarketsEnabled(overview),
+    [overview]
+  );
+
+  const visibleInstrumentRows = useMemo(
+    () =>
+      filterRoadmapInstruments(
+        overview?.instrument_rows ?? [],
+        roadmapMarketsEnabled
+      ),
+    [overview, roadmapMarketsEnabled]
+  );
+
+  const visibleIndexCharts = useMemo(
+    () =>
+      filterRoadmapIndexCharts(
+        overview?.index_charts ?? [],
+        roadmapMarketsEnabled
+      ),
+    [overview, roadmapMarketsEnabled]
+  );
+
+  const visibleHeatmapRows = useMemo(
+    () =>
+      filterRoadmapInstruments(
+        overview?.heatmap ?? [],
+        roadmapMarketsEnabled
+      ),
+    [overview, roadmapMarketsEnabled]
+  );
+
+  const sortedRows = useMemo(
+    () => getVisibleInstrumentRows(visibleInstrumentRows, sortState),
+    [visibleInstrumentRows, sortState]
+  );
 
   const heatmapFilters = useMemo(() => {
-    return overview ? buildHeatmapFilters(overview) : [];
-  }, [overview]);
+    if (!overview) {
+      return [];
+    }
+    return buildHeatmapFilters({
+      collections: overview.collections,
+      heatmap: visibleHeatmapRows
+    });
+  }, [overview, visibleHeatmapRows]);
 
   const activeHeatmapFilter = useMemo(() => {
     return heatmapFilters.find((filter) => filter.id === heatmapFilterId);
@@ -83,7 +124,7 @@ export function MarketPage() {
 
     let cancelled = false;
     setCollectionHeatmapOverview(null);
-    getMarketOverview(market, activeHeatmapFilter.id)
+    getMarketOverview(MARKET_SCOPE, activeHeatmapFilter.id)
       .then((nextOverview) => {
         if (!cancelled) {
           setCollectionHeatmapOverview({
@@ -101,20 +142,39 @@ export function MarketPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeHeatmapFilter, market]);
+  }, [activeHeatmapFilter]);
 
   const filteredHeatmapRows = useMemo(() => {
     if (!overview) {
       return [];
     }
-    const scopedHeatmapOverview =
+    const scopedHeatmap =
       collectionHeatmapOverview?.filterId === heatmapFilterId
-        ? collectionHeatmapOverview.overview
+        ? filterRoadmapInstruments(
+            collectionHeatmapOverview.overview.heatmap,
+            roadmapMarketsEnabled
+          )
         : undefined;
-    return getHeatmapRowsForFilter(overview, heatmapFilterId, scopedHeatmapOverview);
-  }, [collectionHeatmapOverview, heatmapFilterId, overview]);
-  const watchlistRows = useMemo(() => getWatchlistRows(overview?.instrument_rows ?? []), [overview]);
-  const movers = useMemo(() => getGainersLosers(overview?.instrument_rows ?? []), [overview]);
+    return getHeatmapRowsForFilter(
+      { heatmap: visibleHeatmapRows },
+      heatmapFilterId,
+      scopedHeatmap ? { heatmap: scopedHeatmap } : undefined
+    );
+  }, [
+    collectionHeatmapOverview,
+    heatmapFilterId,
+    overview,
+    roadmapMarketsEnabled,
+    visibleHeatmapRows
+  ]);
+  const watchlistRows = useMemo(
+    () => getWatchlistRows(visibleInstrumentRows),
+    [visibleInstrumentRows]
+  );
+  const movers = useMemo(
+    () => getGainersLosers(visibleInstrumentRows),
+    [visibleInstrumentRows]
+  );
   const activeMoverRows = moverTab === "gainers" ? movers.gainers : movers.losers;
 
   if (overviewError) {
@@ -127,35 +187,15 @@ export function MarketPage() {
 
   return (
     <section className="marketPage marketWorkbench">
-      <div className="marketToolbar">
-        <label className="marketChoiceControl">
-          Market
-          <span className={market === "VN" || market === "US" ? "marketChoiceSelect hasFlag" : "marketChoiceSelect"}>
-            {market === "VN" ? <span className="marketFlag vnFlag" aria-hidden="true" /> : null}
-            {market === "US" ? <span className="marketFlag usFlag" aria-hidden="true" /> : null}
-            <select
-              value={market}
-              onChange={(event) => {
-                const nextMarket = event.target.value as MarketChoice;
-                setMarket(nextMarket);
-                setHeatmapFilterId("all");
-              }}
-            >
-              <option value="VN">VN Markets</option>
-              <option value="US">US Markets</option>
-              <option value="Commodity">Commodity</option>
-            </select>
-          </span>
-        </label>
-      </div>
-
       <div className="marketLayout">
         <main className="marketMainColumn">
           <section className="indexStrip" aria-label="Top indexes">
-            {overview.index_charts.map((indexChart) => (
+            {visibleIndexCharts.map((indexChart) => (
               <IndexMiniCard indexChart={indexChart} key={indexChart.symbol} />
             ))}
           </section>
+
+          <InstrumentChartPanel instrumentId={selectedInstrumentId} />
 
           <div className="marketDashboardGrid">
             <section className="panel instrumentListPanel" aria-label="Instrument list">

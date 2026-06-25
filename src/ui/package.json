@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx scripts/run-tests.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",

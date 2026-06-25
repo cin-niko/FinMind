@@ -3,11 +3,15 @@ import type { MarketInstrumentRow, MarketOverview } from "../../api/client";
 import {
   buildHeatmapFilters,
   filterHeatmapRows,
+  filterRoadmapIndexCharts,
+  filterRoadmapInstruments,
   getHeatmapRowsForFilter,
   getGainersLosers,
   getIndexCardMetrics,
   getVisibleInstrumentRows,
   getWatchlistRows,
+  isV1ScopeRow,
+  readRoadmapMarketsEnabled,
   toggleSort
 } from "./marketViewModel";
 
@@ -118,6 +122,46 @@ assert.deepEqual(
 assert.deepEqual(
   movers.losers.map((item) => item.symbol),
   ["DDD", "JJJ", "AAA"]
+);
+
+const mixedRows: MarketInstrumentRow[] = [
+  ...rows,
+  { ...row("AAPL", "Technology", 200, 0.5, 1000), id: "us_stock:AAPL", market: "US_STOCK" },
+  { ...row("XAU", "Gold", 2400, 0.1, 50), id: "commodity:XAUUSD", market: "XAUUSD" },
+  { ...row("SJC", "Gold", 75, 0.0, 10), id: "commodity:SJC", market: "SJC" }
+];
+
+const vnOnlyRows = filterRoadmapInstruments(mixedRows, false);
+assert.equal(vnOnlyRows.length, rows.length);
+assert.ok(vnOnlyRows.every(isV1ScopeRow));
+
+const allRows = filterRoadmapInstruments(mixedRows, true);
+assert.equal(allRows.length, mixedRows.length);
+
+assert.equal(readRoadmapMarketsEnabled(null), false);
+assert.equal(readRoadmapMarketsEnabled(undefined), false);
+assert.equal(readRoadmapMarketsEnabled({ meta: undefined }), false);
+assert.equal(readRoadmapMarketsEnabled({ meta: {} }), false);
+assert.equal(
+  readRoadmapMarketsEnabled({ meta: { roadmap_markets_enabled: true } }),
+  true
+);
+
+const mixedIndexCharts = [
+  { symbol: "VNINDEX" },
+  { symbol: "VN30" },
+  { symbol: "DJIA" },
+  { symbol: "XAUUSD" },
+  { symbol: "HNXINDEX" }
+];
+const vnIndexCharts = filterRoadmapIndexCharts(mixedIndexCharts, false);
+assert.deepEqual(
+  vnIndexCharts.map((c) => c.symbol),
+  ["VNINDEX", "VN30", "HNXINDEX"]
+);
+assert.equal(
+  filterRoadmapIndexCharts(mixedIndexCharts, true).length,
+  mixedIndexCharts.length
 );
 
 const indexMetrics = getIndexCardMetrics({

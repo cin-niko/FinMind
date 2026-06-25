@@ -70,6 +70,11 @@ export type MarketOverview = {
   }>;
   heatmap: MarketInstrumentRow[];
   instrument_rows: MarketInstrumentRow[];
+  meta?: MarketOverviewMeta;
+};
+
+export type MarketOverviewMeta = {
+  roadmap_markets_enabled?: boolean;
 };
 
 export type MarketCollection = {
@@ -96,6 +101,32 @@ export type MarketInstrumentRow = {
   freshness: string;
   source_id?: string;
   as_of?: string;
+};
+
+export type LazyFetchStatus =
+  | "success"
+  | "already_present"
+  | "blocked"
+  | "failed"
+  | "out_of_scope";
+
+export type SerializedJob = {
+  job_id: string;
+  source_id: string;
+  dataset_id: string;
+  status: string;
+  trigger?: string;
+  started_at?: string;
+  completed_at?: string | null;
+  record_count?: number;
+};
+
+export type LazyFetch = {
+  status: LazyFetchStatus;
+  dataset_id: "vn_prices_daily";
+  instrument_id: string;
+  reason: string | null;
+  jobs: SerializedJob[];
 };
 
 export type InstrumentChart = {
@@ -129,6 +160,7 @@ export type InstrumentChart = {
     close: number;
     volume?: number;
   }>;
+  lazy_fetch?: LazyFetch;
 };
 
 export type IngestionJob = {

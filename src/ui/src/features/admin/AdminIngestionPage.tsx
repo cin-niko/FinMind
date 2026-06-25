@@ -1,14 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import type { IngestionFetchRequest, IngestionStatus } from "../../api/client";
-
-const sources = [
-  { id: "us_prices", label: "US Stocks 1h" },
-  { id: "us_prices_daily", label: "US Stocks Daily" },
-  { id: "vn_prices", label: "VN Stocks 1h" },
-  { id: "xauusd_prices", label: "XAUUSD 1h" },
-  { id: "xauusd_prices_daily", label: "XAUUSD Daily Fallback" },
-  { id: "sjc_gold_prices", label: "SJC Gold Daily" }
-];
+import {
+  filterIngestionStatus,
+  getVisibleIngestionSources
+} from "./adminIngestionViewModel";
 
 const modes = [
   { id: "latest", label: "Latest daily" },
@@ -17,12 +12,29 @@ const modes = [
 
 type Props = {
   status: IngestionStatus | null;
+  roadmapMarketsEnabled?: boolean;
   onRefresh: () => Promise<unknown>;
   onRunFetch: (payload: IngestionFetchRequest) => Promise<void>;
 };
 
-export function AdminIngestionPage({ status, onRefresh, onRunFetch }: Props) {
-  const [sourceId, setSourceId] = useState("vn_prices");
+export function AdminIngestionPage({
+  status,
+  roadmapMarketsEnabled = false,
+  onRefresh,
+  onRunFetch
+}: Props) {
+  const sources = useMemo(
+    () => getVisibleIngestionSources(roadmapMarketsEnabled),
+    [roadmapMarketsEnabled]
+  );
+  const visibleStatus = useMemo(
+    () => filterIngestionStatus(status, roadmapMarketsEnabled),
+    [roadmapMarketsEnabled, status]
+  );
+  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "vn_prices_daily");
+  const effectiveSourceId = sources.some((source) => source.id === sourceId)
+    ? sourceId
+    : sources[0]?.id ?? sourceId;
   const [mode, setMode] = useState<IngestionFetchRequest["mode"]>("latest");
   const [period, setPeriod] = useState("2026-06-18");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,7 +45,7 @@ export function AdminIngestionPage({ status, onRefresh, onRunFetch }: Props) {
     setError(null);
     setIsSubmitting(true);
     try {
-      await onRunFetch(buildFetchRequest(sourceId, mode, period));
+      await onRunFetch(buildFetchRequest(effectiveSourceId, mode, period));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Manual fetch failed");
     } finally {
@@ -45,14 +57,14 @@ export function AdminIngestionPage({ status, onRefresh, onRunFetch }: Props) {
     <section className="adminPage" aria-label="Admin ingestion">
       {error ? <div className="stateBox" role="alert">{error}</div> : null}
       <div className="freshnessCards">
-        {(status?.freshness ?? []).map((item) => (
+        {(visibleStatus?.freshness ?? []).map((item) => (
           <article className="metricCard" key={item.dataset}>
             <span>{item.dataset}</span>
             <strong className={item.status === "fresh" ? "up" : "warn"}>{item.status}</strong>
             <small>{item.record_count} records · {item.as_of ?? "no data"}</small>
           </article>
         ))}
-        {!status ? <div className="stateBox">Loading ingestion status...</div> : null}
+        {!visibleStatus ? <div className="stateBox">Loading ingestion status...</div> : null}
       </div>
 
       <div className="adminGrid">
@@ -66,7 +78,10 @@ export function AdminIngestionPage({ status, onRefresh, onRunFetch }: Props) {
           <form className="fetchForm" onSubmit={handleSubmit}>
             <label>
               Source
-              <select value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
+              <select
+                value={effectiveSourceId}
+                onChange={(event) => setSourceId(event.target.value)}
+              >
                 {sources.map((source) => (
                   <option key={source.id} value={source.id}>{source.label}</option>
                 ))}
@@ -108,7 +123,7 @@ export function AdminIngestionPage({ status, onRefresh, onRunFetch }: Props) {
             </div>
           </div>
           <div className="diagnosticsBox">
-            {status?.jobs[0] ? JSON.stringify(status.jobs[0].diagnostics, null, 2) : "No jobs yet"}
+            {visibleStatus?.jobs[0] ? JSON.stringify(visibleStatus.jobs[0].diagnostics, null, 2) : "No jobs yet"}
           </div>
         </section>
       </div>
@@ -133,7 +148,7 @@ export function AdminIngestionPage({ status, onRefresh, onRunFetch }: Props) {
               </tr>
             </thead>
             <tbody>
-              {(status?.jobs ?? []).map((job) => (
+              {(visibleStatus?.jobs ?? []).map((job) => (
                 <tr key={job.job_id}>
                   <td>{job.job_id}</td>
                   <td>{job.source_id}</td>
