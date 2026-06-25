@@ -29,6 +29,14 @@ class TimeSeriesStore(Protocol):
 
     def has_active_job(self, source_id: str, period: str) -> bool: ...
 
+    def has_dataset_rows(
+        self, dataset_id: str, instrument_id: str
+    ) -> bool: ...
+
+    def is_in_collection(
+        self, collection_id: str, instrument_id: str
+    ) -> bool: ...
+
     def create_running_job(
         self,
         source_id: str,
@@ -53,6 +61,9 @@ class TimeSeriesStore(Protocol):
 class InMemoryTimeSeriesStore:
     records: dict[tuple[str, str], TimeSeriesRecord] = field(default_factory=dict)
     jobs: list[IngestionJobRecord] = field(default_factory=list)
+    collection_memberships: set[tuple[str, str]] = field(
+        default_factory=set
+    )
     _next_job_id: int = 1
 
     def upsert_many(self, records: list[TimeSeriesRecord]) -> int:
@@ -80,6 +91,20 @@ class InMemoryTimeSeriesStore:
             and job.status in {"queued", "running"}
             for job in self.jobs
         )
+
+    def has_dataset_rows(
+        self, dataset_id: str, instrument_id: str
+    ) -> bool:
+        return any(
+            record_dataset == dataset_id
+            and record.instrument_id == instrument_id
+            for (record_dataset, _record_key), record in self.records.items()
+        )
+
+    def is_in_collection(
+        self, collection_id: str, instrument_id: str
+    ) -> bool:
+        return (collection_id, instrument_id) in self.collection_memberships
 
     def create_running_job(
         self,

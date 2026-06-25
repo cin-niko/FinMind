@@ -36,15 +36,40 @@ def get_instrument_chart(
     _session: Annotated[Session, Depends(require_session)],
     timeframe: str = Query(default="1h"),
 ) -> dict[str, object]:
+    platform = request.app.state.platform
+    lazy_payload: dict[str, object] | None = None
+    if _should_lazy_fetch(instrument_id, timeframe):
+        lazy_result = platform.ingestion_service.ensure_dataset_rows(
+            dataset_id="vn_prices_daily",
+            instrument_id=instrument_id,
+        )
+        lazy_payload = lazy_result.to_dict()
+        if lazy_result.status == "out_of_scope":
+            return {
+                "instrument": {"id": instrument_id},
+                "timeframe": timeframe,
+                "records": [],
+                "table": [],
+                "lazy_fetch": lazy_payload,
+            }
     try:
-        return request.app.state.platform.market_service.instrument_chart(
+        chart = platform.market_service.instrument_chart(
             instrument_id=instrument_id,
             timeframe=timeframe,
         )
     except KeyError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(error)
+        ) from error
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
+    if lazy_payload is not None:
+        chart["lazy_fetch"] = lazy_payload
+    return chart
+
+
+def _should_lazy_fetch(instrument_id: str, timeframe: str) -> bool:
+    return instrument_id.startswith("vn_stock:") and timeframe == "1d"

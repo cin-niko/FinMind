@@ -95,6 +95,37 @@ class PostgresTimeSeriesStore:
         finally:
             connection.close()
 
+    def has_dataset_rows(
+        self, dataset_id: str, instrument_id: str
+    ) -> bool:
+        sql = _DATASET_ROW_EXISTS_SQL.get(dataset_id)
+        if sql is None:
+            return False
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql, {"instrument_id": instrument_id})
+                return bool(cursor.fetchall())
+        finally:
+            connection.close()
+
+    def is_in_collection(
+        self, collection_id: str, instrument_id: str
+    ) -> bool:
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    _SELECT_COLLECTION_MEMBERSHIP,
+                    {
+                        "collection_id": collection_id,
+                        "instrument_id": instrument_id,
+                    },
+                )
+                return bool(cursor.fetchall())
+        finally:
+            connection.close()
+
     def has_active_job(self, source_id: str, period: str) -> bool:
         connection = self._connect()
         try:
@@ -390,6 +421,21 @@ INSERT INTO ingestion_jobs (
     %(diagnostics)s
 )
 """
+
+_SELECT_COLLECTION_MEMBERSHIP = """
+SELECT 1
+FROM market_collection_memberships
+WHERE collection_id = %(collection_id)s
+  AND instrument_id = %(instrument_id)s
+LIMIT 1
+"""
+
+_DATASET_ROW_EXISTS_SQL = {
+    "vn_prices_daily": (
+        "SELECT 1 FROM vn_prices_daily "
+        "WHERE instrument_id = %(instrument_id)s LIMIT 1"
+    ),
+}
 
 _SELECT_ACTIVE_JOB = """
 SELECT job_id

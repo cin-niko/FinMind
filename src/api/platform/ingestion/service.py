@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from collections.abc import Callable, Mapping
 
@@ -6,6 +6,30 @@ from api.platform.ingestion.errors import ProviderFetchError
 from api.platform.ingestion.planner import IngestionFetchRequest, plan_fetch_periods
 from api.platform.ingestion.sources import MarketDataSource, TimeSeriesRecord
 from api.platform.ingestion.store_writer import IngestionJobRecord, TimeSeriesStore
+
+LAZY_DATASET_VN_PRICES_DAILY = "vn_prices_daily"
+VN100_COLLECTION_ID = "VN100"
+LAZY_PERIOD_WINDOW_DAYS = 30
+
+
+@dataclass(frozen=True)
+class LazyFetchResult:
+    status: str
+    dataset_id: str
+    instrument_id: str
+    jobs: list[IngestionJobRecord] = field(default_factory=list)
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "status": self.status,
+            "dataset_id": self.dataset_id,
+            "instrument_id": self.instrument_id,
+            "jobs": [_serialize_job(job) for job in self.jobs],
+        }
+        if self.reason is not None:
+            payload["reason"] = self.reason
+        return payload
 
 
 @dataclass
@@ -32,6 +56,121 @@ class IngestionService:
 
     def run_backfill_request(self, request: IngestionFetchRequest) -> IngestionJobRecord:
         return self._run_request(request=request, trigger="backfill")
+
+    def ensure_dataset_rows(
+        self,
+        dataset_id: str,
+        instrument_id: str,
+    ) -> LazyFetchResult:
+        """Lazy on-first-access daily fetch for VN100 instruments.
+
+        Triggers a `latest` + `period` daily fetch through the same
+        idempotent path scheduled ingestion uses when the canonical
+        ``vn_prices_daily`` table has no rows for ``instrument_id``.
+        Out-of-universe tickers (not in VN100) are rejected without any
+        provider call, instrument write, or job record. Lazy never
+        triggers ``mode="historical"``.
+        """
+
+        if dataset_id != LAZY_DATASET_VN_PRICES_DAILY:
+            return LazyFetchResult(
+                status="not_supported",
+                dataset_id=dataset_id,
+                instrument_id=instrument_id,
+                reason=(
+                    "lazy fetch is only supported for the "
+                    f"{LAZY_DATASET_VN_PRICES_DAILY} canonical dataset"
+                ),
+            )
+        if not self.store.is_in_collection(
+            VN100_COLLECTION_ID, instrument_id
+        ):
+            return LazyFetchResult(
+                status="out_of_scope",
+                dataset_id=dataset_id,
+                instrument_id=instrument_id,
+                reason=(
+                    "instrument is not in the VN100 universe"
+                ),
+            )
+        if self.store.has_dataset_rows(dataset_id, instrument_id):
+            return LazyFetchResult(
+                status="already_present",
+                dataset_id=dataset_id,
+                instrument_id=instrument_id,
+            )
+
+        jobs: list[IngestionJobRecord] = []
+        source_id = LAZY_DATASET_VN_PRICES_DAILY
+        latest_job = self._run_request(
+            request=IngestionFetchRequest(
+                source_id=source_id, mode="latest"
+            ),
+            trigger="lazy",
+        )
+        jobs.append(latest_job)
+        if latest_job.status == "blocked":
+            return LazyFetchResult(
+                status="blocked",
+                dataset_id=dataset_id,
+                instrument_id=instrument_id,
+                jobs=jobs,
+                reason=str(
+                    latest_job.diagnostics.get(
+                        "message", "lazy latest fetch blocked"
+                    )
+                ),
+            )
+
+        today = self.clock().date()
+        window_start = today - timedelta(
+            days=LAZY_PERIOD_WINDOW_DAYS
+        )
+        period_token = f"{window_start.isoformat()}:{today.isoformat()}"
+        period_job = self._run_request(
+            request=IngestionFetchRequest(
+                source_id=source_id,
+                mode="period",
+                period=period_token,
+            ),
+            trigger="lazy",
+        )
+        jobs.append(period_job)
+        if period_job.status == "blocked":
+            return LazyFetchResult(
+                status="blocked",
+                dataset_id=dataset_id,
+                instrument_id=instrument_id,
+                jobs=jobs,
+                reason=str(
+                    period_job.diagnostics.get(
+                        "message", "lazy period fetch blocked"
+                    )
+                ),
+            )
+        if "failed" in {latest_job.status, period_job.status}:
+            failed = (
+                latest_job
+                if latest_job.status == "failed"
+                else period_job
+            )
+            return LazyFetchResult(
+                status="failed",
+                dataset_id=dataset_id,
+                instrument_id=instrument_id,
+                jobs=jobs,
+                reason=str(
+                    failed.diagnostics.get(
+                        "error", "lazy fetch failed"
+                    )
+                ),
+            )
+        return LazyFetchResult(
+            status="success",
+            dataset_id=dataset_id,
+            instrument_id=instrument_id,
+            jobs=jobs,
+        )
 
     def status(self) -> dict[str, object]:
         return {

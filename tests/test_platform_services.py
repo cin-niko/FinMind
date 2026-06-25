@@ -39,7 +39,10 @@ from api.platform.ingestion.free_sources import (
     _alpha_vantage_xauusd_daily_fetcher,
     _stooq_us_stock_daily_fetcher,
 )
-from api.platform.ingestion.service import IngestionService
+from api.platform.ingestion.service import (
+    IngestionService,
+    LazyFetchResult,
+)
 from api.platform.ingestion.errors import ProviderFetchError
 from api.platform.ingestion.sources import TimeSeriesRecord
 from api.platform.ingestion.store_writer import InMemoryTimeSeriesStore
@@ -2240,3 +2243,226 @@ def test_settings_parses_roadmap_markets_flag(
 
     monkeypatch.setenv("FINMIND_ROADMAP_MARKETS", "0")
     assert Settings.from_env().roadmap_markets_enabled is False
+
+
+class _LazyVNDailySource:
+    """Records lazy fetch calls and returns deterministic vn daily rows."""
+
+    source_id = "vn_prices_daily"
+
+    def __init__(self) -> None:
+        self.periods: list[str] = []
+
+    def fetch(self, period: str) -> list[TimeSeriesRecord]:
+        self.periods.append(period)
+        market_time = datetime(2026, 6, 25, tzinfo=UTC)
+        return [
+            TimeSeriesRecord(
+                dataset_id="vn_prices_daily",
+                record_key=f"vn_stock:VCB:{period}",
+                instrument_id="vn_stock:VCB",
+                market_time=market_time,
+                collected_at=market_time,
+                source_id="vnstock",
+                payload={
+                    "market": "VN_STOCK",
+                    "symbol": "VCB",
+                    "exchange": "HOSE",
+                    "trade_date": "2026-06-25",
+                    "open": 57400,
+                    "high": 58600,
+                    "low": 57300,
+                    "close": 58300,
+                    "volume": 1530000,
+                    "currency": "VND",
+                },
+            )
+        ]
+
+
+def _lazy_service(
+    source: _LazyVNDailySource | None = None,
+    *,
+    seed_membership: bool = True,
+) -> tuple[IngestionService, InMemoryTimeSeriesStore, _LazyVNDailySource]:
+    used_source = source or _LazyVNDailySource()
+    store = InMemoryTimeSeriesStore()
+    if seed_membership:
+        store.collection_memberships.add(("VN100", "vn_stock:VCB"))
+    service = IngestionService(
+        sources={"vn_prices_daily": used_source},
+        store=store,
+        clock=lambda: datetime(2026, 6, 25, 8, tzinfo=UTC),
+    )
+    return service, store, used_source
+
+
+def test_lazy_fetch_triggers_latest_and_period_for_vn100_first_access() -> (
+    None
+):
+    service, store, source = _lazy_service()
+
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:VCB",
+    )
+
+    assert isinstance(result, LazyFetchResult)
+    assert result.status == "success"
+    assert result.dataset_id == "vn_prices_daily"
+    assert result.instrument_id == "vn_stock:VCB"
+    assert [job.trigger for job in result.jobs] == ["lazy", "lazy"]
+    assert [job.status for job in result.jobs] == ["success", "success"]
+    modes = [job.diagnostics["mode"] for job in result.jobs]
+    assert modes == ["latest", "period"]
+    assert source.periods == ["2026-06-25", "2026-05-26:2026-06-25"]
+    assert store.has_dataset_rows(
+        "vn_prices_daily", "vn_stock:VCB"
+    )
+    serialized = result.to_dict()
+    assert serialized["status"] == "success"
+    assert len(serialized["jobs"]) == 2
+
+
+def test_lazy_fetch_returns_already_present_when_rows_exist() -> None:
+    service, store, source = _lazy_service()
+    existing = TimeSeriesRecord(
+        dataset_id="vn_prices_daily",
+        record_key="vn_stock:VCB:2026-06-18",
+        instrument_id="vn_stock:VCB",
+        market_time=datetime(2026, 6, 18, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 18, tzinfo=UTC),
+        source_id="vnstock",
+        payload={"trade_date": "2026-06-18"},
+    )
+    store.records[(existing.dataset_id, existing.record_key)] = existing
+
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:VCB",
+    )
+
+    assert result.status == "already_present"
+    assert result.jobs == []
+    assert source.periods == []
+
+
+def test_lazy_fetch_rejects_out_of_universe_instrument() -> None:
+    service, store, source = _lazy_service(seed_membership=False)
+
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:UNKNOWN",
+    )
+
+    assert result.status == "out_of_scope"
+    assert result.reason
+    assert "VN100" in result.reason or "universe" in result.reason
+    assert result.jobs == []
+    assert source.periods == []
+    assert store.jobs == []
+    assert all(
+        record.instrument_id != "vn_stock:UNKNOWN"
+        for record in store.records.values()
+    )
+
+
+def test_lazy_fetch_reports_blocked_when_overlap_guard_active() -> None:
+    service, store, source = _lazy_service()
+    store.create_running_job(
+        source_id="vn_prices_daily",
+        period="2026-06-25",
+        trigger="scheduled",
+    )
+
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:VCB",
+    )
+
+    assert result.status == "blocked"
+    assert source.periods == []
+    assert len(result.jobs) == 1
+    assert result.jobs[0].status == "blocked"
+
+
+def test_lazy_fetch_never_triggers_historical_mode() -> None:
+    class ModeRecordingSource(_LazyVNDailySource):
+        def __init__(self) -> None:
+            super().__init__()
+            self.modes_observed: list[str] = []
+
+    source = ModeRecordingSource()
+    service, _store, _ = _lazy_service(source=source)
+
+    captured_requests: list[IngestionFetchRequest] = []
+    original = service._run_request
+
+    def spy(request: IngestionFetchRequest, trigger: str) -> Any:
+        captured_requests.append(request)
+        return original(request=request, trigger=trigger)
+
+    service._run_request = spy  # type: ignore[method-assign]
+    result = service.ensure_dataset_rows(
+        dataset_id="vn_prices_daily",
+        instrument_id="vn_stock:VCB",
+    )
+
+    assert result.status == "success"
+    modes = [request.mode for request in captured_requests]
+    assert modes == ["latest", "period"]
+    assert "historical" not in modes
+
+
+def test_lazy_fetch_rejects_unsupported_dataset() -> None:
+    service, _store, source = _lazy_service()
+
+    result = service.ensure_dataset_rows(
+        dataset_id="us_prices_daily",
+        instrument_id="vn_stock:VCB",
+    )
+
+    assert result.status == "not_supported"
+    assert result.reason
+    assert "vn_prices_daily" in result.reason
+    assert result.jobs == []
+    assert source.periods == []
+
+
+def test_postgres_store_checks_collection_membership_and_dataset_rows() -> (
+    None
+):
+    class MembershipCursor(RecordingCursor):
+        def fetchall(self) -> list[dict[str, Any]]:
+            if not self.statements:
+                return []
+            last_sql, params = self.statements[-1]
+            if "market_collection_memberships" in last_sql:
+                assert params == {
+                    "collection_id": "VN100",
+                    "instrument_id": "vn_stock:VCB",
+                }
+                return [{"?column?": 1}]
+            if "FROM vn_prices_daily" in last_sql:
+                assert params == {"instrument_id": "vn_stock:VCB"}
+                return [{"?column?": 1}]
+            return []
+
+    class MembershipConnection(RecordingConnection):
+        def __init__(self) -> None:
+            super().__init__()
+            self.cursor_instance = MembershipCursor()
+
+    connection = MembershipConnection()
+    store = PostgresTimeSeriesStore(
+        connection_factory=lambda: connection
+    )
+
+    assert store.is_in_collection("VN100", "vn_stock:VCB") is True
+    assert store.has_dataset_rows(
+        "vn_prices_daily", "vn_stock:VCB"
+    ) is True
+    assert (
+        store.has_dataset_rows("us_prices_daily", "vn_stock:VCB")
+        is False
+    )
