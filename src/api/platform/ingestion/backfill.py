@@ -14,9 +14,11 @@ from api.platform.ingestion.store_writer import IngestionJobRecord
 from api.settings import Settings
 
 MARKET_HISTORY_PRESET = "market-history"
+MARKET_LATEST_PRESET = "market-latest"
 US_DAILY_HISTORY_PRESET = "us-daily-history"
 US_XAUUSD_HISTORY_PRESET = "us-xauusd-history"
 FREE_1H_WINDOW_DAYS = 60
+MARKET_LATEST_SOURCES = ("us_prices", "xauusd_prices", "sjc_gold_prices")
 
 
 @dataclass(frozen=True)
@@ -104,6 +106,37 @@ def run_market_history_backfill(
                 status=job.status,
                 from_date=start,
                 to_date=end,
+                job=job,
+            )
+        )
+    return results
+
+
+def run_market_latest_fetch(service: IngestionService) -> list[BackfillPlanResult]:
+    """Run current-data fetches for the phase 002 latest-first operator plan."""
+
+    results: list[BackfillPlanResult] = []
+    for source_id in MARKET_LATEST_SOURCES:
+        if source_id not in service.sources:
+            results.append(
+                BackfillPlanResult(
+                    source_id=source_id,
+                    status="skipped",
+                    from_date="latest",
+                    to_date="latest",
+                    reason=f"{source_id} is not configured in this runtime",
+                )
+            )
+            continue
+        job = service.run_scheduled_request(
+            IngestionFetchRequest(source_id=source_id, mode="latest")
+        )
+        results.append(
+            BackfillPlanResult(
+                source_id=source_id,
+                status=job.status,
+                from_date=job.period,
+                to_date=job.period,
                 job=job,
             )
         )
@@ -300,18 +333,40 @@ def _parse_date(value: str, field_name: str) -> date:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run a historical market-data backfill.")
+    parser = argparse.ArgumentParser(description="Run market-data operator jobs.")
     parser.add_argument("--source-id")
     parser.add_argument(
         "--preset",
-        choices=[MARKET_HISTORY_PRESET, US_DAILY_HISTORY_PRESET, US_XAUUSD_HISTORY_PRESET],
+        choices=[
+            MARKET_HISTORY_PRESET,
+            MARKET_LATEST_PRESET,
+            US_DAILY_HISTORY_PRESET,
+            US_XAUUSD_HISTORY_PRESET,
+        ],
         help="Run a predefined operator backfill plan.",
     )
-    parser.add_argument("--from-date", required=True)
-    parser.add_argument("--to-date", required=True)
+    parser.add_argument("--from-date")
+    parser.add_argument("--to-date")
     args = parser.parse_args(argv)
 
     service = create_ingestion_service(Settings.from_env())
+    if args.preset == MARKET_LATEST_PRESET:
+        results = run_market_latest_fetch(service=service)
+        print(
+            json.dumps(
+                {
+                    "preset": MARKET_LATEST_PRESET,
+                    "status": _overall_status(results),
+                    "results": [result.to_dict() for result in results],
+                },
+                ensure_ascii=True,
+            )
+        )
+        return 0 if all(result.status in {"success", "skipped"} for result in results) else 1
+
+    if not args.from_date or not args.to_date:
+        parser.error("--from-date and --to-date are required unless --preset market-latest")
+
     if args.preset == MARKET_HISTORY_PRESET:
         try:
             results = run_market_history_backfill(

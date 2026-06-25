@@ -52,7 +52,7 @@ Build ingestion operations above the shared platform contracts: source connector
 - Real provider adapters must surface historical range/rate/fallback capability
   diagnostics without claiming unavailable 1h history exists.
 - VN stock historical backfill and post-launch latest fetches use the same 1h
-  ingestion/upsert path; phase 002 starts with a 1-month operational US and Gold baseline while VNStock historical backfill is paused, and incomplete
+  ingestion/upsert path; phase 002 starts with a 7-day operational US and Gold baseline while VNStock historical backfill is paused, and incomplete
   longer coverage is a best-effort coverage
   diagnostic, not a daily fallback or launch blocker.
 - Long historical backfill is run by an independent worker/script process. The web API

@@ -48,7 +48,8 @@ adr_refs: []
 - [x] T033 Add US Markets support with `us_prices` recent 1h ingestion, shared stock storage, market overview selector support, and tests.
 - [x] T034 Add US daily base support with `us_prices_daily`, typed daily stock storage, yfinance daily adapter, backfill support, and individual-equity-only US list/heatmap rows.
 - [x] T035 Scope market heatmap filters to the heatmap card only, keeping the instrument table, Watchlist, and Gainers/Losers rail on the selected market overview.
-- [x] T036 Change the initial historical data operation to a 1-month operational backfill for US and Gold-capable sources while VNStock historical backfill is paused, with longer ranges left as future provider-dependent work.
+- [x] T036 Change the initial historical data operation to a 7-day operational backfill for US and Gold-capable sources while VNStock historical backfill is paused, with longer ranges left as future provider-dependent work.
 - [x] T037 Add an optional focused `us-xauusd-history` independent backfill preset for operator troubleshooting, excluding VN and SJC and using range fetches for daily US/XAUUSD sources.
 - [x] T038 Add bounded retry diagnostics for US/XAUUSD provider HTTP failures and fail empty Alpha Vantage daily fallback responses instead of recording successful zero-row history.
-- [x] T039 Set phase 002 operational data scope to a 1-month independent market-history backfill for US and Gold plus latest/period fetches for current updates, leaving VN historical and longer history as future work.
+- [x] T039 Set phase 002 operational data scope to a 7-day independent market-history backfill for US and Gold plus latest/period fetches for current updates, leaving VN historical and longer history as future work.
+- [x] T040 Add a `market-latest` independent operator preset that runs current US and Gold-capable latest fetches before 7-day historical backfill attempts.

@@ -40,41 +40,49 @@ Validation steps:
 7. Re-run one fetch for the same period.
 8. Attempt a second fetch for a dataset and period while the first matching job is queued or running.
 9. Attempt `mode=historical` through the web API and verify it is rejected with instructions to use the backfill worker/script.
-10. Run the independent VN historical backfill worker/script against the configured database:
+10. Run the latest-first operator job for current US and Gold-capable sources:
+
+   ```bash
+   uv run python -m api.platform.ingestion.backfill \
+     --preset market-latest
+   ```
+
+11. Run the independent VN historical backfill worker/script against the configured database:
 
    ```bash
    uv run python -m api.platform.ingestion.backfill \
      --source-id vn_prices \
-     --from-date 2026-05-22 \
-     --to-date 2026-06-22
+     --from-date 2026-06-18 \
+     --to-date 2026-06-25
    ```
 
-11. Run the 1-month operator market-history plan for US and Gold-capable sources
+12. Run the 7-day operator market-history plan for US and Gold-capable sources
     while VNStock historical backfill is paused:
 
    ```bash
    uv run python -m api.platform.ingestion.backfill \
      --preset market-history \
-     --from-date 2026-05-22 \
-     --to-date 2026-06-22
+     --from-date 2026-06-18 \
+     --to-date 2026-06-25
    ```
 
-12. Run only the US 1-month daily base without triggering VN/gold providers:
+13. Run only the US 7-day daily base without triggering VN/gold providers:
 
    ```bash
    uv run python -m api.platform.ingestion.backfill \
      --preset us-daily-history \
-     --from-date 2026-05-22 \
-     --to-date 2026-06-22
+     --from-date 2026-06-18 \
+     --to-date 2026-06-25
    ```
 
 Expected result: jobs show trigger type, status, timestamps, dataset scope, record counts, and non-secret diagnostics. The rerun does not create duplicate time-series records. The overlapping request returns blocked status with a clear message.
 
-Real provider expected result: the default `market-history` plan attempts US daily
-bars, XAUUSD daily fallback bars, and recent XAUUSD 1h bars for the 1-month
-baseline. It does not call VNStock while VN historical backfill is paused. SJC
-historical ranges are skipped until a historical archive is configured;
-latest/current SJC quotes use `latest` or `period` fetches.
+Real provider expected result: operators run `market-latest` before historical
+backfill to prioritize current records. The default `market-history` plan then
+attempts US daily bars, XAUUSD daily fallback bars, and recent XAUUSD 1h bars
+for the 7-day baseline. It does not call VNStock while VN historical backfill is
+paused. SJC historical ranges are skipped until a historical archive is
+configured; latest/current SJC quotes use `latest` or `period` fetches.
 
 ## Scenario 2: Market Data Inspection
 

@@ -49,7 +49,7 @@ local deterministic data. Free-source limitations such as rate limits, recent-on
 intraday history, unavailable backfill ranges, and scraper parse failures must be
 surfaced as non-secret capability diagnostics rather than hidden or replaced with
 synthetic data. VN stock pre-production historical backfill and post-launch latest
-fetches use the same 1h ingestion path. Phase 002 starts with a 1-month operational
+fetches use the same 1h ingestion path. Phase 002 starts with a 7-day operational
 US and Gold baseline backfill while VNStock historical backfill is paused; incomplete longer free-provider coverage does not
 block launch when missing ranges are recorded as diagnostics.
 

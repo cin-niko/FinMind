@@ -12,6 +12,7 @@ import api.platform.ingestion.free_sources as free_sources
 from api.platform.ingestion.backfill import (
     run_historical_backfill,
     run_market_history_backfill,
+    run_market_latest_fetch,
     run_us_daily_history_backfill,
     run_us_xauusd_history_backfill,
 )
@@ -443,27 +444,55 @@ def test_market_history_backfill_plan_uses_free_source_limits() -> None:
 
     results = run_market_history_backfill(
         service=service,
-        from_date="2026-05-22",
-        to_date="2026-06-22",
+        from_date="2026-06-18",
+        to_date="2026-06-25",
     )
 
     by_source = {result.source_id: result for result in results}
     assert by_source["us_prices_daily"].status == "success"
-    assert by_source["us_prices_daily"].from_date == "2026-05-22"
-    assert by_source["us_prices_daily"].to_date == "2026-06-22"
+    assert by_source["us_prices_daily"].from_date == "2026-06-18"
+    assert by_source["us_prices_daily"].to_date == "2026-06-25"
     assert by_source["xauusd_prices_daily"].status == "success"
-    assert by_source["xauusd_prices_daily"].from_date == "2026-05-22"
-    assert by_source["xauusd_prices_daily"].to_date == "2026-06-22"
+    assert by_source["xauusd_prices_daily"].from_date == "2026-06-18"
+    assert by_source["xauusd_prices_daily"].to_date == "2026-06-25"
     assert by_source["xauusd_prices"].status == "success"
-    assert by_source["xauusd_prices"].from_date == "2026-05-22"
-    assert by_source["xauusd_prices"].to_date == "2026-06-22"
+    assert by_source["xauusd_prices"].from_date == "2026-06-18"
+    assert by_source["xauusd_prices"].to_date == "2026-06-25"
     assert by_source["sjc_gold_prices"].status == "skipped"
     assert by_source["sjc_gold_prices"].reason
     assert "current quote" in by_source["sjc_gold_prices"].reason
-    assert sources["us_prices_daily"].periods[0] == "2026-05-22"
-    assert sources["xauusd_prices"].periods[0] == "2026-05-22"
+    assert sources["us_prices_daily"].periods[0] == "2026-06-18"
+    assert sources["xauusd_prices"].periods[0] == "2026-06-18"
     assert sources["vn_prices"].periods == []
     assert sources["sjc_gold_prices"].periods == []
+
+
+def test_market_latest_fetch_runs_current_us_gold_sources_only() -> None:
+    sources = {
+        "us_prices": RecordingSource(),
+        "vn_prices": RecordingSource(),
+        "xauusd_prices": RecordingSource(),
+        "sjc_gold_prices": RecordingSource(),
+    }
+    service = IngestionService(
+        sources=sources,
+        store=InMemoryTimeSeriesStore(),
+        clock=lambda: datetime(2026, 6, 25, 8, tzinfo=UTC),
+    )
+
+    results = run_market_latest_fetch(service=service)
+
+    by_source = {result.source_id: result for result in results}
+    assert set(by_source) == {"us_prices", "xauusd_prices", "sjc_gold_prices"}
+    assert by_source["us_prices"].status == "success"
+    assert by_source["xauusd_prices"].status == "success"
+    assert by_source["sjc_gold_prices"].status == "success"
+    assert by_source["us_prices"].from_date == "2026-06-25"
+    assert by_source["us_prices"].to_date == "2026-06-25"
+    assert sources["us_prices"].periods == ["2026-06-25"]
+    assert sources["xauusd_prices"].periods == ["2026-06-25"]
+    assert sources["sjc_gold_prices"].periods == ["2026-06-25"]
+    assert sources["vn_prices"].periods == []
 
 
 def test_us_daily_history_backfill_runs_only_us_daily_range_once() -> None:
@@ -478,7 +507,7 @@ def test_us_daily_history_backfill_runs_only_us_daily_range_once() -> None:
             return [
                 TimeSeriesRecord(
                     dataset_id="us_prices_daily",
-                    record_key="us_stock:AAPL:2026-05-22",
+                    record_key="us_stock:AAPL:2026-06-18",
                     instrument_id="us_stock:AAPL",
                     market_time=market_time,
                     collected_at=market_time,
@@ -487,7 +516,7 @@ def test_us_daily_history_backfill_runs_only_us_daily_range_once() -> None:
                         "market": "US_STOCK",
                         "symbol": "AAPL",
                         "exchange": "NASDAQ",
-                        "trading_date": "2026-05-22",
+                        "trading_date": "2026-06-18",
                         "open": 2.1,
                         "high": 2.2,
                         "low": 2.0,
@@ -511,19 +540,19 @@ def test_us_daily_history_backfill_runs_only_us_daily_range_once() -> None:
 
     result = run_us_daily_history_backfill(
         service=service,
-        from_date="2026-05-22",
-        to_date="2026-06-22",
+        from_date="2026-06-18",
+        to_date="2026-06-25",
     )
 
     assert result.source_id == "us_prices_daily"
     assert result.status == "success"
-    assert result.from_date == "2026-05-22"
-    assert result.to_date == "2026-06-22"
+    assert result.from_date == "2026-06-18"
+    assert result.to_date == "2026-06-25"
     assert result.job is not None
-    assert result.job.period == "2026-05-22:2026-06-22"
+    assert result.job.period == "2026-06-18:2026-06-25"
     assert result.job.trigger == "backfill"
     assert result.job.diagnostics["mode"] == "historical_range"
-    assert sources["us_prices_daily"].periods == ["2026-05-22:2026-06-22"]
+    assert sources["us_prices_daily"].periods == ["2026-06-18:2026-06-25"]
     assert sources["vn_prices"].periods == []
     assert sources["xauusd_prices"].periods == []
 
@@ -540,7 +569,7 @@ def test_us_xauusd_history_backfill_runs_only_us_and_xauusd_sources() -> None:
             return [
                 TimeSeriesRecord(
                     dataset_id=self.source_id,
-                    record_key=f"{self.source_id}:2026-05-22",
+                    record_key=f"{self.source_id}:2026-06-18",
                     instrument_id=self.source_id,
                     market_time=market_time,
                     collected_at=market_time,
@@ -565,8 +594,8 @@ def test_us_xauusd_history_backfill_runs_only_us_and_xauusd_sources() -> None:
 
     results = run_us_xauusd_history_backfill(
         service=service,
-        from_date="2026-05-22",
-        to_date="2026-06-22",
+        from_date="2026-06-18",
+        to_date="2026-06-25",
     )
 
     by_source = {result.source_id: result for result in results}
@@ -577,18 +606,18 @@ def test_us_xauusd_history_backfill_runs_only_us_and_xauusd_sources() -> None:
         "xauusd_prices",
     }
     assert by_source["us_prices_daily"].status == "success"
-    assert by_source["us_prices_daily"].from_date == "2026-05-22"
-    assert by_source["us_prices_daily"].to_date == "2026-06-22"
-    assert by_source["us_prices"].from_date == "2026-05-22"
-    assert by_source["us_prices"].to_date == "2026-06-22"
-    assert by_source["xauusd_prices_daily"].from_date == "2026-05-22"
-    assert by_source["xauusd_prices_daily"].to_date == "2026-06-22"
-    assert by_source["xauusd_prices"].from_date == "2026-05-22"
-    assert by_source["xauusd_prices"].to_date == "2026-06-22"
-    assert sources["us_prices_daily"].periods == ["2026-05-22:2026-06-22"]
-    assert sources["xauusd_prices_daily"].periods == ["2026-05-22:2026-06-22"]
-    assert sources["us_prices"].periods[0] == "2026-05-22"
-    assert sources["xauusd_prices"].periods[0] == "2026-05-22"
+    assert by_source["us_prices_daily"].from_date == "2026-06-18"
+    assert by_source["us_prices_daily"].to_date == "2026-06-25"
+    assert by_source["us_prices"].from_date == "2026-06-18"
+    assert by_source["us_prices"].to_date == "2026-06-25"
+    assert by_source["xauusd_prices_daily"].from_date == "2026-06-18"
+    assert by_source["xauusd_prices_daily"].to_date == "2026-06-25"
+    assert by_source["xauusd_prices"].from_date == "2026-06-18"
+    assert by_source["xauusd_prices"].to_date == "2026-06-25"
+    assert sources["us_prices_daily"].periods == ["2026-06-18:2026-06-25"]
+    assert sources["xauusd_prices_daily"].periods == ["2026-06-18:2026-06-25"]
+    assert sources["us_prices"].periods[0] == "2026-06-18"
+    assert sources["xauusd_prices"].periods[0] == "2026-06-18"
     assert sources["vn_prices"].periods == []
     assert sources["sjc_gold_prices"].periods == []
 
@@ -677,7 +706,7 @@ def test_yfinance_us_stock_adapter_normalizes_us_stock_bars() -> None:
 
 def test_stooq_us_stock_daily_adapter_normalizes_daily_bars() -> None:
     def fetch_json(period: str) -> dict[str, object]:
-        assert period == "2026-05-22:2026-06-22"
+        assert period == "2026-06-18:2026-06-25"
         return {
             "capabilities": {
                 "interval": "1d",
@@ -689,7 +718,7 @@ def test_stooq_us_stock_daily_adapter_normalizes_daily_bars() -> None:
                     "instrument_id": "us_stock:AAPL",
                     "symbol": "AAPL",
                     "exchange": "NASDAQ",
-                    "trading_date": "2026-05-22",
+                    "trading_date": "2026-06-18",
                     "open": 2.1,
                     "high": 2.2,
                     "low": 2.0,
@@ -704,15 +733,15 @@ def test_stooq_us_stock_daily_adapter_normalizes_daily_bars() -> None:
 
     source = StooqUSStockDailySource(fetch_json=fetch_json)
 
-    records = source.fetch("2026-05-22:2026-06-22")
+    records = source.fetch("2026-06-18:2026-06-25")
 
     assert len(records) == 1
     record = records[0]
     assert record.dataset_id == "us_prices_daily"
     assert record.source_id == "stooq"
-    assert record.record_key == "us_stock:AAPL:2026-05-22"
+    assert record.record_key == "us_stock:AAPL:2026-06-18"
     assert record.instrument_id == "us_stock:AAPL"
-    assert record.market_time == datetime(2026, 5, 22, tzinfo=UTC)
+    assert record.market_time == datetime(2026, 6, 18, tzinfo=UTC)
     assert record.payload["market"] == "US_STOCK"
     assert record.payload["symbol"] == "AAPL"
     assert record.payload["close"] == 2.15
@@ -760,11 +789,11 @@ def test_stooq_fetcher_retries_transient_http_failure(monkeypatch: pytest.Monkey
 def test_demo_us_daily_source_accepts_historical_range_scope() -> None:
     source = DemoMarketDataSource("us_prices_daily")
 
-    records = source.fetch("2026-05-22:2026-06-22")
+    records = source.fetch("2026-06-18:2026-06-25")
 
     assert records
     assert {record.dataset_id for record in records} == {"us_prices_daily"}
-    assert records[0].market_time == datetime(2026, 5, 22, tzinfo=UTC)
+    assert records[0].market_time == datetime(2026, 6, 18, tzinfo=UTC)
 
 
 def test_vnstock_adapter_normalizes_vn_stock_bars() -> None:
@@ -1067,7 +1096,7 @@ def test_alpha_vantage_daily_fallback_fails_empty_history() -> None:
     )
 
     with pytest.raises(ProviderFetchError, match="no daily records"):
-        source.fetch("2026-05-22:2026-06-22")
+        source.fetch("2026-06-18:2026-06-25")
 
 
 def test_sjc_adapter_parses_daily_quote_without_raw_page_dump() -> None:

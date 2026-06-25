@@ -59,8 +59,8 @@ the independent worker/script:
 ```bash
 uv run python -m api.platform.ingestion.backfill \
   --source-id vn_prices \
-  --from-date 2026-05-22 \
-  --to-date 2026-06-22
+  --from-date 2026-06-18 \
+  --to-date 2026-06-25
 ```
 
 ## `GET /api/market-data/{dataset_id}`
