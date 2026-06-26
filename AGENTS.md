@@ -31,10 +31,11 @@ Every piece of information should have one canonical location. Link to it instea
 4. **Use YAML frontmatter on spec files.** Include `id`, `status` or feature lifecycle status, `implements`, `validated_by`, and `adr_refs`. Only reference paths that exist; draft specs may use `implements: []` until code lands.
 5. **Keep VN stocks and gold as V1 user-facing scope.** US stocks and BTC are roadmap-only unless a later spec explicitly changes scope.
 6. **No raw agent reasoning in user-facing surfaces.** Show evidence, citations, stages, tool/artifact status, and grounded outputs only.
-7. **Provider details stay abstract at product-contract level.** Implementation may validate providers, licensing, credentials, and schemas behind source connector contracts.
-8. **Do not duplicate schemas or tables.** Pick the canonical spec and link to it.
-9. **Do not hand-edit generated/cache files.** Local agent skills live under `.agents/skills/`; generated runtime caches and virtualenv artifacts should be ignored.
-10. **Run relevant verification before completion.** For Python work, use `uv run pytest`; for frontend work, use the commands defined by `src/ui/package.json` once that app exists.
+7. **Keep humans in control.** Do not implement autonomous trades, orders, or irreversible financial actions; unsupported, stale, missing, failed, or unsafe outputs must be blocked or clearly marked before user reliance.
+8. **Provider details stay abstract at product-contract level.** Implementation may validate providers, licensing, credentials, and schemas behind source connector contracts.
+9. **Do not duplicate schemas or tables.** Pick the canonical spec and link to it.
+10. **Do not hand-edit generated/cache files.** Local agent skills live under `.agents/skills/`; generated runtime caches and virtualenv artifacts should be ignored.
+11. **Run relevant verification before completion.** For Python work, use `uv run pytest`; for frontend work, use the commands defined by `src/ui/package.json` once that app exists.
 
 ## 4. Standard Loops
 

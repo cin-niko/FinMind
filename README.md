@@ -1,8 +1,35 @@
-# FinMind
+<div align="center">
+    <h1>🌱 FinMind</h1>
+    <h3><em>An agentic AI platform for Financial Trading.</em></h3>
+</div>
 
-FinMind is an internal finance research workbench. Phase 1 implements an authenticated workflow platform for VN stocks and gold with cited outputs, freshness metadata, chart artifacts, and result inspection.
+<p align="center">
+  <img src="docs/assets/section-divider.svg" alt="" width="800" height="6"/>
+</p>
 
-## Backend
+## Overview
+
+## Architecture
+
+## Documentation
+
+This repo follows Spec-Driven Development. Each artifact has a single purpose:
+
+| Path | Purpose |
+|------|---------|
+| `ARCHITECTURE.md` | System architecture overview and major technical boundaries. |
+| `DEPLOYMENT.md` | Runtime setup, deployment procedure, and operational commands. |
+| `specs/README.md` | Spec index, cross-references, and requirement coverage. |
+| `specs/system/` | Cross-feature state, contracts, runtime, security, and UI foundations. |
+| `specs/NNN-slug/` | Bounded feature specs, plans, tasks, and supporting artifacts. |
+| `docs/adr/` | Architecture decision records and rationale. |
+| `docs/risks/` | Known risks, mitigations, and open concerns. |
+| `.specify/memory/` | Stable project governance and Spec Kit memory. |
+| `AGENTS.md` | Required workflow for AI coding agents in this repository. |
+
+**Rule of thumb**: behavior and contracts live in `specs/`; decisions live in `docs/adr/`; risks live in `docs/risks/`; procedures live in the closest owning guide; everything else links there.
+
+## Quick Start
 
 Set required admin environment variables before starting the API:
 
@@ -12,7 +39,7 @@ export FINMIND_ADMIN_PASSWORD=secret-pass
 export FINMIND_SESSION_SECRET=session-secret-with-length
 ```
 
-Run tests:
+Run the backend tests:
 
 ```bash
 UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run pytest
@@ -24,27 +51,7 @@ Start the API:
 uv run uvicorn api.app:create_app --factory --reload
 ```
 
-## Docker Compose
-
-Start the API and UI together:
-
-```bash
-docker compose up --build
-```
-
-The Compose stack builds package-specific images from `src/api/Dockerfile` and
-`src/ui/Dockerfile`. It uses these default admin credentials unless overridden in
-the shell:
-
-```bash
-FINMIND_ADMIN_USERNAME=analyst
-FINMIND_ADMIN_PASSWORD=secret-pass
-FINMIND_SESSION_SECRET=session-secret-with-length
-```
-
-Open the UI at `http://127.0.0.1:5173`. The API is exposed at `http://127.0.0.1:8000`.
-
-## Frontend
+Start the UI:
 
 ```bash
 cd src/ui
@@ -52,12 +59,72 @@ npm install
 npm run dev
 ```
 
-The Vite development server proxies `/api` requests to `http://127.0.0.1:8000` locally, or to `http://api:8000` inside Docker Compose.
+Or start API and UI together:
 
-## Phase 1 Validation
+```bash
+docker compose up --build
+```
 
-1. Attempt to open protected workflow or result surfaces without a session.
-2. Log in with the configured admin credentials.
-3. Run a VN stock or gold workflow.
-4. Confirm the result includes citations, freshness metadata, visible execution status, and a chart artifact with table fallback.
-5. Log out and confirm protected content is blocked again.
+Open the UI at `http://127.0.0.1:5173`. The API is exposed at `http://127.0.0.1:8000`.
+
+## Project Structure
+
+```text
+.agents/                 Repo-local agent skills
+.specify/                Spec Kit scripts, templates, workflows, and governance memory
+AGENTS.md                Agent workflow instructions
+specs/                   Product and platform specifications
+src/agent_core/          Reusable agent substrate
+src/api/                 API application
+src/ui/                  Frontend application
+tests/                   Backend test suite
+```
+
+## Development
+
+Before changing behavior:
+
+1. Read `AGENTS.md`.
+2. Read `specs/README.md`.
+3. Identify the owning system or feature spec.
+4. Update the spec first when behavior or contracts change.
+5. Implement the smallest scoped change.
+6. Run relevant verification before completion.
+
+Generated caches, local worktrees, runtime stores, and virtualenv artifacts should stay untracked.
+
+### Testing
+
+Baseline backend verification:
+
+```bash
+UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run pytest
+```
+
+Frontend verification:
+
+```bash
+cd src/ui
+npm install
+npm run build
+```
+
+### Code Quality
+
+Python code should follow `.agents/skills/python-guidelines/SKILL.md`.
+
+When a lint or spec harness command is added, prefer the repo-defined command over ad hoc checks.
+
+## Spec-Driven Development
+
+Behavior and contracts live in `specs/`. Decisions live in `docs/adr/`. Risks live in `docs/risks/`. Project governance lives in `.specify/memory/constitution.md`. Agent workflow lives in `AGENTS.md`.
+
+Use this loop for feature work:
+
+1. Start with the relevant spec.
+2. Keep shared state, API contracts, runtime/security, and UI foundations in `specs/system/`.
+3. Keep bounded feature behavior in `specs/NNN-slug/`.
+4. Keep implementation and tests traceable to those specs.
+5. Do not duplicate schemas, requirement tables, or product rules across files.
+
+For AI coding agents, `AGENTS.md` is mandatory before acting.
