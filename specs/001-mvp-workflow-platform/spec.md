@@ -17,7 +17,9 @@ adr_refs: []
 
 ## Summary
 
-Deliver the first independently valuable FinMind slice: an authenticated internal analyst shell with a chat-first default surface, a real-data Market surface for VN stocks and gold, fixed system-defined workflows, and inspectable cited workflow results with freshness-aware chart artifacts and visible execution status.
+Deliver the first independently valuable FinMind slice: an authenticated internal analyst shell with a chat-first default surface, fixed system-defined workflows, and inspectable cited workflow results with freshness-aware chart artifacts and visible execution status.
+
+Roadmap update 2026-06-26: the dedicated Market surface and admin ingestion UI are hidden while `../002-data-operations/` is parked. The current delivery path treats data-platform UI as future scope until reliable market-data rights/access or operator import files are available; workflow/chatflow work proceeds through `../003-evidence-backed-chat/` real-time retrieval tools.
 
 This feature intentionally does not include live/admin ingestion operations, production evidence-backed chat, arbitrary LLM-generated HTML execution, or production plugin adapters. Those are preserved in later feature specs.
 
@@ -102,7 +104,7 @@ Acceptance scenarios:
 - **FR-021a**: Session cookie values MUST be signed or otherwise verified using `FINMIND_SESSION_SECRET`; unsigned, malformed, or tampered session cookies MUST NOT authenticate protected content.
 - **FR-022**: System MUST keep provider-specific market data details abstract at the product contract level while allowing implementation-time provider validation for technical and licensing suitability.
 - **FR-023**: System MUST preserve separated product layers for app experience, API access, agent/core logic, and data workflows.
-- **FR-024**: System MUST provide a chat-first shell with left-rail navigation labels `New Chat`, `Market`, `Workflows`, and `History`.
+- **FR-024**: System MUST provide a chat-first shell with left-rail navigation labels `New Chat`, `Workflows`, and `History` while Phase 002 is parked. The `Market` and `Admin` navigation items MUST remain hidden until the market-data platform is resumed.
 - **FR-026**: V1 Chat MUST use deterministic mock responses and MUST NOT execute arbitrary LLM-generated HTML.
 - **FR-027**: V1 Chat MUST support inline trusted mock visual blocks and artifact cards for reports, charts, tables, evidence lists, and citation bundles.
 - **FR-028**: Chat artifact cards MUST open in a right-side detail panel on desktop and full-screen artifact view on mobile.
@@ -155,7 +157,7 @@ See `../system/state-model.md` for canonical entity definitions.
 - **SC-007a**: After completing a workflow run and refreshing the page with a valid session, the completed run remains visible under `History` → `Workflow Runs` and can be reopened.
 - **SC-008**: V1 supports at least one stock research path and one non-stock market research path across approved initial workflows.
 - **SC-008a**: Workflow market controls expose only VN stock and gold as enabled runnable choices in V1; any US stock or BTC mock/roadmap preview is disabled or explicitly out-of-scope before Run.
-- **SC-009**: After login, the default surface is `New Chat` and the left rail exposes `New Chat`, `Market`, `Workflows`, and grouped `History`.
+- **SC-009**: After login, the default surface is `New Chat` and the left rail exposes `New Chat`, `Workflows`, and grouped `History`, with no visible `Market` or `Admin` entry while Phase 002 is parked.
 - **SC-010**: A user can submit a chat message, receive a deterministic mock response, see an inline visual or artifact card, and open an artifact in the right-side panel without invoking a production LLM.
 - **SC-011**: Market displays system predefined VN stock and gold watchlist data with chart, freshness, news/source feed, and market table while containing no LLM-generated content.
 

@@ -63,8 +63,8 @@ adr_refs: []
 | `system/runtime-config-security.md` | active | Runtime behavior, auth/session rules, admin bootstrap, scope gates, and safety constraints. | `system/state-model.md` |
 | `system/ui-workbench.md` | active | Analyst workbench design system and shared UI rules. | `system/contracts.md` |
 | `001-mvp-workflow-platform/` | draft | Authenticated app shell, fixed workflow execution, cited results, chart artifacts, result inspection. | `system/*` |
-| `002-data-operations/` | draft | Admin ingestion, scheduled/manual jobs, idempotent reruns, freshness, market data inspector. | `001-mvp-workflow-platform/`, `system/*` |
-| `003-evidence-backed-chat/` | draft | Chat surface over shared evidence, citations, artifacts, freshness, and execution records. | `001-mvp-workflow-platform/`, `002-data-operations/`, `system/*` |
+| `002-data-operations/` | pending (parked 2026-06-26) | Market data platform and admin ingestion UI are parked until reliable data rights/access or operator import files are available. Demo fixtures must not be used as completion substitute. | `001-mvp-workflow-platform/`, `system/*` |
+| `003-evidence-backed-chat/` | draft (pivoted 2026-06-26) | M1: workflow/chatflow over real-time retrieval tools with citations/freshness/tool evidence, not dependent on a populated Phase 002 market DB. | `001-mvp-workflow-platform/`, `system/*`; later resumes `002-data-operations/` when data source is resolved |
 | `004-extension-hardening/` | draft | Plugin-ready execution artifact and evidence contracts without shipping an external adapter. | `001-mvp-workflow-platform/`, `003-evidence-backed-chat/`, `system/*` |
 
 ## Requirement Coverage
@@ -78,8 +78,9 @@ adr_refs: []
 | FR-004 | `001-mvp-workflow-platform/spec.md`, `system/state-model.md` | Declarative workflow specifications. |
 | FR-005 | `001-mvp-workflow-platform/spec.md`, `system/runtime-config-security.md` | VN stocks and gold in V1; US stocks and BTC roadmap only. |
 | FR-006 | `001-mvp-workflow-platform/spec.md` | TradingAgents-inspired roles in fixed workflows. |
-| FR-007 | `003-evidence-backed-chat/spec.md` | Chat deferred until shared workflow/evidence contracts exist. |
+| FR-007 | `003-evidence-backed-chat/spec.md` | Chat deferred until shared workflow/evidence contracts exist. Phase 003 M1 now uses real-time retrieval tools because Phase 002 market-data population is pending. |
 | FR-008 | `system/state-model.md`, `001-mvp-workflow-platform/spec.md`, `002-data-operations/spec.md` | Seeded/demo storage in Phase 1; ingestion-backed storage in Phase 2. |
+| FR-024 | `001-mvp-workflow-platform/spec.md`, `system/ui-workbench.md` | Active shell navigation exposes New Chat, Workflows, and History; Market and Admin ingestion are hidden while Phase 002 is parked. |
 | FR-009 | `002-data-operations/spec.md` | Market data, price series, indicators, reports, macro/news material. |
 | FR-010 | `002-data-operations/spec.md` | Scheduled and admin-triggered ingestion. |
 | FR-011 | `002-data-operations/spec.md` | Idempotent manual ingestion with status and diagnostics. |
