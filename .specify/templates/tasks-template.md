@@ -156,7 +156,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Code quality review against constitution principles
 - [ ] TXXX Safety guardrail review for human-in-the-loop behavior, unsupported states, secrets, and raw reasoning
-- [ ] TXXX UX consistency review against specs/system/ui-workbench.md
+- [ ] TXXX UX consistency review against specs/system/ui-ux-guidelines.md
 - [ ] TXXX Performance validation against plan goals
 - [ ] TXXX [P] Additional unit tests in tests/unit/
 - [ ] TXXX Security hardening

@@ -1,0 +1,22 @@
+---
+id: SPEC-FEAT-003-CONTRACTS
+feature: agentic-chatflow
+status: draft
+owner: solo
+created: 2026-06-26
+implements: []
+validated_by: []
+adr_refs: []
+---
+
+# Chatflow Contract: Agentic Chatflow
+
+Draft contract requirements:
+
+- Every material claim has citations or unsupported/unavailable marking.
+- Every answer includes relevant freshness status where data is time-sensitive.
+- Tool, retrieval, citation, and artifact failures are visible to the user.
+- Raw agent reasoning, hidden prompts, secrets, and unsafe diagnostics are never
+  user-visible.
+- Trade execution, order placement, and broker actions are not supported.
+- Market scope is VN stocks and US stocks only until a later spec expands scope.

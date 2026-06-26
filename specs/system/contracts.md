@@ -21,9 +21,7 @@ The authenticated app shell consumes JSON APIs for:
 
 - Session state: `GET /api/session`, `POST /api/login`, `POST /api/logout`
 - Workflow catalog and runs: `GET /api/workflows`, `POST /api/workflows/{workflow_id}/run`
-- Result inspection: `GET /api/runs/{run_id}`
-- Admin ingestion and market data after the data-operations feature: `GET /api/admin/ingestion`, `POST /api/admin/fetch`, `GET /api/market-data/{dataset_id}`
-- Evidence-backed chat after the chat feature: `POST /api/chat`
+- Result inspection: `GET /api/runs`, `GET /api/runs/{run_id}`
 
 All protected APIs require an active cookie-backed session. Raw agent reasoning is never returned.
 
@@ -51,6 +49,10 @@ Supported artifact types:
 - `inline_visualization`
 
 Chart artifacts must include renderable payload data and an accessible table fallback. Inline artifacts in chat must follow the same traceability rules as workflow chart artifacts.
+
+`001-mvp-ui` mock chat artifacts are trusted local-template UI artifacts, not API
+execution artifacts. Production chat artifact contracts require a future bounded
+feature spec.
 
 ## Execution Visibility Contract
 

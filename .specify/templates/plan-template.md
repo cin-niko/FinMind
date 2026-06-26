@@ -47,7 +47,7 @@
 - **Safety guardrails**: Human-in-the-loop controls, blocked unsupported states,
   secret handling, and raw-reasoning exclusion are specified for user-facing
   outputs and tool/workflow execution.
-- **UX consistency**: User-facing surfaces reference `specs/system/ui-workbench.md`
+- **UX consistency**: User-facing surfaces reference `specs/system/ui-ux-guidelines.md`
   and define status, evidence, citation, freshness, artifact, and error behavior.
 - **Performance requirements**: Goals and constraints are measurable, or marked
   `N/A` with rationale.

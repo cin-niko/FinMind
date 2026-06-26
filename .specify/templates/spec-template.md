@@ -97,7 +97,7 @@
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
 - **FR-SAFE**: System MUST preserve human control, hide raw agent reasoning and secrets, and block or clearly mark unsafe states.
-- **FR-UX**: User-facing behavior MUST follow `specs/system/ui-workbench.md` or document why it is not applicable.
+- **FR-UX**: User-facing behavior MUST follow `specs/system/ui-ux-guidelines.md` or document why it is not applicable.
 - **FR-PERF**: System MUST meet measurable performance expectations or document why performance is not applicable.
 
 *Example of marking unclear requirements:*

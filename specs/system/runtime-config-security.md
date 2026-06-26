@@ -30,9 +30,15 @@ V1 uses cookie-backed web sessions for authenticated browser access. Session coo
 
 ## Scope Gates
 
-V1 user-facing market coverage is VN stocks and gold only. US stocks and BTC are roadmap markets and must return clear out-of-scope behavior in V1 surfaces.
+Current seeded/demo workflow coverage is VN stocks and US stocks. Future market
+coverage is not valid user-facing scope until a new bounded spec defines the
+asset coverage, source eligibility, freshness rules, and safety behavior.
 
-Mock/demo surfaces are still user-facing scope surfaces. Workflow, Market, and chat controls must not present US stocks or BTC as enabled runnable V1 choices. If roadmap markets are shown for product preview, they must be disabled or clearly marked future/out-of-scope before execution rather than allowing the user to submit and discover the limitation only through a backend validation error.
+Mock/demo surfaces are still user-facing scope surfaces. Controls must not present
+unsupported markets or assets as enabled runnable choices. If roadmap markets are
+shown for product preview, they must be disabled or clearly marked future/out-of-scope
+before execution rather than allowing the user to submit and discover the limitation
+only through backend validation.
 
 V1 excludes:
 
@@ -41,11 +47,7 @@ V1 excludes:
 - Portfolio order management
 - Self-service registration
 - External identity providers
-- US stocks and BTC as user-facing supported markets
-
-## Data Safety
-
-Ingestion reruns must be idempotent for the same dataset and period. Unsafe overlap must be blocked or serialized with visible status. Failure diagnostics must never expose secrets.
+- any market, asset, or source coverage not defined by the active feature spec
 
 ## Evidence Safety
 

@@ -48,7 +48,7 @@ still matches the spec and existing behavior has not regressed.
 
 ### III. User Experience Consistency
 
-User-facing changes MUST follow `specs/system/ui-workbench.md` and preserve a
+User-facing changes MUST follow `specs/system/ui-ux-guidelines.md` and preserve a
 consistent workbench experience across navigation, controls, status messaging,
 citations, freshness, artifacts, and error states. UI surfaces MUST show grounded
 evidence and execution state, not raw agent reasoning. New UX patterns MUST be
@@ -100,7 +100,7 @@ future feature changes from diverging across docs, code, and tests.
 
 FinMind uses Python 3.12, FastAPI, pytest, and a Vite frontend. Backend code MUST
 keep API, platform services, repositories, and reusable agent substrate boundaries
-separate. Frontend code MUST preserve the UI foundations in `specs/system/ui-workbench.md`
+separate. Frontend code MUST preserve the UI foundations in `specs/system/ui-ux-guidelines.md`
 and avoid introducing unsupported market scope or provider details into product
 contracts. Secrets MUST remain out of docs, logs, UI, tests, telemetry, and
 generated artifacts.
