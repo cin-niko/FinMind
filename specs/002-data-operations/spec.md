@@ -1,7 +1,7 @@
 ---
 id: SPEC-FEAT-002
 feature: data-operations
-status: draft
+status: pending
 owner: solo
 created: 2026-06-18
 implements: []
@@ -14,6 +14,8 @@ adr_refs: []
 
 ## Summary
 
+**Status update 2026-06-26**: this market data platform scope is parked as pending. Do not treat demo/mock market data as a substitute for real data-platform completion. Resume this phase only when reliable market-data rights/access or operator-owned import files are available.
+
 Deliver admin-controlled data operations for VN stock and gold datasets: ingestion status, scheduled/manual jobs, idempotent reruns, freshness calculation, market data inspection, overlap prevention, and non-secret diagnostics.
 
 This feature depends on `../001-mvp-workflow-platform/` for authentication, app shell, canonical state contracts, evidence contracts, and result inspection patterns.
@@ -23,6 +25,8 @@ This feature depends on `../001-mvp-workflow-platform/` for authentication, app 
 ### User Story 1 - Control And Monitor Ingestion (Priority: P1)
 
 An authenticated internal admin monitors scheduled market data ingestion, manually triggers safe reruns or backfills, and sees job status, freshness, and failure information for supported VN stock and gold datasets.
+
+While this phase is parked, the admin ingestion UI is not exposed from the application shell.
 
 **Independent Test**: Log in as admin, view ingestion status, trigger manual fetches for VN stock and gold datasets, rerun one fetch for the same period, and verify that job status, timestamps, outcome, freshness metadata, and canonical records update without duplicates.
 
@@ -36,6 +40,8 @@ Acceptance scenarios:
 ### User Story 2 - Inspect Market Data (Priority: P2)
 
 An authenticated internal admin inspects chart-ready canonical records and freshness metadata for supported datasets.
+
+While this phase is parked, the Market UI is not exposed from the application shell.
 
 **Independent Test**: Open the market data view after ingestion, select a VN stock or gold dataset, and verify chart-ready records, freshness state, and table fallback.
 

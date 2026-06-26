@@ -6,13 +6,13 @@ import type { WorkflowRun } from "../../api/client";
 import { HISTORY_SECTIONS, PRIMARY_NAV_ITEMS } from "./shellNavigation";
 
 type ShellProps = {
-  active: "chat" | "market" | "workflows" | "results";
+  active: "chat" | "workflows" | "results";
   role: string;
   chatHistory: ChatConversation[];
   workflowRuns: WorkflowRun[];
   selectedChatId: string | null;
   selectedRunId: string | null;
-  onNavigate: (view: "chat" | "market" | "workflows" | "results") => void;
+  onNavigate: (view: "chat" | "workflows" | "results") => void;
   onSelectChat: (conversationId: string) => void;
   onSelectRun: (run: WorkflowRun) => void;
   onLogout: () => void;

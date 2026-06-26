@@ -10,21 +10,21 @@ adr_refs: []
 
 # UI Workbench
 
-FinMind is an internal analyst workbench, not a marketing site. The first screen after login must be the usable application shell. Surfaces are introduced by feature phase: chat-first shell, Market, workflow/results in `001-mvp-workflow-platform`, admin ingestion in `002-data-operations`, and production evidence-backed chat in `003-evidence-backed-chat`.
+FinMind is an internal analyst workbench, not a marketing site. The first screen after login must be the usable application shell. Current active surfaces are the chat-first shell and workflow/results. The dedicated Market surface and admin ingestion UI are parked with `002-data-operations` until reliable market-data rights/access or operator import files are available; production evidence-backed chat in `003-evidence-backed-chat` proceeds through real-time retrieval tools first.
 
 ## Product Classification
 
 - Product type: fintech research dashboard / analyst workbench
 - Audience: internal finance researcher/admin
-- Primary tasks: ask chat-first finance questions, inspect generated chat artifacts, monitor real market data in Market, run fixed workflows, inspect cited workflow results, monitor ingestion, inspect freshness and artifacts
+- Primary tasks: ask chat-first finance questions, inspect generated chat artifacts, run fixed workflows, inspect cited workflow results, and inspect freshness/artifacts produced by active workflows
 - Stack target: React/Vite frontend consuming FastAPI JSON APIs
 - Chart target: Lightweight Charts for OHLC/candlestick and market-series panels
 
 ## Design Principles
 
 - Evidence before prose: citations, freshness, source coverage, and artifact status must be visible near generated workflow answers and chat artifacts.
-- Chat-first shell: the default primary surface after login in Phase 1 is a new chat composer, with workflows and Market available from the left rail.
-- Market is real data only: market snapshots, charts, tables, source/news feeds, and freshness states must not include LLM summaries, recommendations, or generated prose.
+- Chat-first shell: the default primary surface after login is a new chat composer, with workflows available from the left rail.
+- Parked data-platform surfaces: while Phase 002 is pending, the left rail must not expose Market or Admin ingestion. Any dormant Market UI remains real-data-only when re-enabled; it must not include LLM summaries, recommendations, generated prose, or demo data as a completion substitute.
 - Operational clarity: ingestion status, stale data warnings, failed runs, and unsupported markets must be visible without reading logs.
 - Dense but legible: prioritize compact navigation, tables, toolbars, split panes, and fixed-height panels.
 - No raw reasoning exposure: show stages, role status, tool status, citations, and artifacts; do not show hidden model reasoning transcripts.
@@ -58,7 +58,7 @@ Avoid gradient-orb, bokeh, decorative hero, generic white-card/blue-SaaS, heavy 
 Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail uses a right-side split panel on desktop and a full-screen artifact view on mobile.
 
 - Left rail width: 220-248px desktop, collapsible to icon rail on narrower screens.
-- Primary nav rows use icon + text for `New Chat`, `Market`, and `Workflows`.
+- Primary nav rows use icon + text for `New Chat` and `Workflows` while Phase 002 is parked.
 - Primary nav rows are flat text rows by default. Do not draw each row as an outlined button.
 - Only the active nav row or selected history row receives `surface-selected`; avoid simultaneous white, gray, and yellow row-selection backgrounds. Active rail rows do not increase font weight.
 - Yellow/amber must not be used as a rail selection color. Reserve it for run actions, warnings, stale/freshness attention, and content-level coverage state.
@@ -69,11 +69,11 @@ Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail
 - Desktop shell scrolling is separated by panel: the left rail keeps brand/nav and logout visible while history scrolls; the primary content pane keeps its header visible; chat keeps the composer pinned to the bottom while only messages scroll; the right artifact panel keeps its header visible while only artifact body content scrolls.
 - No large hero areas.
 
-Navigation is phase-aware:
+Navigation is roadmap-aware:
 
-- Phase 1: New Chat, Market, Workflows, History
-- Phase 2: Admin ingestion
-- Phase 3: Production evidence-backed chat and orchestrator-backed artifacts
+- Current active path: New Chat, Workflows, History
+- Parked path: Market and Admin ingestion return only when Phase 002 data access/import scope is resumed
+- Next path: Production evidence-backed chat and orchestrator-backed artifacts
 
 ## Required Screens
 
@@ -106,6 +106,8 @@ Navigation is phase-aware:
 
 ### Market Data
 
+- The Market tab is hidden from primary navigation while Phase 002 remains pending.
+- Hidden Market routes/components may remain in code for future re-enable, but they are not active app-shell surfaces.
 - Market uses a hybrid watchlist layout for VN stocks and gold only
 - System-predefined watchlist in V1, user-editable watchlists later
 - Freshness summary
@@ -116,6 +118,7 @@ Navigation is phase-aware:
 
 ### Admin Ingestion
 
+- The Admin ingestion tab is hidden from primary navigation while Phase 002 remains pending.
 - Freshness cards
 - Job history table
 - Manual fetch form

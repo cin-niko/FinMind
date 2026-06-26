@@ -3,7 +3,13 @@ import { HISTORY_SECTIONS, PRIMARY_NAV_ITEMS } from "./shellNavigation";
 
 assert.deepEqual(
   PRIMARY_NAV_ITEMS.map((item) => item.label),
-  ["New Chat", "Market", "Workflows"]
+  ["New Chat", "Workflows"]
+);
+
+assert.equal(
+  PRIMARY_NAV_ITEMS.some((item) => item.label === "Market"),
+  false,
+  "Market nav stays hidden while Phase 002 is parked"
 );
 
 assert.deepEqual(

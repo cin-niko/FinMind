@@ -19,12 +19,11 @@ import {
   type ChatArtifact,
   type ChatConversation
 } from "./features/chat/mockChat";
-import { MarketPage } from "./features/market/MarketPage";
 import { ResultView } from "./features/results/ResultView";
 import { AppShell } from "./features/shell/AppShell";
 import { WorkflowPage } from "./features/workflows/WorkflowPage";
 
-type View = "chat" | "market" | "workflows" | "results";
+type View = "chat" | "workflows" | "results";
 
 export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -128,7 +127,6 @@ export function App() {
 
   const titleByView: Record<View, string> = {
     chat: currentConversation ? getConversationTitle(currentConversation) : "New Chat",
-    market: "Market",
     workflows: "Workflows",
     results: "Workflow Result"
   };
@@ -168,7 +166,6 @@ export function App() {
                 onSubmit={handleChatSubmit}
               />
             ) : null}
-            {view === "market" ? <MarketPage /> : null}
             {view === "workflows" ? (
               <WorkflowPage
                 onRunComplete={handleRunComplete}
