@@ -324,6 +324,7 @@ cython_debug/
 
 # Project-local generated state
 .superpowers/
+.worktrees/
 
 # Local databases and runtime stores
 *.sqlite
