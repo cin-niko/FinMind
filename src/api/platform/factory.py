@@ -81,6 +81,9 @@ def _create_ingestion_sources(settings: Settings | None):
             timeout_seconds=settings.provider_timeout_seconds,
         )
 
+    if not settings.roadmap_markets_enabled:
+        return sources
+
     if settings.us_provider == "mock":
         sources["us_prices"] = DemoMarketDataSource("us_prices")
         sources["us_prices_daily"] = DemoMarketDataSource("us_prices_daily")

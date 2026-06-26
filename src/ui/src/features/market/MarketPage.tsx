@@ -3,7 +3,6 @@ import {
   getMarketOverview,
   type MarketOverview
 } from "../../api/client";
-import { InstrumentChartPanel } from "../charts/InstrumentChartPanel";
 import {
   buildHeatmapFilters,
   filterRoadmapIndexCharts,
@@ -26,14 +25,19 @@ type CollectionHeatmapOverview = {
   filterId: string;
   overview: MarketOverview;
 };
+type SelectedIndexChart = MarketOverview["index_charts"][number];
 
-export function MarketPage() {
+type MarketPageProps = {
+  onOpenInstrument: (instrumentId: string) => void;
+};
+
+export function MarketPage({ onOpenInstrument }: MarketPageProps) {
   const [heatmapFilterId, setHeatmapFilterId] = useState("all");
   const [sortState, setSortState] = useState<SortState>({ key: "change_percent", direction: "desc" });
   const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [collectionHeatmapOverview, setCollectionHeatmapOverview] = useState<CollectionHeatmapOverview | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
-  const [selectedInstrumentId, setSelectedInstrumentId] = useState("vn_stock:VCB");
+  const [selectedIndexChart, setSelectedIndexChart] = useState<SelectedIndexChart | null>(null);
   const [moverTab, setMoverTab] = useState<MoverTab>("gainers");
 
   useEffect(() => {
@@ -46,14 +50,6 @@ export function MarketPage() {
         }
         setOverview(nextOverview);
         setCollectionHeatmapOverview(null);
-        const firstInstrument = nextOverview.instrument_rows[0];
-        if (firstInstrument) {
-          setSelectedInstrumentId((current) =>
-            nextOverview.instrument_rows.some((row) => row.id === current)
-              ? current
-              : firstInstrument.id
-          );
-        }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -191,11 +187,23 @@ export function MarketPage() {
         <main className="marketMainColumn">
           <section className="indexStrip" aria-label="Top indexes">
             {visibleIndexCharts.map((indexChart) => (
-              <IndexMiniCard indexChart={indexChart} key={indexChart.symbol} />
+              <IndexMiniCard
+                indexChart={indexChart}
+                isSelected={selectedIndexChart?.symbol === indexChart.symbol}
+                key={indexChart.symbol}
+                onSelect={() => {
+                  setSelectedIndexChart(indexChart);
+                }}
+              />
             ))}
           </section>
 
-          <InstrumentChartPanel instrumentId={selectedInstrumentId} />
+          {selectedIndexChart ? (
+            <IndexChartDetailPanel
+              indexChart={selectedIndexChart}
+              onClose={() => setSelectedIndexChart(null)}
+            />
+          ) : null}
 
           <div className="marketDashboardGrid">
             <section className="panel instrumentListPanel" aria-label="Instrument list">
@@ -244,9 +252,11 @@ export function MarketPage() {
                   <tbody>
                     {sortedRows.map((row) => (
                       <tr
-                        className={row.id === selectedInstrumentId ? "selectedRow" : ""}
                         key={row.id}
-                        onClick={() => setSelectedInstrumentId(row.id)}
+                        onClick={() => {
+                          setSelectedIndexChart(null);
+                          onOpenInstrument(row.id);
+                        }}
                       >
                         <td>
                           <button className="symbolButton" type="button">{row.symbol}</button>
@@ -288,7 +298,10 @@ export function MarketPage() {
                   <button
                     className={cell.change_percent >= 0 ? "heatCell positive" : "heatCell negative"}
                     key={cell.id}
-                    onClick={() => setSelectedInstrumentId(cell.id)}
+                    onClick={() => {
+                      setSelectedIndexChart(null);
+                      onOpenInstrument(cell.id);
+                    }}
                     style={{ minHeight: `${Math.max(72, Math.min(142, cell.value / 130000000))}px` }}
                     type="button"
                   >
@@ -310,9 +323,11 @@ export function MarketPage() {
             <div className="railList">
               {watchlistRows.map((row) => (
                 <MarketRailRow
-                  isSelected={row.id === selectedInstrumentId}
                   key={row.id}
-                  onSelect={() => setSelectedInstrumentId(row.id)}
+                  onSelect={() => {
+                    setSelectedIndexChart(null);
+                    onOpenInstrument(row.id);
+                  }}
                   row={row}
                 />
               ))}
@@ -344,9 +359,11 @@ export function MarketPage() {
               {activeMoverRows.length ? (
                 activeMoverRows.map((row) => (
                   <MarketRailRow
-                    isSelected={row.id === selectedInstrumentId}
                     key={row.id}
-                    onSelect={() => setSelectedInstrumentId(row.id)}
+                    onSelect={() => {
+                      setSelectedIndexChart(null);
+                      onOpenInstrument(row.id);
+                    }}
                     row={row}
                   />
                 ))
@@ -366,12 +383,28 @@ export function MarketPage() {
   }
 }
 
-function IndexMiniCard({ indexChart }: { indexChart: MarketOverview["index_charts"][number] }) {
+function IndexMiniCard({
+  indexChart,
+  isSelected,
+  onSelect
+}: {
+  indexChart: MarketOverview["index_charts"][number];
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
   const metrics = getIndexCardMetrics(indexChart);
   const directionClass = indexChart.change_percent >= 0 ? "up" : "down";
 
   return (
-    <article className="indexMiniChart">
+    <button
+      className={
+        isSelected
+          ? "marketChartCard indexMiniChart indexMiniChartButton selected"
+          : "marketChartCard indexMiniChart indexMiniChartButton"
+      }
+      onClick={onSelect}
+      type="button"
+    >
       <div className="indexCardHeader">
         <div>
           <span className="indexName">{indexChart.name}</span>
@@ -387,7 +420,70 @@ function IndexMiniCard({ indexChart }: { indexChart: MarketOverview["index_chart
         <path className={directionClass === "up" ? "indexArea positive" : "indexArea negative"} d={metrics.areaPath} />
         <path className={directionClass === "up" ? "indexLine positive" : "indexLine negative"} d={metrics.linePath} />
       </svg>
-    </article>
+    </button>
+  );
+}
+
+function IndexChartDetailPanel({
+  indexChart,
+  onClose
+}: {
+  indexChart: SelectedIndexChart;
+  onClose: () => void;
+}) {
+  const metrics = getIndexCardMetrics(indexChart);
+  const directionClass = indexChart.change_percent >= 0 ? "up" : "down";
+  const latestPoint = indexChart.series.at(-1);
+  const previousPoint = indexChart.series.at(-2);
+  const high = indexChart.series.length
+    ? Math.max(...indexChart.series.map((point) => point.value))
+    : null;
+  const low = indexChart.series.length
+    ? Math.min(...indexChart.series.map((point) => point.value))
+    : null;
+  const metricCells = [
+    ["Prev Close", previousPoint ? formatNumber(previousPoint.value) : "--"],
+    ["Latest", latestPoint ? formatNumber(latestPoint.value) : "--"],
+    ["High", high === null ? "--" : formatNumber(high)],
+    ["Low", low === null ? "--" : formatNumber(low)]
+  ];
+  return (
+    <section className="panel marketChartPanel indexChartDetailPanel" aria-label={`${indexChart.name} full chart`}>
+      <div className="chartHeroHeader indexChartHeroHeader">
+        <div className="chartIdentity">
+          <span className="chartTickerMark">{indexChart.symbol.slice(0, 3)}</span>
+          <div>
+            <div className="chartTitleLine">
+              <h2>{indexChart.name}</h2>
+              <span>{indexChart.symbol}</span>
+            </div>
+            <span className="chartMeta">Market index · canonical overview series</span>
+          </div>
+        </div>
+        <div className="chartPriceBlock">
+          <strong className="chartPriceLine">{formatNumber(indexChart.last)}</strong>
+          <span className={`chartChangeLine ${directionClass === "up" ? "positive" : "negative"}`}>
+            {formatSignedNumber(metrics.changeValue)} · {formatPercent(indexChart.change_percent)}
+          </span>
+        </div>
+        <button className="textButton compactAction chartCloseButton" onClick={onClose} type="button">
+          Close
+        </button>
+      </div>
+      <svg className="marketChartSurface indexDetailChart" viewBox="0 0 240 64" role="img" aria-label={`${indexChart.name} chart`}>
+        <path className="indexBaseline" d="M 0 32 L 240 32" />
+        <path className={directionClass === "up" ? "indexArea positive" : "indexArea negative"} d={metrics.areaPath} />
+        <path className={directionClass === "up" ? "indexLine positive" : "indexLine negative"} d={metrics.linePath} />
+      </svg>
+      <div className="indexMetricStrip chartStatsGrid" aria-label={`${indexChart.name} latest values`}>
+        {metricCells.map(([label, value]) => (
+          <span className="chartStatCell" key={label}>
+            <small>{label}</small>
+            <strong>{value}</strong>
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -418,16 +514,14 @@ function SortableHeader({
 }
 
 function MarketRailRow({
-  isSelected,
   onSelect,
   row
 }: {
-  isSelected: boolean;
   onSelect: () => void;
   row: MarketOverview["instrument_rows"][number];
 }) {
   return (
-    <button className={isSelected ? "railInstrumentRow selected" : "railInstrumentRow"} onClick={onSelect} type="button">
+    <button className="railInstrumentRow" onClick={onSelect} type="button">
       <span className="railSymbolMark">{row.symbol.slice(0, 2)}</span>
       <span className="railInstrumentMeta">
         <strong>{row.symbol}</strong>

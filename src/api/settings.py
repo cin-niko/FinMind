@@ -80,10 +80,6 @@ class Settings:
                 "",
             ).strip(),
         }
-        if provider_config["FINMIND_VN_PROVIDER"] == "vnstock" and not credentials[
-            "FINMIND_VNSTOCK_API_KEY"
-        ]:
-            raise SettingsError("FINMIND_VNSTOCK_API_KEY is required for vnstock provider")
         timeout_raw = os.getenv("FINMIND_PROVIDER_TIMEOUT_SECONDS", "15").strip()
         try:
             provider_timeout_seconds = float(timeout_raw)

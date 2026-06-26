@@ -26,7 +26,7 @@ services:
       FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
       FINMIND_SESSION_SECRET: ${FINMIND_SESSION_SECRET:-session-secret-with-length}
       FINMIND_DATABASE_URL: ${FINMIND_DATABASE_URL:-postgresql://finmind:finmind@db:5432/finmind}
-      FINMIND_VN_PROVIDER: ${FINMIND_VN_PROVIDER:-mock}
+      FINMIND_VN_PROVIDER: ${FINMIND_VN_PROVIDER:-vnstock}
       FINMIND_US_PROVIDER: ${FINMIND_US_PROVIDER:-mock}
       FINMIND_XAUUSD_PROVIDER: ${FINMIND_XAUUSD_PROVIDER:-mock}
       FINMIND_XAUUSD_DAILY_FALLBACK: ${FINMIND_XAUUSD_DAILY_FALLBACK:-alpha_vantage}
@@ -34,8 +34,15 @@ services:
       FINMIND_VNSTOCK_API_KEY: ${FINMIND_VNSTOCK_API_KEY:-}
       FINMIND_ALPHA_VANTAGE_API_KEY: ${FINMIND_ALPHA_VANTAGE_API_KEY:-}
       FINMIND_PROVIDER_TIMEOUT_SECONDS: ${FINMIND_PROVIDER_TIMEOUT_SECONDS:-15}
+      FINMIND_ROADMAP_MARKETS: ${FINMIND_ROADMAP_MARKETS:-false}
     ports:
       - "8000:8000"
+    command:
+      [
+        "sh",
+        "-c",
+        "/app/.venv/bin/python -m api.platform.ingestion.seed && /app/.venv/bin/uvicorn api.app:create_app --factory --host 0.0.0.0 --port 8000",
+      ]
     depends_on:
       db:
         condition: service_healthy
@@ -62,7 +69,7 @@ services:
       FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
       FINMIND_SESSION_SECRET: ${FINMIND_SESSION_SECRET:-session-secret-with-length}
       FINMIND_DATABASE_URL: ${FINMIND_DATABASE_URL:-postgresql://finmind:finmind@db:5432/finmind}
-      FINMIND_VN_PROVIDER: ${FINMIND_VN_PROVIDER:-mock}
+      FINMIND_VN_PROVIDER: ${FINMIND_VN_PROVIDER:-vnstock}
       FINMIND_US_PROVIDER: ${FINMIND_US_PROVIDER:-mock}
       FINMIND_XAUUSD_PROVIDER: ${FINMIND_XAUUSD_PROVIDER:-mock}
       FINMIND_XAUUSD_DAILY_FALLBACK: ${FINMIND_XAUUSD_DAILY_FALLBACK:-alpha_vantage}
@@ -70,14 +77,15 @@ services:
       FINMIND_VNSTOCK_API_KEY: ${FINMIND_VNSTOCK_API_KEY:-}
       FINMIND_ALPHA_VANTAGE_API_KEY: ${FINMIND_ALPHA_VANTAGE_API_KEY:-}
       FINMIND_PROVIDER_TIMEOUT_SECONDS: ${FINMIND_PROVIDER_TIMEOUT_SECONDS:-15}
-      FINMIND_BACKFILL_PRESET: ${FINMIND_BACKFILL_PRESET:-market-history}
+      FINMIND_ROADMAP_MARKETS: ${FINMIND_ROADMAP_MARKETS:-false}
+      FINMIND_BACKFILL_PRESET: ${FINMIND_BACKFILL_PRESET:-vn-history}
       FINMIND_BACKFILL_FROM_DATE: ${FINMIND_BACKFILL_FROM_DATE:-2026-06-18}
       FINMIND_BACKFILL_TO_DATE: ${FINMIND_BACKFILL_TO_DATE:-2026-06-25}
     command:
       [
         "sh",
         "-c",
-        "/app/.venv/bin/python -m api.platform.ingestion.backfill --preset \"$${FINMIND_BACKFILL_PRESET}\" --from-date \"$${FINMIND_BACKFILL_FROM_DATE}\" --to-date \"$${FINMIND_BACKFILL_TO_DATE}\"",
+        "/app/.venv/bin/python -m api.platform.ingestion.seed && /app/.venv/bin/python -m api.platform.ingestion.backfill --preset \"$${FINMIND_BACKFILL_PRESET}\" --from-date \"$${FINMIND_BACKFILL_FROM_DATE}\" --to-date \"$${FINMIND_BACKFILL_TO_DATE}\"",
       ]
     depends_on:
       db:

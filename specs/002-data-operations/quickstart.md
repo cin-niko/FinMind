@@ -82,9 +82,9 @@ Required for V1:
 
 - `FINMIND_DATABASE_URL` — Postgres DSN pointing at the Compose
   TimescaleDB.
-- `FINMIND_VN_PROVIDER=mock` (deterministic) or `vnstock` (real free
-  provider).
-- `FINMIND_VNSTOCK_API_KEY` — only when `FINMIND_VN_PROVIDER=vnstock`.
+- `FINMIND_VN_PROVIDER=vnstock` for Phase 002 real VN data. Use `mock`
+  only for deterministic local tests.
+- `FINMIND_VNSTOCK_API_KEY` — optional/reserved; keep server-side if set.
 - `FINMIND_ROADMAP_MARKETS=false` (default; V1 hides US/XAUUSD/SJC).
 
 Keep all provider keys server-side. Never expose them to the UI or
@@ -213,8 +213,10 @@ daily leg (required) and a best-effort 1h leg clamped to the rolling
 vnstock window.
 
 ```bash
+docker compose --profile backfill run --build --rm backfill
+
+# local-module equivalent:
 ./scripts/backfill_market_history.sh
-# equivalent to:
 uv run python -m api.platform.ingestion.backfill \
   --preset vn-history \
   --from-date 2026-06-18 \

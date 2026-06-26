@@ -30,10 +30,42 @@ assert.ok(
   "Market toolbar shell (which previously hosted the selector) must be gone"
 );
 assert.ok(
-  source.includes("InstrumentChartPanel"),
-  "Market page must mount the instrument detail chart panel"
+  source.includes("onOpenInstrument"),
+  "Market page must delegate instrument detail navigation to its parent"
+);
+assert.ok(
+  !source.includes("selectedInstrumentId"),
+  "Market page must not own selected instrument state in the overview"
+);
+assert.ok(
+  !source.includes("selectedRow"),
+  "Instrument table clicks must not leave selected-row state in the Market overview"
+);
+assert.ok(
+  !source.includes("railInstrumentRow selected"),
+  "Watchlist and mover rows must not receive selected state from instrument clicks"
+);
+assert.ok(
+  !source.includes("InstrumentChartPanel"),
+  "Market page must not render the full instrument chart directly"
+);
+assert.ok(
+  source.includes("selectedIndexChart ?"),
+  "Market page must open a full index chart only after a mini chart selection"
 );
 assert.ok(
   source.includes("filterRoadmapInstruments"),
   "Market page must apply roadmap filtering to instrument rows"
+);
+assert.ok(
+  source.includes("marketChartCard"),
+  "Index mini charts must share the polished market chart card style"
+);
+assert.ok(
+  source.includes("marketChartSurface"),
+  "Index detail charts must share the soft chart surface treatment"
+);
+assert.ok(
+  source.includes("indexMetricStrip"),
+  "Index detail charts must expose compact metric cells below the chart"
 );

@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from html.parser import HTMLParser
 from io import StringIO
 import os
+from pathlib import Path
 import re
 import time
 from typing import Any
@@ -15,6 +16,22 @@ from api.platform.ingestion.errors import ProviderFetchError
 from api.platform.ingestion.sources import TimeSeriesRecord
 
 FetchJson = Callable[[str], object]
+
+
+def vn100_seed_symbols() -> tuple[str, ...]:
+    seed_path = (
+        Path(__file__).resolve().parents[4] / "data" / "seed" / "vn100.csv"
+    )
+    with seed_path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        symbols = tuple(
+            str(row["symbol"]).strip().upper()
+            for row in reader
+            if str(row.get("symbol", "")).strip()
+        )
+    if len(symbols) != 100 or len(set(symbols)) != 100:
+        raise RuntimeError("VN100 seed symbols must contain 100 unique tickers")
+    return symbols
 
 
 @dataclass(frozen=True)
@@ -37,15 +54,20 @@ class VnstockVNStockSource(FreeMarketDataSource):
         self,
         fetch_json: FetchJson | None = None,
         api_key: str | None = None,
-        symbols: tuple[str, ...] = ("VCB", "VPB"),
+        symbols: tuple[str, ...] | None = None,
         timeout_seconds: float = 15.0,
     ) -> None:
-        self._symbols = symbols
+        self._symbols = symbols or vn100_seed_symbols()
         self._api_key = api_key
         super().__init__(
             source_id="vn_prices",
             provider="vnstock",
-            fetch_json=fetch_json or _vnstock_fetcher(symbols, api_key, timeout_seconds),
+            fetch_json=fetch_json
+            or _vnstock_fetcher(
+                self._symbols,
+                api_key,
+                timeout_seconds,
+            ),
         )
 
     def fetch(
@@ -109,16 +131,20 @@ class VnstockVNStockDailySource(FreeMarketDataSource):
         self,
         fetch_json: FetchJson | None = None,
         api_key: str | None = None,
-        symbols: tuple[str, ...] = ("VCB", "VPB"),
+        symbols: tuple[str, ...] | None = None,
         timeout_seconds: float = 15.0,
     ) -> None:
-        self._symbols = symbols
+        self._symbols = symbols or vn100_seed_symbols()
         self._api_key = api_key
         super().__init__(
             source_id="vn_prices_daily",
             provider="vnstock",
             fetch_json=fetch_json
-            or _vnstock_daily_fetcher(symbols, api_key, timeout_seconds),
+            or _vnstock_daily_fetcher(
+                self._symbols,
+                api_key,
+                timeout_seconds,
+            ),
         )
 
     def fetch(
@@ -767,13 +793,21 @@ def _vnstock_hourly_payload(
     start = _period_start(period)
     end = start + timedelta(days=1)
     records: list[dict[str, object]] = []
+    symbol_failures: list[dict[str, str]] = []
     for symbol in symbols:
-        raw_history = _fetch_vnstock_symbol_history(
-            symbol=symbol,
-            start=start.date().isoformat(),
-            end=end.date().isoformat(),
-        )
+        try:
+            raw_history = _fetch_vnstock_symbol_history(
+                symbol=symbol,
+                start=start.date().isoformat(),
+                end=end.date().isoformat(),
+            )
+        except ProviderFetchError as exc:
+            symbol_failures.append(
+                {"symbol": symbol, "error": str(exc)}
+            )
+            continue
         records.extend(_normalize_vnstock_history(symbol, raw_history))
+        _throttle_vnstock_symbol_fetch()
     return {
         "capabilities": {
             "interval": "1h",
@@ -783,6 +817,7 @@ def _vnstock_hourly_payload(
             "to": end.date().isoformat(),
             "covered_from": start.date().isoformat(),
             "covered_to": end.date().isoformat(),
+            "symbol_failures": symbol_failures,
         },
         "records": records,
     }
@@ -803,15 +838,23 @@ def _vnstock_daily_payload(
     )
     end = end_candidate if end_candidate >= start else start
     records: list[dict[str, object]] = []
+    symbol_failures: list[dict[str, str]] = []
     for symbol in symbols:
-        raw_history = _fetch_vnstock_symbol_daily_history(
-            symbol=symbol,
-            start=start.date().isoformat(),
-            end=end.date().isoformat(),
-        )
+        try:
+            raw_history = _fetch_vnstock_symbol_daily_history(
+                symbol=symbol,
+                start=start.date().isoformat(),
+                end=end.date().isoformat(),
+            )
+        except ProviderFetchError as exc:
+            symbol_failures.append(
+                {"symbol": symbol, "error": str(exc)}
+            )
+            continue
         records.extend(
             _normalize_vnstock_daily_history(symbol, raw_history)
         )
+        _throttle_vnstock_symbol_fetch()
     return {
         "capabilities": {
             "interval": "1d",
@@ -821,9 +864,20 @@ def _vnstock_daily_payload(
             "to": end.date().isoformat(),
             "covered_from": start.date().isoformat(),
             "covered_to": end.date().isoformat(),
+            "symbol_failures": symbol_failures,
         },
         "records": records,
     }
+
+
+def _throttle_vnstock_symbol_fetch() -> None:
+    delay_raw = os.getenv("FINMIND_VNSTOCK_SYMBOL_DELAY_SECONDS", "0.75")
+    try:
+        delay_seconds = float(delay_raw)
+    except ValueError:
+        delay_seconds = 0.75
+    if delay_seconds > 0:
+        time.sleep(delay_seconds)
 
 
 def _vnstock_fetcher(

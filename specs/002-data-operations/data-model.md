@@ -7,7 +7,9 @@ created: 2026-06-18
 implements: []
 validated_by:
   - tests/test_platform_services.py
-adr_refs: []
+adr_refs:
+  - docs/adr/0006-shared-evidence-lineage-tables.md
+  - docs/adr/0007-single-timescaledb-store-for-v1.md
 ---
 
 # Data Model: Data Operations
@@ -48,12 +50,12 @@ Environment variables:
 | Variable | Required | Notes |
 |----------|----------|-------|
 | `FINMIND_DATABASE_URL` | production yes | PostgreSQL/TimescaleDB connection URL used by the ingestion store. |
-| `FINMIND_VN_PROVIDER` | no | `mock` by default; `vnstock` selects the real VN stock adapter. |
+| `FINMIND_VN_PROVIDER` | no | `mock` for deterministic local tests; Compose defaults to `vnstock` for Phase 002 real VN data. |
 | `FINMIND_US_PROVIDER` | no | `mock` by default; `yfinance` selects the real US stock recent 1h adapter; `us_prices_daily` uses a no-key daily CSV source for daily history. |
 | `FINMIND_XAUUSD_PROVIDER` | no | `mock` by default; `yfinance` selects the real XAUUSD 1h adapter. |
 | `FINMIND_XAUUSD_DAILY_FALLBACK` | no | `alpha_vantage` when enabled by real XAUUSD configuration; used when 1h historical coverage is unavailable. |
 | `FINMIND_SJC_PROVIDER` | no | `mock` by default; `sjc_official` selects the real SJC daily quote adapter. |
-| `FINMIND_VNSTOCK_API_KEY` | `vnstock` yes | Server-side VNStock API key. Must not appear in diagnostics, logs, fixtures, or API responses. |
+| `FINMIND_VNSTOCK_API_KEY` | no | Optional/reserved server-side VNStock key for provider profiles that require credentials. Must not appear in diagnostics, logs, fixtures, or API responses. |
 | `FINMIND_ALPHA_VANTAGE_API_KEY` | no | Server-side Alpha Vantage key for XAUUSD daily fallback. Must not appear in diagnostics, logs, fixtures, or API responses. |
 | `FINMIND_PROVIDER_TIMEOUT_SECONDS` | no | Provider timeout; defaults to a conservative value. |
 
@@ -61,6 +63,7 @@ Real provider set:
 
 | Dataset | Provider | Historical policy | Notes |
 |---------|----------|-------------------|-------|
+| `vn_prices_daily` | `vnstock` | Daily OHLCV history for the VN100 seed universe. | Canonical V1 price dataset; the default `vn-history` backfill fetches all VN100 seed symbols. |
 | `vn_prices` | `vnstock` | 1h for both pre-production historical backfill and post-launch latest fetches, where `vnstock` history allows the requested range. | Adapter must record range/rate limitations and missing long-range coverage in diagnostics. |
 | `us_prices` | yfinance/Yahoo Finance | Recent rolling 1h history for US individual equities. | Adapter must not imply full long-range 1h coverage. |
 | `us_prices_daily` | Stooq/no-key daily CSV | Daily history for US individual equities. | This is the canonical daily base for US market charts and backfill; phase 002 starts with a 7-day operational baseline, and operators should use the `us-daily-history` preset to avoid running VN/gold providers when fetching only US daily bars. |
@@ -100,7 +103,7 @@ Provider response contract:
 
 Phase 002 stores the following tables in a PostgreSQL-compatible TimescaleDB service:
 
-- `market_instruments`: supported VN stock, XAUUSD, and VN SJC gold instrument metadata.
+- `market_instruments`: supported VN100 stock instrument metadata in V1; roadmap XAUUSD and VN SJC gold metadata remain dormant unless a later spec re-enables them.
 - `market_collections`: supported index groups, predefined watchlists, sector groups, and thematic groups.
 - `market_collection_memberships`: effective-dated membership links from instruments to collections.
 - `stock_1h_bars`: typed 1h OHLCV bars for stock datasets, including `vn_prices` and `us_prices`.

@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FinMind Chart Redesign Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #242321;
+        --muted: #756f66;
+        --hairline: #e7e1d7;
+        --surface: #fffefb;
+        --surface-soft: #faf7f1;
+        --green: #2f6f3e;
+        --green-soft: rgba(47, 111, 62, 0.14);
+        --red: #9f3c45;
+        --red-soft: rgba(159, 60, 69, 0.12);
+        --shadow: 0 18px 50px rgba(35, 32, 25, 0.09);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 28px;
+        background:
+          radial-gradient(circle at 18% 8%, rgba(47, 111, 62, 0.07), transparent 28%),
+          linear-gradient(135deg, #f7f3eb 0%, #ffffff 48%, #f3efe7 100%);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      .demo-shell {
+        width: min(1180px, 100%);
+      }
+
+      .chart-card {
+        overflow: hidden;
+        border: 1px solid var(--hairline);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .chart-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        align-items: start;
+        padding: 18px 20px 16px;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .identity {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .ticker-mark {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border: 1px solid #ded6c9;
+        border-radius: 8px;
+        background: #f3eee5;
+        color: var(--green);
+        font-weight: 780;
+        letter-spacing: 0;
+      }
+
+      .name-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: baseline;
+        min-width: 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .company {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .meta {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .price-block {
+        text-align: right;
+      }
+
+      .price {
+        font-size: clamp(28px, 4vw, 42px);
+        line-height: 1;
+        font-weight: 680;
+        letter-spacing: 0;
+      }
+
+      .change {
+        margin-top: 6px;
+        color: var(--red);
+        font-size: 17px;
+        font-weight: 620;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--hairline);
+        background: rgba(250, 247, 241, 0.72);
+      }
+
+      .segments {
+        display: inline-flex;
+        gap: 3px;
+        padding: 3px;
+        border: 1px solid #ddd5c8;
+        border-radius: 8px;
+        background: #fffdf8;
+      }
+
+      button {
+        min-height: 34px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+        padding: 7px 12px;
+        transition:
+          background 180ms ease,
+          color 180ms ease,
+          box-shadow 180ms ease;
+      }
+
+      button:hover {
+        color: var(--ink);
+        background: #f2ede4;
+      }
+
+      button.active {
+        color: var(--ink);
+        background: #ebe6dd;
+        box-shadow: inset 0 0 0 1px rgba(35, 32, 25, 0.04);
+      }
+
+      .icon-button {
+        width: 38px;
+        padding: 7px;
+      }
+
+      .icon-button svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+        margin: 0 auto;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .spacer {
+        flex: 1 1 auto;
+      }
+
+      .chart-stage {
+        position: relative;
+        height: 420px;
+        overflow: hidden;
+        background:
+          linear-gradient(to right, rgba(153, 144, 130, 0.11) 1px, transparent 1px)
+            0 0 / 160px 100%,
+          linear-gradient(to bottom, rgba(153, 144, 130, 0.12) 1px, transparent 1px)
+            0 0 / 100% 86px,
+          var(--surface);
+      }
+
+      .watermark {
+        position: absolute;
+        top: 22px;
+        right: 24px;
+        color: rgba(117, 111, 102, 0.26);
+        font-size: 16px;
+        font-weight: 680;
+      }
+
+      .axis-label {
+        position: absolute;
+        right: 20px;
+        color: #8b857c;
+        font-size: 12px;
+      }
+
+      .axis-label.top {
+        top: 74px;
+      }
+
+      .axis-label.mid {
+        top: 193px;
+      }
+
+      .axis-label.low {
+        bottom: 74px;
+      }
+
+      .prev-close {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 204px;
+        border-top: 1px dashed rgba(117, 111, 102, 0.54);
+      }
+
+      .prev-pill {
+        position: absolute;
+        right: 24px;
+        top: -17px;
+        padding: 7px 12px;
+        border: 1px solid #ded7cb;
+        border-radius: 999px;
+        background: rgba(255, 254, 251, 0.94);
+        color: var(--muted);
+        font-size: 12px;
+        box-shadow: 0 5px 18px rgba(35, 32, 25, 0.08);
+      }
+
+      .area-green {
+        fill: url(#greenFill);
+      }
+
+      .area-red {
+        fill: url(#redFill);
+      }
+
+      .line {
+        fill: none;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .line.green {
+        stroke: var(--green);
+      }
+
+      .line.red {
+        stroke: var(--red);
+      }
+
+      .volume {
+        opacity: 0.42;
+      }
+
+      .time-labels {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        color: #928b82;
+        font-size: 13px;
+      }
+
+      .time-labels span:nth-child(n + 2) {
+        text-align: center;
+      }
+
+      .time-labels span:last-child {
+        text-align: right;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-top: 1px solid var(--hairline);
+        background: #fffdf8;
+      }
+
+      .stat {
+        min-width: 0;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 15px 18px;
+        border-right: 1px solid var(--hairline);
+      }
+
+      .stat:last-child {
+        border-right: 0;
+      }
+
+      .stat span {
+        min-width: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .stat strong {
+        color: var(--ink);
+        font-size: 15px;
+        font-weight: 720;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 12px;
+        }
+
+        .chart-header {
+          grid-template-columns: 1fr;
+        }
+
+        .price-block {
+          text-align: left;
+        }
+
+        .chart-stage {
+          height: 360px;
+        }
+
+        .stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .stat:nth-child(2n) {
+          border-right: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="demo-shell">
+      <section class="chart-card" aria-label="Instrument chart redesign demo">
+        <header class="chart-header">
+          <div class="identity">
+            <div class="ticker-mark">HPG</div>
+            <div>
+              <div class="name-line">
+                <h1>Hoa Phat Group</h1>
+                <span class="company">HOSE common stock</span>
+              </div>
+              <div class="meta">At close: Jun 26, 2026, 02:45 PM ICT · Canonical VN daily prices</div>
+            </div>
+          </div>
+          <div class="price-block">
+            <div class="price">28,450</div>
+            <div class="change">-350 · 1.22%</div>
+          </div>
+        </header>
+
+        <nav class="toolbar" aria-label="Chart controls">
+          <div class="segments" aria-label="Timeframes">
+            <button class="active" type="button">1D</button>
+            <button type="button">5D</button>
+            <button type="button">1M</button>
+            <button type="button">6M</button>
+            <button type="button">YTD</button>
+            <button type="button">1Y</button>
+            <button type="button">5Y</button>
+          </div>
+          <div class="spacer"></div>
+          <div class="segments" aria-label="Chart display mode">
+            <button class="icon-button active" type="button" aria-label="Candlestick chart" title="Candlestick chart">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 4v16" />
+                <path d="M17 3v18" />
+                <rect x="4.5" y="8" width="5" height="7" rx="1.2" />
+                <rect x="14.5" y="6" width="5" height="10" rx="1.2" />
+              </svg>
+              <span class="sr-only">Candlestick chart</span>
+            </button>
+            <button class="icon-button" type="button" aria-label="Line chart" title="Line chart">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 17l5-5 4 3 7-8" />
+                <path d="M4 20h16" />
+              </svg>
+              <span class="sr-only">Line chart</span>
+            </button>
+          </div>
+        </nav>
+
+        <div class="chart-stage">
+          <div class="watermark">FinMind</div>
+          <div class="axis-label top">29,100</div>
+          <div class="axis-label mid">28,800</div>
+          <div class="axis-label low">28,300</div>
+          <div class="prev-close"><span class="prev-pill">Prev close: 28,800</span></div>
+          <svg viewBox="0 0 1160 420" role="img" aria-label="Sample line chart">
+            <defs>
+              <linearGradient id="greenFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#2f6f3e" stop-opacity="0.16" />
+                <stop offset="100%" stop-color="#2f6f3e" stop-opacity="0" />
+              </linearGradient>
+              <linearGradient id="redFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#9f3c45" stop-opacity="0.13" />
+                <stop offset="100%" stop-color="#9f3c45" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              class="area-green"
+              d="M0 160 C55 178 98 118 154 130 C217 143 254 96 316 112 C380 130 410 86 470 104 C528 120 540 160 576 186 L576 255 L0 255 Z"
+            />
+            <path
+              class="area-red"
+              d="M576 186 C612 238 652 194 704 216 C768 245 804 190 858 214 C918 236 950 218 994 248 C1048 284 1098 334 1160 294 L1160 330 L576 330 Z"
+            />
+            <path
+              class="line green"
+              d="M0 160 C55 178 98 118 154 130 C217 143 254 96 316 112 C380 130 410 86 470 104 C528 120 540 160 576 186"
+            />
+            <path
+              class="line red"
+              d="M576 186 C612 238 652 194 704 216 C768 245 804 190 858 214 C918 236 950 218 994 248 C1048 284 1098 334 1160 294"
+            />
+            <g class="volume">
+              <rect x="24" y="330" width="8" height="26" fill="#2f6f3e" />
+              <rect x="48" y="340" width="8" height="16" fill="#9f3c45" />
+              <rect x="72" y="335" width="8" height="21" fill="#2f6f3e" />
+              <rect x="96" y="322" width="8" height="34" fill="#2f6f3e" />
+              <rect x="120" y="315" width="8" height="41" fill="#2f6f3e" />
+              <rect x="144" y="332" width="8" height="24" fill="#9f3c45" />
+              <rect x="168" y="316" width="8" height="40" fill="#2f6f3e" />
+              <rect x="192" y="325" width="8" height="31" fill="#2f6f3e" />
+              <rect x="216" y="318" width="8" height="38" fill="#2f6f3e" />
+              <rect x="240" y="304" width="8" height="52" fill="#2f6f3e" />
+              <rect x="264" y="338" width="8" height="18" fill="#9f3c45" />
+              <rect x="288" y="329" width="8" height="27" fill="#2f6f3e" />
+              <rect x="312" y="320" width="8" height="36" fill="#2f6f3e" />
+              <rect x="336" y="333" width="8" height="23" fill="#9f3c45" />
+              <rect x="360" y="311" width="8" height="45" fill="#2f6f3e" />
+              <rect x="384" y="318" width="8" height="38" fill="#2f6f3e" />
+              <rect x="408" y="327" width="8" height="29" fill="#9f3c45" />
+              <rect x="432" y="306" width="8" height="50" fill="#2f6f3e" />
+              <rect x="456" y="319" width="8" height="37" fill="#2f6f3e" />
+              <rect x="480" y="322" width="8" height="34" fill="#9f3c45" />
+              <rect x="504" y="312" width="8" height="44" fill="#2f6f3e" />
+              <rect x="528" y="326" width="8" height="30" fill="#9f3c45" />
+              <rect x="552" y="292" width="8" height="64" fill="#9f3c45" />
+              <rect x="576" y="284" width="8" height="72" fill="#9f3c45" />
+              <rect x="600" y="299" width="8" height="57" fill="#9f3c45" />
+              <rect x="624" y="315" width="8" height="41" fill="#2f6f3e" />
+              <rect x="648" y="324" width="8" height="32" fill="#9f3c45" />
+              <rect x="672" y="312" width="8" height="44" fill="#2f6f3e" />
+              <rect x="696" y="334" width="8" height="22" fill="#9f3c45" />
+              <rect x="720" y="320" width="8" height="36" fill="#9f3c45" />
+              <rect x="744" y="330" width="8" height="26" fill="#2f6f3e" />
+              <rect x="768" y="316" width="8" height="40" fill="#2f6f3e" />
+              <rect x="792" y="327" width="8" height="29" fill="#9f3c45" />
+              <rect x="816" y="309" width="8" height="47" fill="#2f6f3e" />
+              <rect x="840" y="324" width="8" height="32" fill="#9f3c45" />
+              <rect x="864" y="336" width="8" height="20" fill="#9f3c45" />
+              <rect x="888" y="328" width="8" height="28" fill="#2f6f3e" />
+              <rect x="912" y="333" width="8" height="23" fill="#9f3c45" />
+              <rect x="936" y="318" width="8" height="38" fill="#2f6f3e" />
+              <rect x="960" y="326" width="8" height="30" fill="#9f3c45" />
+              <rect x="984" y="331" width="8" height="25" fill="#9f3c45" />
+              <rect x="1008" y="325" width="8" height="31" fill="#9f3c45" />
+              <rect x="1032" y="318" width="8" height="38" fill="#9f3c45" />
+              <rect x="1056" y="310" width="8" height="46" fill="#9f3c45" />
+              <rect x="1080" y="315" width="8" height="41" fill="#9f3c45" />
+              <rect x="1104" y="321" width="8" height="35" fill="#2f6f3e" />
+            </g>
+          </svg>
+          <div class="time-labels">
+            <span>9:15</span>
+            <span>10:30</span>
+            <span>13:00</span>
+            <span>14:45</span>
+          </div>
+        </div>
+
+        <footer class="stats">
+          <div class="stat"><span>Prev Close</span><strong>28,800</strong></div>
+          <div class="stat"><span>Open</span><strong>28,950</strong></div>
+          <div class="stat"><span>Volume</span><strong>12.8M</strong></div>
+          <div class="stat"><span>High</span><strong>29,150</strong></div>
+          <div class="stat"><span>Low</span><strong>28,300</strong></div>
+          <div class="stat"><span>52W High</span><strong>31,600</strong></div>
+          <div class="stat"><span>52W Low</span><strong>21,450</strong></div>
+          <div class="stat"><span>Source</span><strong>Canonical</strong></div>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>

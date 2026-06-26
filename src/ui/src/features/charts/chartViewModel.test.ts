@@ -34,36 +34,37 @@ function lazy(status: LazyFetch["status"], reason: string | null = null): LazyFe
 const freshFreshness = { status: "fresh", as_of: "2026-06-25" };
 
 const successBanner = selectLazyFetchBanner(lazy("success"), freshFreshness);
-assert.equal(successBanner.kind, "fresh");
-assert.equal(successBanner.blocking, false);
-assert.ok(successBanner.title.includes("Fresh"));
+assert.equal(successBanner, null);
 
 const alreadyBanner = selectLazyFetchBanner(
   lazy("already_present"),
   { status: "stale", as_of: "2026-06-20" }
 );
-assert.equal(alreadyBanner.kind, "fresh");
+assert.ok(alreadyBanner);
+assert.equal(alreadyBanner.kind, "warning");
 assert.ok(alreadyBanner.title.includes("Stale"));
 
 const blockedBanner = selectLazyFetchBanner(
   lazy("blocked", "Fetch in progress"),
   undefined
 );
+assert.ok(blockedBanner);
 assert.equal(blockedBanner.kind, "loading");
 assert.equal(blockedBanner.blocking, true);
 assert.equal(blockedBanner.autoRefreshMs, 5000);
 assert.ok(blockedBanner.description.includes("Fetch in progress"));
 
 const failedBanner = selectLazyFetchBanner(lazy("failed"), freshFreshness);
+assert.ok(failedBanner);
 assert.equal(failedBanner.kind, "warning");
 assert.equal(failedBanner.blocking, false);
 assert.ok(failedBanner.title.toLowerCase().includes("could not"));
 
 const oosBanner = selectLazyFetchBanner(lazy("out_of_scope"), undefined);
+assert.ok(oosBanner);
 assert.equal(oosBanner.kind, "empty");
 assert.equal(oosBanner.blocking, true);
 assert.ok(oosBanner.title.includes("VN100"));
 
 const noLazyBanner = selectLazyFetchBanner(undefined, freshFreshness);
-assert.equal(noLazyBanner.kind, "fresh");
-assert.equal(noLazyBanner.blocking, false);
+assert.equal(noLazyBanner, null);

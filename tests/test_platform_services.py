@@ -1,13 +1,22 @@
 import json
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from api.app import create_app
+from api.platform.freshness import (
+    DATASET_RULES,
+    DatasetFreshnessRule,
+    FreshnessKind,
+    active_freshness_dataset_ids,
+    calculate_dataset_freshness,
+)
 from api.platform.ingestion.demo_sources import DemoMarketDataSource
 import api.platform.ingestion.free_sources as free_sources
 from api.platform.ingestion import backfill as backfill_module
@@ -45,7 +54,11 @@ from api.platform.ingestion.service import (
 )
 from api.platform.ingestion.errors import ProviderFetchError
 from api.platform.ingestion.sources import TimeSeriesRecord
-from api.platform.ingestion.store_writer import InMemoryTimeSeriesStore
+from api.platform.ingestion.store_writer import (
+    IngestionJobRecord,
+    InMemoryTimeSeriesStore,
+    InstrumentMetadata,
+)
 from api.platform.ingestion.planner import IngestionFetchRequest, plan_fetch_periods
 from api.platform.storage.postgres import PostgresTimeSeriesStore
 
@@ -117,6 +130,21 @@ def test_workflow_run_returns_cited_fresh_chart_result(
 def test_market_overview_returns_filters_heatmap_and_sortable_rows(
     client: TestClient,
 ) -> None:
+    store = client.app.state.platform.ingestion_service.store
+    assert isinstance(store, InMemoryTimeSeriesStore)
+    store.collection_memberships.add(("VN100", "vn_stock:VCB"))
+    store.collection_memberships.add(("VN100", "vn_stock:HPG"))
+    store.collection_memberships.add(("vn30", "vn_stock:VCB"))
+    store.instruments.append(_vcb_metadata())
+    store.instruments.append(_hpg_metadata())
+    for instrument_id, close in (("vn_stock:VCB", 58300), ("vn_stock:HPG", 28450)):
+        record = _vn_daily_payload_record(
+            instrument_id,
+            "2026-06-24",
+            close=close,
+        )
+        store.records[(record.dataset_id, record.record_key)] = record
+
     response = client.get("/api/market/overview?market=VN&collection_id=vn30")
 
     assert response.status_code == 200
@@ -133,16 +161,20 @@ def test_market_overview_returns_filters_heatmap_and_sortable_rows(
     ]
     assert overview["heatmap"]
     assert overview["instrument_rows"]
-    assert {cell["symbol"] for cell in overview["heatmap"]} == {"VCB", "VPB"}
-    vpb = next(row for row in overview["instrument_rows"] if row["symbol"] == "VPB")
-    assert vpb["sector"] == "Financials"
-    assert vpb["industry"] == "Banking"
+    assert {cell["symbol"] for cell in overview["heatmap"]} == {"VCB"}
+    assert {row["symbol"] for row in overview["instrument_rows"]} == {"VCB", "HPG"}
+    vcb = next(row for row in overview["instrument_rows"] if row["symbol"] == "VCB")
+    assert vcb["sector"] == "Financials"
+    assert vcb["industry"] == "Banking"
+    assert vcb["source_id"] == "vnstock"
     assert "reasoning" not in str(overview).lower()
 
 
 def test_instrument_chart_aggregates_stock_timeframes(
     client: TestClient,
 ) -> None:
+    _seed_vcb_canonical(client)
+
     response = client.get(
         "/api/market/instruments/vn_stock:VCB/chart?timeframe=4h",
     )
@@ -151,51 +183,35 @@ def test_instrument_chart_aggregates_stock_timeframes(
     chart = response.json()
     assert chart["instrument"]["symbol"] == "VCB"
     assert chart["timeframe"] == "4h"
-    assert chart["freshness"]["status"] == "fresh"
+    assert chart["freshness"]["status"] in {"fresh", "stale"}
     assert chart["records"] == [
         {
-            "time": "2026-06-18T02:00:00+00:00",
-            "open": 57400,
-            "high": 58600,
-            "low": 57300,
-            "close": 58300,
-            "volume": 1530000,
+            "time": "2026-06-23",
+            "open": 57800,
+            "high": 58300,
+            "low": 57600,
+            "close": 58000,
+            "volume": 1500000,
         },
         {
-            "time": "2026-06-18T06:00:00+00:00",
-            "open": 58300,
-            "high": 58900,
-            "low": 58100,
-            "close": 58700,
-            "volume": 1390000,
+            "time": "2026-06-24",
+            "open": 57900,
+            "high": 58400,
+            "low": 57700,
+            "close": 58100,
+            "volume": 1500000,
         },
     ]
-    assert chart["table"][0]["time"] == "2026-06-18T02:00:00+00:00"
+    assert chart["table"][0]["time"] == "2026-06-23"
 
 
-def test_market_overview_supports_us_market(
+def test_market_overview_rejects_us_market_in_v1(
     client: TestClient,
 ) -> None:
     response = client.get("/api/market/overview?market=US")
 
-    assert response.status_code == 200
-    overview = response.json()
-    assert overview["selected_market"] == "US"
-    assert "US" in overview["available_markets"]
-    assert {"id": "sp500", "name": "S&P 500", "type": "index"} in overview["collections"]
-    assert [chart["symbol"] for chart in overview["index_charts"]] == [
-        "S&P 500",
-        "NASDAQ 100",
-        "Dow",
-        "Russell 2000",
-        "VIX",
-    ]
-    row_symbols = {row["symbol"] for row in overview["instrument_rows"]}
-    heatmap_symbols = {row["symbol"] for row in overview["heatmap"]}
-    assert row_symbols >= {"AAPL", "MSFT", "NVDA"}
-    assert heatmap_symbols >= {"AAPL", "MSFT", "NVDA"}
-    assert row_symbols.isdisjoint({"SPY", "QQQ", "DIA", "IWM", "^VIX"})
-    assert heatmap_symbols.isdisjoint({"SPY", "QQQ", "DIA", "IWM", "^VIX"})
+    assert response.status_code == 422
+    assert response.json()["detail"] == "V1 market overview supports VN only"
 
 
 def test_manual_ingestion_is_idempotent_and_updates_status(
@@ -239,7 +255,7 @@ def test_worker_scheduled_ingestion_records_scheduled_trigger(
 ) -> None:
     response = client.post(
         "/api/worker/ingestion/scheduled",
-        json={"source_id": "xauusd_prices", "period": "2026-06-18"},
+        json={"source_id": "vn_prices", "period": "2026-06-18"},
     )
 
     assert response.status_code == 200
@@ -253,7 +269,7 @@ def test_worker_scheduled_ingestion_defaults_to_latest_mode(
 ) -> None:
     response = client.post(
         "/api/worker/ingestion/scheduled",
-        json={"source_id": "sjc_gold_prices"},
+        json={"source_id": "vn_prices"},
     )
 
     assert response.status_code == 200
@@ -1607,9 +1623,7 @@ def test_unknown_run_returns_404(client: TestClient) -> None:
     assert response.json()["detail"] == "Run not found"
 
 
-def _vn100_csv_path() -> "Path":
-    from pathlib import Path
-
+def _vn100_csv_path() -> Path:
     return (
         Path(__file__).resolve().parents[1]
         / "data"
@@ -1869,6 +1883,61 @@ def test_vnstock_daily_fetcher_uses_quote_api_with_1d_interval(
             "end": "2026-06-18",
             "interval": "1D",
         },
+    ]
+
+
+def test_vnstock_daily_payload_skips_rate_limited_symbol_with_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FINMIND_VNSTOCK_SYMBOL_DELAY_SECONDS", "0")
+
+    class FakeQuote:
+        def __init__(
+            self,
+            source: str,
+            symbol: str,
+            random_agent: bool,
+            show_log: bool,
+        ) -> None:
+            self.symbol = symbol
+
+        def history(
+            self,
+            start: str,
+            end: str,
+            interval: str,
+        ) -> list[dict[str, object]]:
+            if self.symbol == "HPG":
+                raise RuntimeError("RetryError")
+            return [
+                {
+                    "time": start,
+                    "open": 57400,
+                    "high": 58600,
+                    "low": 57300,
+                    "close": 58300,
+                    "volume": 1530000,
+                }
+            ]
+
+    monkeypatch.setattr(
+        free_sources, "_vnstock_quote_class", lambda: FakeQuote
+    )
+
+    payload = free_sources._vnstock_daily_payload(
+        "2026-06-18",
+        ("VCB", "HPG"),
+        None,
+    )
+
+    assert isinstance(payload, dict)
+    assert [record["symbol"] for record in payload["records"]] == ["VCB"]
+    diagnostics = payload["capabilities"]["symbol_failures"]
+    assert diagnostics == [
+        {
+            "symbol": "HPG",
+            "error": "vnstock fetch failed for vn_prices_daily: RuntimeError",
+        }
     ]
 
 
@@ -2329,6 +2398,18 @@ class _LazyVNDailySource:
         ]
 
 
+class _FailingLazyVNDailySource(_LazyVNDailySource):
+    def fetch(
+        self,
+        period: str,
+        *,
+        instrument_id: str | None = None,
+    ) -> list[TimeSeriesRecord]:
+        self.periods.append(period)
+        self.instrument_ids.append(instrument_id)
+        raise ProviderFetchError("provider returned no canonical rows")
+
+
 def _lazy_service(
     source: _LazyVNDailySource | None = None,
     *,
@@ -2556,6 +2637,19 @@ def test_vnstock_daily_source_resolves_symbol_from_instrument_id(
     assert captured == [("HPG",), ("VCB", "VPB")]
 
 
+def test_vnstock_sources_default_to_vn100_symbol_universe() -> None:
+    from api.platform.ingestion.free_sources import vn100_seed_symbols
+
+    symbols = vn100_seed_symbols()
+    hourly = VnstockVNStockSource()
+    daily = VnstockVNStockDailySource()
+
+    assert len(symbols) == 100
+    assert "HPG" in symbols
+    assert hourly._symbols == symbols
+    assert daily._symbols == symbols
+
+
 def test_postgres_store_checks_collection_membership_and_dataset_rows() -> (
     None
 ):
@@ -2595,14 +2689,6 @@ def test_postgres_store_checks_collection_membership_and_dataset_rows() -> (
     )
 
 
-# ---------------------------------------------------------------------------
-# Canonical vn_prices_daily chart wiring (post-T046 fix)
-# ---------------------------------------------------------------------------
-
-
-from api.platform.ingestion.store_writer import InstrumentMetadata
-
-
 def _vcb_metadata() -> InstrumentMetadata:
     return InstrumentMetadata(
         instrument_id="vn_stock:VCB",
@@ -2618,6 +2704,21 @@ def _vcb_metadata() -> InstrumentMetadata:
     )
 
 
+def _hpg_metadata() -> InstrumentMetadata:
+    return InstrumentMetadata(
+        instrument_id="vn_stock:HPG",
+        symbol="HPG",
+        market="VN_STOCK",
+        asset_class="stock",
+        exchange="HOSE",
+        display_name="Hoa Phat Group",
+        currency="VND",
+        sector="Materials",
+        industry="Steel",
+        sub_industry="Steel",
+    )
+
+
 def _vn_daily_payload_record(
     instrument_id: str,
     trade_date_str: str,
@@ -2627,6 +2728,7 @@ def _vn_daily_payload_record(
     market_time = datetime.fromisoformat(
         f"{trade_date_str}T00:00:00+00:00"
     )
+    symbol = instrument_id.split(":", 1)[1]
     return TimeSeriesRecord(
         dataset_id="vn_prices_daily",
         record_key=f"{instrument_id}:{trade_date_str}",
@@ -2636,7 +2738,7 @@ def _vn_daily_payload_record(
         source_id="vnstock",
         payload={
             "market": "VN_STOCK",
-            "symbol": "VCB",
+            "symbol": symbol,
             "exchange": "HOSE",
             "trade_date": trade_date_str,
             "open": close - 200,
@@ -2741,7 +2843,7 @@ def test_vn_1d_chart_returns_canonical_rows_when_present(
     assert chart["lazy_fetch"]["status"] == "already_present"
 
 
-def test_vn_1d_chart_falls_back_to_demo_when_no_canonical_rows(
+def test_vn_1d_chart_does_not_fall_back_to_demo_when_no_canonical_rows(
     client: TestClient,
 ) -> None:
     store = client.app.state.platform.ingestion_service.store
@@ -2755,8 +2857,38 @@ def test_vn_1d_chart_falls_back_to_demo_when_no_canonical_rows(
     assert response.status_code == 200
     chart = response.json()
     assert chart["timeframe"] == "1d"
-    assert chart["records"][0]["time"].startswith("2026-06-18T")
-    assert "lazy_fetch" in chart
+    assert chart["records"] == []
+    assert chart["table"] == []
+    assert chart["instrument"] == {"id": "vn_stock:VCB"}
+    assert chart["freshness"]["status"] == "failed"
+    assert chart["lazy_fetch"]["status"] == "failed"
+    assert chart["lazy_fetch"]["reason"] == "Unsupported source"
+
+
+def test_vn_1d_chart_returns_failed_canonical_payload_without_demo_fallback(
+    client: TestClient,
+) -> None:
+    store = client.app.state.platform.ingestion_service.store
+    assert isinstance(store, InMemoryTimeSeriesStore)
+    store.collection_memberships.add(("VN100", "vn_stock:HPG"))
+    store.instruments.append(_hpg_metadata())
+    client.app.state.platform.ingestion_service.sources["vn_prices_daily"] = (
+        _FailingLazyVNDailySource()
+    )
+
+    response = client.get(
+        "/api/market/instruments/vn_stock:HPG/chart?timeframe=1d"
+    )
+
+    assert response.status_code == 200
+    chart = response.json()
+    assert chart["instrument"]["symbol"] == "HPG"
+    assert chart["timeframe"] == "1d"
+    assert chart["records"] == []
+    assert chart["table"] == []
+    assert chart["freshness"]["status"] == "failed"
+    assert chart["lazy_fetch"]["status"] == "failed"
+    assert chart["lazy_fetch"]["reason"] == "provider returned no canonical rows"
 
 
 def test_vn_1d_chart_out_of_scope_short_circuits_with_empty_records(
@@ -2773,8 +2905,10 @@ def test_vn_1d_chart_out_of_scope_short_circuits_with_empty_records(
     assert chart["lazy_fetch"]["status"] == "out_of_scope"
 
 
-def test_non_1d_vn_chart_uses_demo_path(client: TestClient) -> None:
-    _seed_vcb_canonical(client)
+def test_non_1d_vn_chart_uses_canonical_daily_rows(client: TestClient) -> None:
+    _seed_vcb_canonical(
+        client, trade_dates=("2026-06-23", "2026-06-24")
+    )
 
     response = client.get(
         "/api/market/instruments/vn_stock:VCB/chart?timeframe=4h"
@@ -2782,8 +2916,25 @@ def test_non_1d_vn_chart_uses_demo_path(client: TestClient) -> None:
 
     assert response.status_code == 200
     chart = response.json()
-    assert chart["records"][0]["time"] == "2026-06-18T02:00:00+00:00"
-    assert "lazy_fetch" not in chart
+    assert chart["records"] == [
+        {
+            "time": "2026-06-23",
+            "open": 57800,
+            "high": 58300,
+            "low": 57600,
+            "close": 58000,
+            "volume": 1500000,
+        },
+        {
+            "time": "2026-06-24",
+            "open": 57900,
+            "high": 58400,
+            "low": 57700,
+            "close": 58100,
+            "volume": 1500000,
+        },
+    ]
+    assert chart["lazy_fetch"]["status"] == "already_present"
 
 
 def test_non_vn_instrument_chart_uses_demo_path(
@@ -2892,22 +3043,6 @@ def test_postgres_read_instrument_returns_metadata_when_row_exists() -> (
     assert "FROM market_instruments" in last_sql
     assert params == {"instrument_id": "vn_stock:VCB"}
 
-
-# ---------------------------------------------------------------------------
-# T045 — VN-only freshness output with dataset-specific thresholds
-# ---------------------------------------------------------------------------
-
-
-from zoneinfo import ZoneInfo
-
-from api.platform.freshness import (
-    DATASET_RULES,
-    DatasetFreshnessRule,
-    FreshnessKind,
-    active_freshness_dataset_ids,
-    calculate_dataset_freshness,
-)
-from api.platform.ingestion.store_writer import IngestionJobRecord
 
 _VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 

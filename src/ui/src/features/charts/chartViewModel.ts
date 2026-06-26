@@ -42,7 +42,7 @@ export type LazyFetchBanner = {
 export function selectLazyFetchBanner(
   lazyFetch: LazyFetch | undefined,
   freshness: InstrumentChart["freshness"] | undefined
-): LazyFetchBanner {
+): LazyFetchBanner | null {
   if (!lazyFetch) {
     return buildFreshBanner(freshness);
   }
@@ -89,23 +89,21 @@ export function selectLazyFetchBanner(
 function buildFreshBanner(
   freshness: InstrumentChart["freshness"] | undefined,
   status: LazyFetchStatus | "unknown" = "unknown"
-): LazyFetchBanner {
+): LazyFetchBanner | null {
   const freshLabel = freshness?.status ?? "unknown";
   const asOf = freshness?.as_of;
+  if (freshLabel === "fresh") {
+    return null;
+  }
   const title =
-    freshLabel === "fresh"
-      ? `Fresh as of ${asOf ?? "now"}`
-      : freshLabel === "stale"
+    freshLabel === "stale"
         ? `Stale as of ${asOf ?? "unknown"}`
         : `Freshness: ${freshLabel}`;
   return {
-    kind: "fresh",
+    kind: freshLabel === "missing" ? "empty" : "warning",
     status,
     title,
-    description:
-      freshLabel === "fresh"
-        ? "Latest VN daily snapshot is up to date."
-        : "Showing the latest available VN daily snapshot.",
-    blocking: false
+    description: "Showing the latest available VN daily snapshot.",
+    blocking: freshLabel === "missing"
   };
 }

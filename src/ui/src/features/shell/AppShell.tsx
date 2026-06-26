@@ -6,7 +6,7 @@ import type { WorkflowRun } from "../../api/client";
 import { HISTORY_SECTIONS, PRIMARY_NAV_ITEMS } from "./shellNavigation";
 
 type ShellProps = {
-  active: "chat" | "market" | "workflows" | "results" | "admin";
+  active: "chat" | "market" | "marketInstrument" | "workflows" | "results" | "admin";
   role: string;
   chatHistory: ChatConversation[];
   workflowRuns: WorkflowRun[];
@@ -38,7 +38,12 @@ export function AppShell({
         <div className="brand">FinMind</div>
         <nav className="primaryNav" aria-label="Primary surfaces">
           {PRIMARY_NAV_ITEMS.map(({ view, label, Icon }) => {
-            const isActive = view === "workflows" ? active === "workflows" || active === "results" : active === view;
+            const isActive =
+              view === "workflows"
+                ? active === "workflows" || active === "results"
+                : view === "market"
+                  ? active === "market" || active === "marketInstrument"
+                  : active === view;
             return (
               <button className={isActive ? "navItem active" : "navItem"} onClick={() => onNavigate(view)} type="button" key={view}>
                 <Icon size={17} /> {label}

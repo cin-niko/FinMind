@@ -1,21 +1,17 @@
 <!--
 Sync Impact Report
-Version change: template -> 1.0.0
+Version change: 1.0.0 -> 1.0.1
 Modified principles:
-- PRINCIPLE_1_NAME -> I. Canonical Specs First
-- PRINCIPLE_2_NAME -> II. Bounded Feature Phases
-- PRINCIPLE_3_NAME -> III. Evidence-Backed User Surfaces
-- PRINCIPLE_4_NAME -> IV. Provider And Data Contract Discipline
-- PRINCIPLE_5_NAME -> V. Verification Before Completion
+- Platform Scope And Constraints: V1 scope clarified to VN stocks / VN100 only;
+  gold, US stocks, crypto, and BTC are roadmap until a spec changes scope.
 Added sections:
-- Platform Scope And Constraints
-- Development Workflow And Quality Gates
+- none
 Removed sections:
-- Placeholder SECTION_2_NAME and SECTION_3_NAME
+- none
 Templates requiring updates:
-- ✅ .specify/templates/plan-template.md
-- ✅ .specify/templates/spec-template.md
-- ✅ .specify/templates/tasks-template.md
+- ✅ .specify/templates/plan-template.md (reviewed; no change required)
+- ✅ .specify/templates/spec-template.md (reviewed; no change required)
+- ✅ .specify/templates/tasks-template.md (reviewed; no change required)
 - ✅ .specify/templates/commands/*.md not present in this repository
 Follow-up TODOs: none
 -->
@@ -77,14 +73,16 @@ from tests and builds is required before work can be considered handled.
 
 ## Platform Scope And Constraints
 
-V1 user-facing market scope is VN stocks and gold. US stocks, crypto, BTC, and other
-markets are roadmap-only until an owning spec changes scope. Product-level specs MUST
-keep provider details abstract while implementation specs MAY define connector
+V1 user-facing market scope is VN stocks only, scoped to the pre-seeded VN100
+universe. US stocks, gold (XAUUSD/SJC), crypto, BTC, and other markets are
+roadmap-only until an owning spec changes scope. Product-level specs MUST keep
+provider details abstract while implementation specs MAY define connector
 configuration, credential names, database services, and operational diagnostics.
 
-Timeseries market data MUST be modeled for the access patterns users need: 1h VN stock
-bars, 1h XAUUSD bars, and daily SJC gold quotes for phase 002. Large historical datasets
-MUST use a time-series-capable PostgreSQL service or an explicitly justified equivalent.
+Timeseries market data MUST be modeled for the access patterns users need:
+canonical VN daily bars (`vn_prices_daily`) and best-effort VN 1h bars
+(`vn_prices`) for phase 002. Large historical datasets MUST use a
+time-series-capable PostgreSQL service or an explicitly justified equivalent.
 
 ## Development Workflow And Quality Gates
 
@@ -114,4 +112,4 @@ Versioning follows semantic versioning:
 - MINOR: new principles, new governance sections, or materially expanded guidance.
 - PATCH: clarifications, wording fixes, and non-semantic refinements.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-19
+**Version**: 1.0.1 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-25

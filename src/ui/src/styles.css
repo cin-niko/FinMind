@@ -907,6 +907,21 @@ button:focus-visible {
   gap: 14px;
 }
 
+.instrumentDetailPage {
+  align-content: start;
+}
+
+.detailPageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+
 .marketToolbar {
   display: grid;
   grid-template-columns: minmax(190px, 260px);
@@ -1016,9 +1031,29 @@ button:focus-visible {
   padding: 11px 12px 8px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: var(--surface-1);
+  background:
+    linear-gradient(to right, rgba(153, 144, 130, 0.11) 1px, transparent 1px) 0 0 / 78px 100%,
+    linear-gradient(to bottom, rgba(153, 144, 130, 0.1) 1px, transparent 1px) 0 0 / 100% 44px,
+    var(--surface-1);
   overflow: hidden;
   scroll-snap-align: start;
+  box-shadow: 0 10px 26px rgba(35, 32, 25, 0.04);
+}
+
+.indexMiniChartButton {
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.indexMiniChartButton:hover,
+.indexMiniChartButton.selected {
+  border-color: #cfc7ba;
+  background:
+    linear-gradient(to right, rgba(153, 144, 130, 0.12) 1px, transparent 1px) 0 0 / 78px 100%,
+    linear-gradient(to bottom, rgba(153, 144, 130, 0.11) 1px, transparent 1px) 0 0 / 100% 44px,
+    #fffdf8;
+  box-shadow: 0 14px 34px rgba(35, 32, 25, 0.07);
 }
 
 .indexCardHeader {
@@ -1053,8 +1088,8 @@ button:focus-visible {
 }
 
 .indexMiniChart strong {
-  color: #6f6a61;
-  font-weight: 650;
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .indexChangeStack {
@@ -1071,7 +1106,7 @@ button:focus-visible {
 
 .indexBaseline {
   fill: none;
-  stroke: #cfc9be;
+  stroke: rgba(117, 111, 101, 0.45);
   stroke-dasharray: 3 4;
   stroke-width: 1.2;
 }
@@ -1081,11 +1116,11 @@ button:focus-visible {
 }
 
 .indexArea.positive {
-  fill: rgba(19, 138, 99, 0.13);
+  fill: rgba(47, 111, 62, 0.13);
 }
 
 .indexArea.negative {
-  fill: rgba(185, 67, 58, 0.14);
+  fill: rgba(159, 60, 69, 0.13);
 }
 
 .indexLine {
@@ -1096,7 +1131,7 @@ button:focus-visible {
 }
 
 .indexLine.positive {
-  stroke: var(--success);
+  stroke: #2f6f3e;
 }
 
 .indexLine.negative {
@@ -1123,6 +1158,243 @@ button:focus-visible {
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-items: start;
+}
+
+.indexChartDetailPanel,
+.instrumentChartPanel {
+  min-height: 360px;
+}
+
+.marketChartPanel {
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  border-color: #e4ded3;
+  background: var(--surface-1);
+  box-shadow: 0 18px 50px rgba(35, 32, 25, 0.07);
+}
+
+.chartHeroHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 16px;
+  align-items: start;
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid #e7e1d7;
+}
+
+.chartIdentity {
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.chartTickerMark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #ded6c9;
+  border-radius: 8px;
+  background: #f3eee5;
+  color: #2f6f3e;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.chartTitleLine {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.chartTitleLine h2 {
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.chartTitleLine span,
+.chartMeta {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.chartMeta {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+.chartPriceBlock {
+  min-width: 120px;
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  text-align: right;
+}
+
+.chartPriceLine {
+  color: var(--text-primary);
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1;
+  font-weight: 700;
+}
+
+.chartChangeLine {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.chartChangeLine.positive {
+  color: #2f6f3e;
+}
+
+.chartChangeLine.negative {
+  color: #9f3c45;
+}
+
+.chartCloseButton {
+  align-self: start;
+}
+
+.chartToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e7e1d7;
+  background: rgba(250, 247, 241, 0.72);
+}
+
+.chartToolbarSpacer {
+  flex: 1 1 auto;
+}
+
+.chartSegments {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid #ddd5c8;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.chartSegmentButton,
+.chartIconButton {
+  min-height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chartSegmentButton {
+  padding: 7px 12px;
+}
+
+.chartIconButton {
+  width: 38px;
+  padding: 7px;
+}
+
+.chartIconButton svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.chartSegmentButton:hover,
+.chartIconButton:hover {
+  background: #f2ede4;
+  color: var(--text-primary);
+}
+
+.chartSegmentButton.active,
+.chartIconButton.active {
+  background: #ebe6dd;
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(35, 32, 25, 0.04);
+}
+
+.marketChartSurface {
+  background:
+    linear-gradient(to right, rgba(153, 144, 130, 0.11) 1px, transparent 1px) 0 0 / 120px 100%,
+    linear-gradient(to bottom, rgba(153, 144, 130, 0.12) 1px, transparent 1px) 0 0 / 100% 72px,
+    var(--surface-1);
+}
+
+.chartStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #e7e1d7;
+  background: #fffdf8;
+}
+
+.chartStatCell {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-right: 1px solid #e7e1d7;
+  border-bottom: 1px solid #e7e1d7;
+}
+
+.chartStatCell:nth-child(3n) {
+  border-right: 0;
+}
+
+.chartStatCell small {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.chartStatCell strong {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.indexDetailChart {
+  width: 100%;
+  min-height: 320px;
+  padding: 24px;
+  border-radius: 0;
+}
+
+.indexDetailTable {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.indexDetailTable span {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #e5e0d7;
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.indexDetailTable small {
+  color: var(--text-secondary);
+  font-size: 11px;
 }
 
 .marketRightRail {
@@ -1522,6 +1794,12 @@ button:focus-visible {
   color: var(--accent-teal);
 }
 
+.compactAction {
+  min-height: 32px;
+  padding: 0 10px;
+  justify-self: end;
+}
+
 .primaryButton:disabled {
   opacity: 0.65;
 }
@@ -1582,7 +1860,11 @@ button:focus-visible {
 
 .chartBox {
   width: 100%;
-  min-height: 260px;
+  min-height: 390px;
+  background:
+    linear-gradient(to right, rgba(153, 144, 130, 0.08) 1px, transparent 1px) 0 0 / 140px 100%,
+    linear-gradient(to bottom, rgba(153, 144, 130, 0.08) 1px, transparent 1px) 0 0 / 100% 78px,
+    var(--surface-1);
 }
 
 table {
@@ -1651,6 +1933,16 @@ th {
   .workflowCatalog {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .chartHeroHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .chartPriceBlock {
+    grid-column: 1 / -1;
+    justify-items: start;
+    text-align: left;
+  }
 }
 
 @media (max-width: 680px) {
@@ -1680,6 +1972,39 @@ th {
 
   .compactHeader {
     grid-template-columns: 1fr;
+  }
+
+  .chartHeroHeader {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .chartCloseButton {
+    justify-self: start;
+  }
+
+  .chartToolbar {
+    padding: 12px;
+  }
+
+  .chartToolbarSpacer {
+    display: none;
+  }
+
+  .chartBox {
+    min-height: 330px;
+  }
+
+  .chartStatsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chartStatCell:nth-child(3n) {
+    border-right: 1px solid #e7e1d7;
+  }
+
+  .chartStatCell:nth-child(2n) {
+    border-right: 0;
   }
 
 }

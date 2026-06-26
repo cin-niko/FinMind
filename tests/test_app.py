@@ -127,6 +127,27 @@ def test_app_builds_with_dataset_provider_config(
     app = create_app()
 
     sources = app.state.platform.ingestion_service.sources
+    assert set(sources) == {"vn_prices", "vn_prices_daily"}
+    assert sources["vn_prices"].provider == "vnstock"
+    assert sources["vn_prices_daily"].provider == "vnstock"
+    assert sources["vn_prices_daily"].source_id == "vn_prices_daily"
+
+
+def test_app_builds_roadmap_sources_only_when_enabled(
+    admin_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FINMIND_VN_PROVIDER", "vnstock")
+    monkeypatch.setenv("FINMIND_US_PROVIDER", "yfinance")
+    monkeypatch.setenv("FINMIND_XAUUSD_PROVIDER", "yfinance")
+    monkeypatch.setenv("FINMIND_XAUUSD_DAILY_FALLBACK", "alpha_vantage")
+    monkeypatch.setenv("FINMIND_ALPHA_VANTAGE_API_KEY", "alpha-key")
+    monkeypatch.setenv("FINMIND_SJC_PROVIDER", "sjc_official")
+    monkeypatch.setenv("FINMIND_ROADMAP_MARKETS", "true")
+
+    app = create_app()
+
+    sources = app.state.platform.ingestion_service.sources
     assert set(sources) == {
         "us_prices",
         "us_prices_daily",
@@ -147,13 +168,7 @@ def test_app_defaults_to_mock_dataset_providers(admin_env: None) -> None:
     app = create_app()
 
     sources = app.state.platform.ingestion_service.sources
-    assert set(sources) == {
-        "us_prices",
-        "us_prices_daily",
-        "vn_prices",
-        "xauusd_prices",
-        "sjc_gold_prices",
-    }
+    assert set(sources) == {"vn_prices"}
     assert all(source.__class__.__name__ == "DemoMarketDataSource" for source in sources.values())
 
 
@@ -167,7 +182,7 @@ def test_dataset_provider_config_rejects_unknown_provider(
         create_app()
 
 
-def test_vnstock_provider_requires_dedicated_api_key(
+def test_vnstock_provider_does_not_require_api_key(
     admin_env: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -175,5 +190,8 @@ def test_vnstock_provider_requires_dedicated_api_key(
     monkeypatch.delenv("FINMIND_VNSTOCK_API_KEY", raising=False)
     monkeypatch.setenv("FINMIND_PROVIDER_TOKEN", "legacy-shared-token")
 
-    with pytest.raises(SettingsError, match="FINMIND_VNSTOCK_API_KEY"):
-        create_app()
+    app = create_app()
+
+    sources = app.state.platform.ingestion_service.sources
+    assert sources["vn_prices"].provider == "vnstock"
+    assert sources["vn_prices_daily"].provider == "vnstock"

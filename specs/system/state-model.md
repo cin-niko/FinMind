@@ -6,7 +6,9 @@ implements:
   - src/agent_core
 validated_by:
   - tests/test_platform_services.py
-adr_refs: []
+adr_refs:
+  - docs/adr/0001-vn-only-v1-market-scope.md
+  - docs/adr/0006-shared-evidence-lineage-tables.md
 ---
 
 # System State Model
@@ -15,7 +17,7 @@ This spec defines stable domain state shared across FinMind features. Feature fo
 
 ## Market Scope
 
-V1 supports VN stocks and gold as user-facing markets. US stocks and BTC remain roadmap markets. Shared identifiers may preserve extension points for future markets, but no V1 user surface may imply US stock or BTC coverage.
+V1 supports VN stocks only as user-facing markets, scoped to the pre-seeded VN100 universe. US stocks, gold (XAUUSD/SJC), and BTC remain roadmap markets. Shared identifiers may preserve extension points for future markets, but no V1 user surface may imply roadmap-market coverage.
 
 ## Entities
 

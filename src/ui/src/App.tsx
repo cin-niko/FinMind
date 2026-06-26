@@ -24,12 +24,15 @@ import {
   type ChatConversation
 } from "./features/chat/mockChat";
 import { MarketPage } from "./features/market/MarketPage";
+import { MarketInstrumentDetailPage } from "./features/market/MarketInstrumentDetailPage";
 import { AdminIngestionPage } from "./features/admin/AdminIngestionPage";
 import { ResultView } from "./features/results/ResultView";
 import { AppShell } from "./features/shell/AppShell";
 import { WorkflowPage } from "./features/workflows/WorkflowPage";
 
-type View = "chat" | "market" | "workflows" | "results" | "admin";
+type View = "chat" | "market" | "marketInstrument" | "workflows" | "results" | "admin";
+
+const DATA_PLATFORM_SURFACES_ENABLED = false;
 
 export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -40,6 +43,7 @@ export function App() {
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<ChatArtifact | null>(null);
+  const [selectedMarketInstrumentId, setSelectedMarketInstrumentId] = useState<string | null>(null);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession({ authenticated: false }));
@@ -50,6 +54,7 @@ export function App() {
     setCurrentRun(null);
     setWorkflowRuns([]);
     setSelectedArtifact(null);
+    setSelectedMarketInstrumentId(null);
     setView("chat");
   }, []);
 
@@ -64,13 +69,15 @@ export function App() {
           handleSessionExpired();
         }
       });
-    getIngestionStatus()
-      .then(setIngestionStatus)
-      .catch((caught) => {
-        if (isUnauthorizedError(caught)) {
-          handleSessionExpired();
-        }
-      });
+    if (DATA_PLATFORM_SURFACES_ENABLED) {
+      getIngestionStatus()
+        .then(setIngestionStatus)
+        .catch((caught) => {
+          if (isUnauthorizedError(caught)) {
+            handleSessionExpired();
+          }
+        });
+    }
   }, [handleSessionExpired, session]);
 
   if (!session) {
@@ -88,6 +95,7 @@ export function App() {
     setWorkflowRuns([]);
     setIngestionStatus(null);
     setSelectedArtifact(null);
+    setSelectedMarketInstrumentId(null);
     setView("chat");
   }
 
@@ -98,11 +106,19 @@ export function App() {
   }
 
   function handleNavigate(nextView: View) {
+    const resolvedView =
+      !DATA_PLATFORM_SURFACES_ENABLED &&
+      (nextView === "market" || nextView === "marketInstrument" || nextView === "admin")
+        ? "chat"
+        : nextView;
     setSelectedArtifact(null);
-    if (nextView === "chat") {
+    if (resolvedView !== "marketInstrument") {
+      setSelectedMarketInstrumentId(null);
+    }
+    if (resolvedView === "chat") {
       setCurrentConversationId(null);
     }
-    setView(nextView);
+    setView(resolvedView);
   }
 
   function handleChatSubmit(message: string) {
@@ -143,6 +159,9 @@ export function App() {
   const titleByView: Record<View, string> = {
     chat: currentConversation ? getConversationTitle(currentConversation) : "New Chat",
     market: "Market",
+    marketInstrument: selectedMarketInstrumentId
+      ? selectedMarketInstrumentId.replace("vn_stock:", "")
+      : "Instrument Detail",
     workflows: "Workflows",
     results: "Workflow Result",
     admin: "Admin Ingestion"
@@ -189,8 +208,25 @@ export function App() {
                 onSubmit={handleChatSubmit}
               />
             ) : null}
-            {view === "market" ? <MarketPage /> : null}
-            {view === "admin" ? (
+            {DATA_PLATFORM_SURFACES_ENABLED && view === "market" ? (
+              <MarketPage
+                onOpenInstrument={(instrumentId) => {
+                  setSelectedArtifact(null);
+                  setSelectedMarketInstrumentId(instrumentId);
+                  setView("marketInstrument");
+                }}
+              />
+            ) : null}
+            {DATA_PLATFORM_SURFACES_ENABLED && view === "marketInstrument" && selectedMarketInstrumentId ? (
+              <MarketInstrumentDetailPage
+                instrumentId={selectedMarketInstrumentId}
+                onBack={() => {
+                  setSelectedMarketInstrumentId(null);
+                  setView("chat");
+                }}
+              />
+            ) : null}
+            {DATA_PLATFORM_SURFACES_ENABLED && view === "admin" ? (
               <AdminIngestionPage
                 status={ingestionStatus}
                 onRefresh={() => getIngestionStatus().then(setIngestionStatus)}

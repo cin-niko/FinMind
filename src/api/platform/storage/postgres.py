@@ -126,6 +126,31 @@ class PostgresTimeSeriesStore:
         finally:
             connection.close()
 
+    def list_instruments(self) -> list[InstrumentMetadata]:
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(_SELECT_INSTRUMENTS, None)
+                rows = cursor.fetchall()
+                return [_instrument_metadata(row) for row in rows]
+        finally:
+            connection.close()
+
+    def list_collection_instrument_ids(
+        self, collection_id: str
+    ) -> set[str]:
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    _SELECT_COLLECTION_INSTRUMENT_IDS,
+                    {"collection_id": collection_id},
+                )
+                rows = cursor.fetchall()
+                return {str(row["instrument_id"]) for row in rows}
+        finally:
+            connection.close()
+
     def list_jobs(self) -> list[IngestionJobRecord]:
         connection = self._connect()
         try:
@@ -472,6 +497,24 @@ SELECT instrument_id, symbol, market, asset_class, exchange,
 FROM market_instruments
 WHERE instrument_id = %(instrument_id)s
 LIMIT 1
+"""
+
+_SELECT_INSTRUMENTS = """
+SELECT instrument_id, symbol, market, asset_class, exchange,
+       display_name, currency, sector, industry, sub_industry, status
+FROM market_instruments
+WHERE market = 'VN_STOCK'
+  AND asset_class = 'stock'
+  AND status = 'active'
+ORDER BY symbol ASC
+"""
+
+_SELECT_COLLECTION_INSTRUMENT_IDS = """
+SELECT instrument_id
+FROM market_collection_memberships
+WHERE collection_id = %(collection_id)s
+  AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
+ORDER BY instrument_id ASC
 """
 
 _SELECT_VN_PRICES_DAILY_BY_INSTRUMENT = """

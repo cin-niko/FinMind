@@ -4,7 +4,7 @@ This file orients any AI coding agent working in this repository. Read it before
 
 ## 1. What This Repo Is
 
-FinMind is an internal finance research workbench. The current product direction is an authenticated, workflow-first platform for VN stocks and gold, with evidence-backed outputs, canonical data contracts, chart artifacts, admin data operations, and later chat/plugin extension surfaces.
+FinMind is an internal finance research workbench. The current product direction is an authenticated, workflow-first platform for **VN stocks** (VN100 universe in V1), with evidence-backed outputs, canonical data contracts, chart artifacts, admin data operations, and later chat/plugin extension surfaces. US stocks, gold, and BTC are roadmap-only unless a spec explicitly changes scope.
 
 The reusable agent substrate lives under `src/agent_core`. Finance product APIs, UI, data workflows, and orchestration are specified under `specs/` before implementation.
 
@@ -12,16 +12,41 @@ The reusable agent substrate lives under `src/agent_core`. Finance product APIs,
 
 Every piece of information should have one canonical location. Link to it instead of duplicating it.
 
+### Governance, narrative, and decisions
+
 | I need the... | Look here |
 |---------------|-----------|
-| Project rules and governance | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) |
-| Spec index and cross-references | [`specs/README.md`](specs/README.md) |
-| Platform-wide state, contracts, runtime, security, UI rules | [`specs/system/`](specs/system/) |
-| Per-feature specs | [`specs/NNN-slug/`](specs/README.md) |
-| Local agent skills | [`.agents/skills/`](.agents/skills/) |
-| Existing agent substrate code | [`src/agent_core/`](src/agent_core/) |
-| Existing tests | [`tests/`](tests/) |
-| Product source ideas | [`ideas/`](ideas/) |
+| Project rules, invariants, SDD workflow | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) |
+| Shared vocabulary and acronyms | [`.specify/memory/glossary.md`](.specify/memory/glossary.md) |
+| System narrative and quality goals | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Why a decision was made | [`docs/adr/`](docs/adr/) (`adr_refs` in spec frontmatter resolve here) |
+| Known risks and mitigations | [`docs/risks/`](docs/risks/) |
+| Production deployment runbook | [`DEPLOYMENT.md`](DEPLOYMENT.md) |
+
+### Specs and contracts
+
+| I need the... | Look here |
+|---------------|-----------|
+| Spec index, FR/SC coverage, cross-references | [`specs/README.md`](specs/README.md) |
+| Data contracts, schemas, shared state shape | [`specs/system/`](specs/system/) — especially [`state-model.md`](specs/system/state-model.md), [`contracts.md`](specs/system/contracts.md), [`runtime-config-security.md`](specs/system/runtime-config-security.md), [`ui-workbench.md`](specs/system/ui-workbench.md) |
+| Per-feature specs | [`specs/NNN-slug/`](specs/README.md) — create with `/speckit-specify` |
+| Active feature pointer | [`.specify/feature.json`](.specify/feature.json) |
+
+### Research, plans, and product input
+
+| I need the... | Look here |
+|---------------|-----------|
+| Non-normative product or market research | [`docs/research/`](docs/research/) — indexed from [`specs/README.md`](specs/README.md) Related Research |
+| Implementation plans and design notes (non-spec) | [`docs/superpowers/`](docs/superpowers/) |
+
+### Code, skills, and verification
+
+| I need the... | Look here |
+|---------------|-----------|
+| Local agent skills and Spec Kit workflows | [`.agents/skills/`](.agents/skills/) and [`.specify/`](.specify/) |
+| Reusable agent substrate | [`src/agent_core/`](src/agent_core/) |
+| Product API, ingestion, UI implementation | [`src/api/`](src/api/), [`src/ui/`](src/ui/) |
+| Tests and validation targets | [`tests/`](tests/) (`validated_by` in spec frontmatter) |
 
 ## 3. Hard Rules
 
@@ -29,7 +54,7 @@ Every piece of information should have one canonical location. Link to it instea
 2. **Do not collapse bounded features into one phase.** Use append-only feature folders such as `001-mvp-workflow-platform/`, `002-data-operations/`, `003-evidence-backed-chat/`, and `004-extension-hardening/`.
 3. **System contracts live in `specs/system/`.** If a feature changes shared state, API contracts, runtime behavior, security, or UI foundations, update `specs/system/*` and cross-reference the feature.
 4. **Use YAML frontmatter on spec files.** Include `id`, `status` or feature lifecycle status, `implements`, `validated_by`, and `adr_refs`. Only reference paths that exist; draft specs may use `implements: []` until code lands.
-5. **Keep VN stocks and gold as V1 user-facing scope.** US stocks and BTC are roadmap-only unless a later spec explicitly changes scope.
+5. **Keep VN stocks as V1 user-facing scope (VN100 universe).** US stocks, gold (XAUUSD/SJC), and BTC are roadmap-only unless a later spec explicitly changes scope. See [`specs/system/runtime-config-security.md`](specs/system/runtime-config-security.md).
 6. **No raw agent reasoning in user-facing surfaces.** Show evidence, citations, stages, tool/artifact status, and grounded outputs only.
 7. **Provider details stay abstract at product-contract level.** Implementation may validate providers, licensing, credentials, and schemas behind source connector contracts.
 8. **Do not duplicate schemas or tables.** Pick the canonical spec and link to it.
@@ -128,18 +153,29 @@ Skills are procedural guidance. Normative product behavior belongs in specs.
 ## 8. Quick Reference
 
 ```text
-specs/README.md          spec index and FR/SC coverage
-specs/system/            shared state, contracts, runtime, security, UI
-specs/NNN-slug/          bounded feature specs
-.agents/skills/          local agent workflows and guidance
-.specify/                Spec Kit scripts, templates, and memory
-src/agent_core/          reusable agent substrate
-tests/                   current test suite
+.specify/memory/constitution.md   project rules and invariants
+.specify/memory/glossary.md       shared vocabulary
+ARCHITECTURE.md                   system narrative and quality goals
+DEPLOYMENT.md                     production runbook
+docs/adr/                         architecture decision records
+docs/risks/                       known risks and mitigations
+docs/research/                    non-normative product research
+docs/superpowers/                 implementation plans and design notes
+specs/README.md                   spec index and FR/SC coverage
+specs/system/                     shared state, contracts, runtime, security, UI
+specs/NNN-slug/                   bounded feature specs
+.specify/feature.json             active feature pointer
+.agents/skills/                   local agent workflows and guidance
+.specify/                         Spec Kit scripts, templates, and memory
+src/agent_core/                   reusable agent substrate
+src/api/                          product backend
+src/ui/                           product frontend
+tests/                            current test suite
 ```
 
 ## 9. Current Feature Order
 
 1. `001-mvp-workflow-platform`: auth, app shell, fixed workflow, citations, freshness, chart artifacts, result inspection.
-2. `002-data-operations`: ingestion jobs, freshness, idempotent reruns, market data inspector, admin diagnostics.
-3. `003-evidence-backed-chat`: chat over shared evidence, citations, artifacts, freshness, and execution records.
+2. `002-data-operations`: VN-only V1 ingestion (VN100, `vn_prices_daily` canonical), freshness, idempotent reruns, market data inspector, admin diagnostics.
+3. `003-evidence-backed-chat`: M1 chat over Phase 002 prices; M2 fundamentals layer + fundamentals-cited chat.
 4. `004-extension-hardening`: plugin-ready execution artifacts and evidence contracts without shipping an adapter.

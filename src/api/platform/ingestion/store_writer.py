@@ -53,6 +53,12 @@ class TimeSeriesStore(Protocol):
         self, instrument_id: str
     ) -> InstrumentMetadata | None: ...
 
+    def list_instruments(self) -> list[InstrumentMetadata]: ...
+
+    def list_collection_instrument_ids(
+        self, collection_id: str
+    ) -> set[str]: ...
+
     def list_jobs(self) -> list[IngestionJobRecord]: ...
 
     def has_active_job(self, source_id: str, period: str) -> bool: ...
@@ -140,6 +146,18 @@ class InMemoryTimeSeriesStore:
             if instrument.instrument_id == instrument_id:
                 return instrument
         return None
+
+    def list_instruments(self) -> list[InstrumentMetadata]:
+        return sorted(self.instruments, key=lambda item: item.symbol)
+
+    def list_collection_instrument_ids(
+        self, collection_id: str
+    ) -> set[str]:
+        return {
+            instrument_id
+            for member_collection_id, instrument_id in self.collection_memberships
+            if member_collection_id == collection_id
+        }
 
     def list_jobs(self) -> list[IngestionJobRecord]:
         return sorted(self.jobs, key=lambda job: job.started_at, reverse=True)

@@ -8,7 +8,9 @@ implements:
 validated_by:
   - tests/test_app.py
   - tests/test_platform_services.py
-adr_refs: []
+adr_refs:
+  - docs/adr/0006-shared-evidence-lineage-tables.md
+  - docs/adr/0007-single-timescaledb-store-for-v1.md
 ---
 
 # System Contracts
