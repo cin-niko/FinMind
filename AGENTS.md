@@ -4,7 +4,7 @@ This file orients any AI coding agent working in this repository. Read it before
 
 ## 1. What This Repo Is
 
-FinMind is an internal finance research workbench. The current product direction is an authenticated, workflow-first platform for VN stocks and gold, with evidence-backed outputs, canonical data contracts, chart artifacts, admin data operations, and later chat/plugin extension surfaces.
+FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated finance advice platform for VN stocks and US stocks, with evidence-backed outputs, citations, freshness, canonical contracts, chart artifacts, fixed workflow planning, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with evidence/citations, not hallucination.
 
 The reusable agent substrate lives under `src/agent_core`. Finance product APIs, UI, data workflows, and orchestration are specified under `specs/` before implementation.
 
@@ -26,15 +26,16 @@ Every piece of information should have one canonical location. Link to it instea
 ## 3. Hard Rules
 
 1. **Specs before code.** When adding or changing behavior, update the relevant `specs/system/*` or `specs/NNN-slug/*` file first, then implementation and tests.
-2. **Do not collapse bounded features into one phase.** Use append-only feature folders such as `001-mvp-workflow-platform/`, `002-data-operations/`, `003-evidence-backed-chat/`, and `004-extension-hardening/`.
+2. **Do not collapse bounded features into one phase.** Current bounded feature folders are active `001-mvp-ui/`, draft `002-workflow/`, and draft `003-agentic-chatflow/`. Create future `NNN-slug/` folders only when the next bounded capability is ready to become canonical.
 3. **System contracts live in `specs/system/`.** If a feature changes shared state, API contracts, runtime behavior, security, or UI foundations, update `specs/system/*` and cross-reference the feature.
 4. **Use YAML frontmatter on spec files.** Include `id`, `status` or feature lifecycle status, `implements`, `validated_by`, and `adr_refs`. Only reference paths that exist; draft specs may use `implements: []` until code lands.
-5. **Keep VN stocks and gold as V1 user-facing scope.** US stocks and BTC are roadmap-only unless a later spec explicitly changes scope.
+5. **Keep VN stocks and US stocks as current user-facing market scope.** Gold, BTC, and other assets are roadmap-only unless a later spec explicitly changes scope.
 6. **No raw agent reasoning in user-facing surfaces.** Show evidence, citations, stages, tool/artifact status, and grounded outputs only.
-7. **Provider details stay abstract at product-contract level.** Implementation may validate providers, licensing, credentials, and schemas behind source connector contracts.
-8. **Do not duplicate schemas or tables.** Pick the canonical spec and link to it.
-9. **Do not hand-edit generated/cache files.** Local agent skills live under `.agents/skills/`; generated runtime caches and virtualenv artifacts should be ignored.
-10. **Run relevant verification before completion.** For Python work, use `uv run pytest`; for frontend work, use the commands defined by `src/ui/package.json` once that app exists.
+7. **Keep humans in control.** Do not implement autonomous trades, orders, or irreversible financial actions; unsupported, stale, missing, failed, or unsafe outputs must be blocked or clearly marked before user reliance.
+8. **Provider details stay abstract at product-contract level.** Implementation may validate providers, licensing, credentials, and schemas behind source connector contracts.
+9. **Do not duplicate schemas or tables.** Pick the canonical spec and link to it.
+10. **Do not hand-edit generated/cache files.** Local agent skills live under `.agents/skills/`; generated runtime caches and virtualenv artifacts should be ignored.
+11. **Run relevant verification before completion.** For Python work, use `uv run pytest`; for frontend work, use the commands defined by `src/ui/package.json` once that app exists.
 
 ## 4. Standard Loops
 
@@ -113,14 +114,15 @@ Use `.agents/skills/` for repo-local guidance:
 | `speckit-implement` | Executing task plans |
 | `speckit-analyze` | Checking consistency across spec, plan, and tasks |
 | `speckit-converge` | Comparing implementation to spec/plan/tasks |
-| `ui-ux-pro-max` | UI/UX design work |
+| `ui-ux-pro-max` | UI/UX design, review, or frontend implementation work |
 
 Skills are procedural guidance. Normative product behavior belongs in specs.
+For UI work, use `ui-ux-pro-max` for design-system/search guidance and implementation heuristics, then encode durable product decisions in [`specs/system/ui-ux-guidelines.md`](specs/system/ui-ux-guidelines.md) or the owning feature spec before changing code.
 
 ## 7. Anti-Patterns
 
 - Do not recreate a monolithic V1 spec folder as the long-term source of truth.
-- Do not add chat, ingestion admin, plugin hardening, US stocks, or BTC into the Phase 1 MVP unless the owning spec is explicitly changed.
+- Do not add ingestion admin, plugin hardening, gold, BTC, or other assets into the current MVP unless the owning spec is explicitly changed.
 - Do not expose provider secrets, environment secrets, or raw model reasoning in docs, logs, UI, or tests.
 - Do not invent new market scope terminology outside `specs/system/runtime-config-security.md`.
 - Do not let feature specs redefine shared entities that belong in `specs/system/state-model.md`.
@@ -137,9 +139,16 @@ src/agent_core/          reusable agent substrate
 tests/                   current test suite
 ```
 
-## 9. Current Feature Order
+## 9. Current Feature State
 
-1. `001-mvp-workflow-platform`: auth, app shell, fixed workflow, citations, freshness, chart artifacts, result inspection.
-2. `002-data-operations`: ingestion jobs, freshness, idempotent reruns, market data inspector, admin diagnostics.
-3. `003-evidence-backed-chat`: chat over shared evidence, citations, artifacts, freshness, and execution records.
-4. `004-extension-hardening`: plugin-ready execution artifacts and evidence contracts without shipping an adapter.
+1. `001-mvp-ui`: active implemented feature covering auth, app shell, deterministic mock chat UI, artifact detail, navigation, grouped history layout, and UI foundations.
+2. `002-workflow`: draft phase 02 feature for fixed workflow catalog/execution, VN stock and US stock scope, citations, freshness, chart artifacts, execution status, and workflow run inspection.
+3. `003-agentic-chatflow`: draft phase 03 feature for future evidence-backed flexible Q&A chatflow over trusted sources.
+
+Deleted roadmap folders such as data operations and extension hardening are not canonical. Recreate future capabilities through a fresh Spec Kit cycle only when scope, data access, safety, and contracts are ready.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+at specs/002-workflow/plan.md
+<!-- SPECKIT END -->

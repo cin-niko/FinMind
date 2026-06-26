@@ -15,7 +15,10 @@ This spec defines stable domain state shared across FinMind features. Feature fo
 
 ## Market Scope
 
-V1 supports VN stocks and gold as user-facing markets. US stocks and BTC remain roadmap markets. Shared identifiers may preserve extension points for future markets, but no V1 user surface may imply US stock or BTC coverage.
+`002-workflow` uses seeded/demo VN stock and US stock records to validate the workflow,
+evidence, citation, freshness, and chart contracts. Future market scope is not
+canonical until a new bounded feature spec defines supported assets, source
+eligibility, freshness rules, and safety behavior.
 
 ## Entities
 
@@ -53,11 +56,11 @@ Rules:
 
 ### MarketInstrument
 
-Represents a supported VN stock or gold instrument.
+Represents a supported VN stock or US stock instrument.
 
 - `instrument_id`: stable internal identifier
 - `symbol`: market symbol or commodity code
-- `market`: `VN_STOCK` or `GOLD`
+- `market`: `VN_STOCK` or `US_STOCK`
 - `display_name`: user-facing name
 - `currency`: quote currency
 - `status`: active, inactive, unsupported
@@ -66,7 +69,7 @@ Represents a supported VN stock or gold instrument.
 
 Normalized market data item used by workflows, charts, indicators, and evidence.
 
-- `dataset_id`: dataset/source grouping such as VN price series or gold spot
+- `dataset_id`: dataset/source grouping such as VN or US price series
 - `record_key`: unique logical key within dataset
 - `instrument_id`: linked instrument
 - `market_time`: effective market timestamp
@@ -92,25 +95,6 @@ Company report, macro news, market news, or document-like evidence source.
 - `url_or_reference`: source reference
 - `content_excerpt`: stored excerpt or summary allowed by source constraints
 - `market_scope`: related market or instrument scope
-
-### IngestionJob
-
-Scheduled or manual data fetch operation.
-
-- `job_id`: unique identifier
-- `source_id`: source connector or dataset
-- `trigger`: scheduled or manual
-- `period`: requested dataset period
-- `status`: queued, running, success, failed, skipped
-- `started_at`: start timestamp
-- `completed_at`: completion timestamp when available
-- `record_count`: canonical records affected
-- `diagnostics`: non-secret outcome or error context
-
-Rules:
-
-- Manual reruns for the same dataset and period must be idempotent.
-- Unsafe overlapping runs for the same dataset and period must be prevented or serialized.
 
 ### WorkflowSpecification
 
@@ -192,17 +176,20 @@ Rules:
 
 - Chart and inline visualization artifacts must be traceable to canonical data and execution context.
 
-### ChatSession
+### MockChatConversation
 
-Conversation around open-ended finance research questions.
+Client-side `001-mvp-ui` conversation around deterministic mock finance research
+responses.
 
 - `chat_id`: unique identifier
 - `messages`: user and assistant messages
-- `role_agent_events`: role-agent execution status
-- `runs`: linked execution runs
-- `artifacts`: inline visualizations or computed outputs
+- `title`: derived from the first user message
+- `artifacts`: trusted mock report, chart, table, evidence, or citation bundle
+  artifacts rendered by local templates
 
 Rules:
 
-- Chat answers use the same evidence, citation, freshness, and artifact contracts as workflows.
-- Unsupported market questions produce clear scope limitations.
+- `001-mvp-ui` mock chat must not present itself as production evidence-backed
+  orchestration.
+- Mock chat must not expose raw agent reasoning or execute arbitrary generated
+  HTML.

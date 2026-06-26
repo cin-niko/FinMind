@@ -9,7 +9,7 @@ assert.deepEqual(
 assert.equal(
   PRIMARY_NAV_ITEMS.some((item) => item.label === "Market"),
   false,
-  "Market nav stays hidden while Phase 002 is parked"
+  "Market nav stays hidden until a bounded feature spec makes it active"
 );
 
 assert.deepEqual(

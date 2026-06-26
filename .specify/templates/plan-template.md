@@ -40,7 +40,19 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **Code quality**: Ownership boundaries are clear; shared schemas/contracts are
+  linked to canonical specs; new abstractions are justified.
+- **Testing standards**: Required test levels are named, including pytest targets,
+  frontend build/test commands, or an explicit documented waiver.
+- **Safety guardrails**: Human-in-the-loop controls, blocked unsupported states,
+  secret handling, and raw-reasoning exclusion are specified for user-facing
+  outputs and tool/workflow execution.
+- **UX consistency**: User-facing surfaces reference `specs/system/ui-ux-guidelines.md`
+  and define status, evidence, citation, freshness, artifact, and error behavior.
+- **Performance requirements**: Goals and constraints are measurable, or marked
+  `N/A` with rationale.
+- **Spec traceability**: Behavior/contracts map to `specs/system/` or
+  `specs/NNN-slug/`; decisions and risks map to `docs/adr/` and `docs/risks/`.
 
 ## Project Structure
 

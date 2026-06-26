@@ -77,6 +77,10 @@
 
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
+- What unsupported, stale, missing, failed, or unsafe state must be blocked or clearly marked?
+- Where must human review or confirmation remain in the workflow?
+- What user-facing status, evidence, citation, freshness, artifact, or error state is shown?
+- What performance boundary could make this feature unusable?
 
 ## Requirements *(mandatory)*
 
@@ -92,6 +96,9 @@
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-SAFE**: System MUST preserve human control, hide raw agent reasoning and secrets, and block or clearly mark unsafe states.
+- **FR-UX**: User-facing behavior MUST follow `specs/system/ui-ux-guidelines.md` or document why it is not applicable.
+- **FR-PERF**: System MUST meet measurable performance expectations or document why performance is not applicable.
 
 *Example of marking unclear requirements:*
 
@@ -116,6 +123,9 @@
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-SAFE**: [Safety metric, e.g., "Unsupported or stale outputs are blocked or visibly marked before user reliance"]
+- **SC-UX**: [UX consistency metric, e.g., "All failure states expose actionable status without raw agent reasoning"]
+- **SC-PERF**: [Performance metric, e.g., "Primary interaction completes within [threshold] under [condition]"]
 
 ## Assumptions
 
