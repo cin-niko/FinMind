@@ -248,51 +248,71 @@ Phase 03 chatflow retrieval.
 
 ### Tests for Dataflows
 
-- [ ] T079 [P] Add dataflow model and provider registry tests for dataset group
-  selection in `tests/test_platform_services.py`
-- [ ] T080 [P] Add deterministic fallback labeling tests for provider failure in
-  `tests/test_platform_services.py`
-- [ ] T081 [P] Add workflow API contract test for `output.collection.retrieval_id`
-  and `provider_results` in `tests/test_platform_services.py`
-- [ ] T082 [P] Add no-secret/no-raw-provider-payload assertions for collection
-  output in `tests/test_platform_services.py`
+- [ ] T079 [P] Add dataflow model serialization tests for retrieval request, retrieval result, and provider result in `tests/test_platform_services.py`
+- [ ] T080 [P] Add provider registry dataset-group selection tests for VN_STOCK and US_STOCK in `tests/test_platform_services.py`
+- [ ] T081 [P] Add deterministic fallback labeling tests for provider failure in `tests/test_platform_services.py`
+- [ ] T082 [P] Add no-secret and no-raw-provider-payload assertions for dataflow results in `tests/test_platform_services.py`
+- [ ] T083 [P] Add workflow API test asserting `output.collection.retrieval_id` and `provider_results` for `technical-analysis` in `tests/test_platform_services.py`
+- [ ] T084 [P] Add workflow API test asserting fallback collection status is visible and claims remain cited or unavailable in `tests/test_platform_services.py`
+- [ ] T085 [P] Add test mapping `fundamental-analysis` required datasets to `market_price`, `fundamental`, and `news` in `tests/test_platform_services.py`
+- [ ] T086 [P] Add test mapping `news-digest` required datasets to `news` without requiring price data in `tests/test_platform_services.py`
+- [ ] T087 [P] Add frontend catalog regression test that provider internals are not shown on workflow cards in `src/ui/src/features/workflows/workflowCatalog.test.ts`
+- [ ] T088 [P] Add stock brief API test asserting a single retrieval result covers `market_price`, `fundamental`, and `news` in `tests/test_platform_services.py`
+- [ ] T089 [P] Add stock brief partial-provider test asserting failed news retrieval marks news/risk sections unavailable without blocking technical analysis in `tests/test_platform_services.py`
+- [ ] T090 [P] Add API test that unsupported market validation stops before dataflow provider calls in `tests/test_platform_services.py`
+- [ ] T091 [P] Add API test that missing Alpha Vantage key creates skipped provider status and fallback warning for US news in `tests/test_platform_services.py`
+- [ ] T092 [P] Add API test that SEC EDGAR missing User-Agent creates skipped fundamentals provider status without leaking diagnostics in `tests/test_platform_services.py`
+- [ ] T093 [P] Add run reinspection API test asserting collection status persists in saved workflow runs in `tests/test_platform_services.py`
+- [ ] T094 [P] Add partial run reinspection API test asserting provider warnings persist without raw diagnostics in `tests/test_platform_services.py`
 
 ### Implementation for Dataflows
 
-- [ ] T083 Add dataflow request/result/provider status models in
-  `src/api/platform/dataflows/models.py`
-- [ ] T084 Add provider protocol and dataset group constants in
-  `src/api/platform/dataflows/providers/base.py`
-- [ ] T085 Add provider registry by market and dataset group in
-  `src/api/platform/dataflows/registry.py`
-- [ ] T086 Add provider payload normalizers to canonical records/source documents
-  in `src/api/platform/dataflows/normalizers.py`
-- [ ] T087 Add deterministic fallback provider and fallback policy in
-  `src/api/platform/dataflows/fallback.py`
-- [ ] T088 Add VN `vnstock` provider adapter skeleton and graceful unavailable
-  behavior in `src/api/platform/dataflows/providers/vnstock.py`
-- [ ] T089 Add US Alpha Vantage provider adapter skeleton and API-key unavailable
-  behavior in `src/api/platform/dataflows/providers/alpha_vantage.py`
-- [ ] T090 Add US SEC EDGAR company facts provider adapter skeleton and
-  User-Agent/config unavailable behavior in
-  `src/api/platform/dataflows/providers/sec_edgar.py`
-- [ ] T091 Add `DataflowService.retrieve(...)` orchestration in
-  `src/api/platform/dataflows/service.py`
-- [ ] T092 Refactor `src/api/platform/workflows/collector.py` to request data
-  through `DataflowService` instead of direct repository/provider access
-- [ ] T093 Include retrieval collection status in workflow run output in
-  `src/api/platform/workflows/service.py`
-- [ ] T094 Update TypeScript run output types for `collection.provider_results`
-  in `src/ui/src/api/client.ts`
-- [ ] T095 Render collection status and provider summaries in
-  `src/ui/src/features/results/ResultView.tsx`
+- [ ] T095 Create dataflows package exports in `src/api/platform/dataflows/__init__.py`
+- [ ] T096 [P] Create dataflows provider package exports in `src/api/platform/dataflows/providers/__init__.py`
+- [ ] T097 [P] Add dataflow environment settings for Alpha Vantage key, SEC EDGAR User-Agent, provider timeout, and fallback mode in `src/api/settings.py`
+- [ ] T098 [P] Add dependency notes for optional `vnstock` and live provider behavior in `specs/002-workflow/quickstart.md`
+- [ ] T099 Add dataset group constants and retrieval status enums in `src/api/platform/dataflows/models.py`
+- [ ] T100 Add `DataflowRetrievalRequest`, `DataflowProviderResult`, and `DataflowRetrievalResult` models in `src/api/platform/dataflows/models.py`
+- [ ] T101 Add provider protocol and provider capability model in `src/api/platform/dataflows/providers/base.py`
+- [ ] T102 Add provider registry by market and dataset group in `src/api/platform/dataflows/registry.py`
+- [ ] T103 Add provider payload normalizers for price records, fundamental records, and source documents in `src/api/platform/dataflows/normalizers.py`
+- [ ] T104 Add deterministic fallback provider and fallback policy in `src/api/platform/dataflows/fallback.py`
+- [ ] T105 Add `DataflowService.retrieve(...)` orchestration with timeout, provider status aggregation, fallback, and safe result output in `src/api/platform/dataflows/service.py`
+- [ ] T106 Wire `DataflowService` construction into platform factory dependencies in `src/api/platform/factory.py`
+- [ ] T107 Refactor workflow collected data model to include `DataflowRetrievalResult` in `src/api/platform/workflows/collector.py`
+- [ ] T108 Refactor workflow collector to build `DataflowRetrievalRequest` from workflow required datasets in `src/api/platform/workflows/collector.py`
+- [ ] T109 Add workflow-required-dataset to dataflow-dataset-group mapping helper in `src/api/platform/workflows/collector.py`
+- [ ] T110 Refactor workflow service to call `DataflowService` through the collector and persist collection output in `src/api/platform/workflows/service.py`
+- [ ] T111 Update quality report input mapping from dataflow dataset groups to workflow dataset statuses in `src/api/platform/workflows/quality.py`
+- [ ] T112 Serialize workflow collection output without raw provider payloads in `src/api/schemas.py`
+- [ ] T113 Update workflow run output TypeScript types for collection result fields in `src/ui/src/api/client.ts`
+- [ ] T114 Render collection status and safe provider summaries in result view in `src/ui/src/features/results/ResultView.tsx`
+- [ ] T115 Keep provider details out of catalog response serialization in `src/api/platform/workflows/service.py`
+- [ ] T116 Update workflow catalog UI copy to remain provider-neutral while result view shows collection status in `src/ui/src/features/workflows/WorkflowPage.tsx`
+- [ ] T117 Ensure composite workflow execution reuses one collected dataflow result across sections in `src/api/platform/workflows/service.py`
+- [ ] T118 Propagate provider warnings into visible composite stages in `src/api/platform/workflows/executor.py`
+- [ ] T119 Render composite collection warnings beside stage statuses in `src/ui/src/features/results/ResultView.tsx`
+- [ ] T120 Add graceful unavailable behavior for VN `vnstock` adapter in `src/api/platform/dataflows/providers/vnstock.py`
+- [ ] T121 Add graceful unavailable behavior for US Alpha Vantage adapter in `src/api/platform/dataflows/providers/alpha_vantage.py`
+- [ ] T122 Add graceful unavailable behavior for US SEC EDGAR adapter in `src/api/platform/dataflows/providers/sec_edgar.py`
+- [ ] T123 Add provider failure and skipped-provider mapping into data-quality blocked claims in `src/api/platform/workflows/quality.py`
+- [ ] T124 Ensure route error mapping distinguishes validation errors from provider partial/fallback output in `src/api/routes/workflows.py`
+- [ ] T125 Ensure run repository preserves collection output in `src/api/platform/repositories.py`
+- [ ] T126 Ensure run list and run detail routes serialize collection output consistently in `src/api/routes/runs.py`
+- [ ] T127 Ensure result reinspection UI displays saved collection status without rerunning providers in `src/ui/src/App.tsx`
 
 ### Verification
 
-- [ ] T096 Run backend verification command
-  `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py`
-- [ ] T097 Run frontend verification command `cd src/ui && npm run build`
-- [ ] T098 Re-run quickstart scenarios in `specs/002-workflow/quickstart.md`
+- [ ] T128 [P] Update implementation traceability for dataflows in `specs/002-workflow/spec.md`
+- [ ] T129 [P] Update implementation traceability for dataflows in `specs/002-workflow/plan.md`
+- [ ] T130 [P] Update risk notes for provider failure, fallback labeling, and source licensing in `docs/risks/RISK-002-agent-skill-unsupported-claims.md`
+- [ ] T131 [P] Update ADR notes for retrieval module boundaries in `docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md`
+- [ ] T132 Review collection status UI against `specs/system/ui-ux-guidelines.md`
+- [ ] T133 Review safety guardrails against `.specify/memory/constitution.md`
+- [ ] T134 Run backend verification command `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py`
+- [ ] T135 Run backend lint command `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --with ruff ruff check src tests`
+- [ ] T136 Run frontend verification command `cd src/ui && npm run build`
+- [ ] T137 Re-run quickstart scenarios in `specs/002-workflow/quickstart.md`
 
 ---
 
@@ -335,8 +355,8 @@ Phase 03 chatflow retrieval.
 - US4 tests T053-T055 can run in parallel.
 - US5 tests T060-T062 can run in parallel.
 - Polish documentation tasks T068-T073 can run in parallel.
-- Dataflows tests T079-T082 can run in parallel; provider adapter skeletons
-  T088-T090 can run in parallel after the base protocol and registry exist.
+- Dataflows tests T079-T094 can run in parallel; provider adapter skeletons
+  T120-T122 can run in parallel after the base protocol and registry exist.
 
 ---
 
