@@ -4,7 +4,7 @@ This file orients any AI coding agent working in this repository. Read it before
 
 ## 1. What This Repo Is
 
-FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated finance advice platform for VN stocks and US stocks, with evidence-backed outputs, citations, freshness, canonical contracts, chart artifacts, fixed workflow planning, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with evidence/citations, not hallucination.
+FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated, workflow-first finance advice workbench for VN stocks and US stocks, with evidence-backed outputs, citations, freshness, canonical contracts, chart artifacts, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with evidence/citations, not hallucination.
 
 The reusable agent substrate lives under `src/agent_core`. Finance product APIs, UI, data workflows, and orchestration are specified under `specs/` before implementation.
 

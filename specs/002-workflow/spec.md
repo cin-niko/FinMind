@@ -6,7 +6,8 @@ owner: solo
 created: 2026-06-26
 implements: []
 validated_by: []
-adr_refs: []
+adr_refs:
+  - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
 ---
 
 # Feature Specification: Workflow

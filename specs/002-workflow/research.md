@@ -1,7 +1,7 @@
 ---
 id: SPEC-FEAT-002-RESEARCH
 feature: workflow
-status: draft
+status: active
 owner: solo
 created: 2026-06-26
 implements: []
@@ -44,6 +44,21 @@ freshness handling, and stage status across each user-facing workflow.
 Alternatives considered: independent monolithic workflow implementations.
 Rejected because they make evidence, quality gating, partial failure, and future
 workflow reuse harder to keep consistent.
+
+## Decision: Use hybrid YAML workflow definitions and Markdown agent skills
+
+Workflow structure should be machine-readable YAML, while per-analysis behavior
+should live in governed Markdown agent skills. Fixed runtime code enforces
+validation, data-quality gates, citations, freshness, safety, and output
+contracts.
+
+Rationale: YAML definitions keep workflows portable for UI/API tests and future
+Claude or MCP-style integrations. Markdown skills keep analysis behavior readable
+and easier to evolve without letting instructions replace runtime guardrails.
+
+Alternatives considered: fixed code only, Markdown skills only, and YAML
+definitions only. Rejected because each misses either portability, deterministic
+validation, or analyst guidance.
 
 ## Decision: Keep data collection and quality checks internal
 
