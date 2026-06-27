@@ -4,6 +4,7 @@ from api.platform.models import (
     CanonicalMarketDataRecord,
     ExecutionRun,
     Market,
+    SourceDocument,
     WorkflowSpecification,
 )
 
@@ -13,6 +14,12 @@ class MarketDataRepository(Protocol):
         self,
         market: Market,
     ) -> list[CanonicalMarketDataRecord]: ...
+
+    def list_source_documents(
+        self,
+        market: Market,
+        symbol: str | None,
+    ) -> list[SourceDocument]: ...
 
 
 class RunRepository(Protocol):

@@ -72,14 +72,76 @@ can protect claims while keeping the UI focused on research output.
 Alternatives considered: exposing data-quality-check as a standalone workflow.
 Deferred until there is enough operational need for a diagnostics-focused view.
 
-## Decision: Use seeded/demo repositories for workflow validation
+## Decision: Fetch latest provider data with deterministic fallback
 
-Seeded/demo canonical records allow contract-first validation before native
-realtime market data and news integration are available.
+Phase 02 should fetch latest available provider data for requested VN and US
+stock symbols before workflow analysis runs. Deterministic seeded records remain
+only for tests, local offline development, and explicit degraded fallback paths.
 
-Alternatives considered: live data integration in this feature. Rejected because
-source rights, provider reliability, and production freshness rules need later
-planning.
+Rationale: User-facing workflows need current evidence to be useful as trading
+research support. Keeping provider output normalized behind canonical records
+preserves testability, citation/freshness enforcement, and future provider
+replacement.
+
+Alternatives considered: demo-only repositories. Rejected because demo-only data
+cannot satisfy the phase 02 workflow goal once users run live stock research.
+
+## Decision: Build `dataflows` as the shared retrieval layer
+
+Provider retrieval should live in `src/api/platform/dataflows/`, not inside
+workflow execution. The module is retrieval-first for workflows and future
+chatflow; it does not implement admin ingestion, scheduled backfill, warehouse
+storage, or a broad realtime data platform in Phase 02.
+
+Rationale: Workflows and chatflow both need current, evidence-ready finance data,
+but neither should know provider APIs or fallback rules. A dedicated retrieval
+boundary keeps provider selection, normalization, failure handling, and fallback
+labeling in one place while preserving the existing workflow runtime as the
+analysis/orchestration layer.
+
+Alternatives considered: keep provider calls in `workflows/collector.py`, build a
+full ingestion/backfill platform, or copy TradingAgents-style dataflows directly.
+Provider calls inside workflows would couple analysis to source mechanics. A full
+ingestion platform is beyond short-term scope. TradingAgents is useful as a
+reference, but FinMind needs stricter canonical contracts, provider status,
+fallback labeling, and no trading/autonomous action coupling.
+
+## Decision: Use `vnstock` for VN market collection
+
+The VN provider adapter should use `vnstock` for VN stock price and fundamental
+collection where the requested symbol and dataset are supported. Critical VN
+fundamental claims should keep source identity and period metadata so later
+cross-checking against CafeF, exchange disclosures, or company/audited reports is
+possible.
+
+Rationale: The referenced `equity-research-vn` collector flow uses `vnstock` as
+the primary VN collection path and treats source freshness/period quality as a
+first-class workflow concern. This matches FinMind's VN stock scope and
+data-quality gate design.
+
+Alternatives considered: scraping individual VN websites first, manual CSVs, or
+demo-only VN data. Rejected because they are less reusable, harder to normalize,
+or not current enough for workflow output.
+
+## Decision: Use Alpha Vantage plus SEC EDGAR for US market collection
+
+The US provider layer should use Alpha Vantage for latest/daily prices and market
+news/sentiment when an API key is configured, and SEC EDGAR company facts for
+public-company fundamentals where available. Provider output must be normalized
+into canonical price, fundamental, and source-document records.
+
+Rationale: Alpha Vantage provides documented stock time-series and news endpoints
+with API-key authentication suitable for an adapter boundary. SEC EDGAR company
+facts are public company fundamentals from the primary disclosure source. This
+combination avoids relying on unofficial Yahoo Finance access for production
+contracts while still allowing a future yfinance adapter if licensing and usage
+constraints are explicitly accepted.
+
+Alternatives considered: yfinance, Stooq, Polygon, Finnhub, IEX Cloud, Nasdaq
+Data Link, and demo-only US data. yfinance is useful for prototyping but its
+project documentation points users to Yahoo terms and personal-use constraints,
+so it should not be the default production contract. Paid/commercial APIs can be
+added later behind the same provider interface.
 
 ## Source Review: TradingAgents
 
@@ -119,4 +181,5 @@ Rejected for Phase 02:
 
 - Full HTML dashboard generation/deploy and broad provider-specific ingestion.
   Phase 02 should produce UI-runnable workflow results and artifacts inside
-  FinMind, while native realtime data/news ingestion remains a later spec.
+  FinMind, while broad ingestion, persistence, and dashboard publishing remain
+  later specs.

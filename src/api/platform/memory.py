@@ -5,6 +5,7 @@ from api.platform.models import (
     ExecutionRun,
     FreshnessStatus,
     Market,
+    SourceDocument,
 )
 from api.platform.repositories import MarketDataRepository, RunRepository
 from api.platform.workflows.catalog import build_workflow_catalog
@@ -44,18 +45,62 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                 freshness_status=FreshnessStatus.FRESH,
             ),
             CanonicalMarketDataRecord(
-                dataset_id="gold_spot",
-                record_key="SJC-2026-06-18",
-                instrument_id="SJC",
-                market_time=datetime(2026, 6, 18, 7, 0, tzinfo=UTC),
+                dataset_id="us_prices",
+                record_key="AAPL-2026-06-18",
+                instrument_id="AAPL",
+                market_time=datetime(2026, 6, 18, 20, 0, tzinfo=UTC),
                 collected_at=collected_at,
-                source_id="demo_gold_spot",
+                source_id="demo_us_prices",
                 payload={
-                    "close": 76400000,
-                    "change_percent": -0.18,
-                    "unit": "VND/tael",
+                    "close": 195.64,
+                    "change_percent": 0.42,
+                    "volume": 52100000,
                 },
                 freshness_status=FreshnessStatus.FRESH,
+            ),
+            CanonicalMarketDataRecord(
+                dataset_id="vn_fundamentals",
+                record_key="VCB-FY2025",
+                instrument_id="VCB",
+                market_time=datetime(2026, 3, 31, 7, 0, tzinfo=UTC),
+                collected_at=collected_at,
+                source_id="demo_vn_fundamentals",
+                payload={
+                    "eps": 5200,
+                    "bvps": 35600,
+                    "roe_percent": 20.3,
+                    "period": "FY2025",
+                },
+                freshness_status=FreshnessStatus.FRESH,
+            ),
+            CanonicalMarketDataRecord(
+                dataset_id="us_fundamentals",
+                record_key="AAPL-FY2025",
+                instrument_id="AAPL",
+                market_time=datetime(2026, 3, 31, 20, 0, tzinfo=UTC),
+                collected_at=collected_at,
+                source_id="demo_us_fundamentals",
+                payload={
+                    "eps": 7.42,
+                    "revenue_growth_percent": 5.6,
+                    "roe_percent": 48.1,
+                    "period": "FY2025",
+                },
+                freshness_status=FreshnessStatus.FRESH,
+            ),
+        ]
+        self._source_documents = [
+            SourceDocument(
+                document_id="doc_vcb_demo",
+                source_id="demo_curated_sources",
+                title="VCB curated company update",
+                published_at=datetime(2026, 6, 18, 6, 30, tzinfo=UTC),
+                collected_at=collected_at,
+                url_or_reference="demo://vn/vcb/update",
+                content_excerpt="Curated demo update for VCB banking fundamentals.",
+                market_scope=Market.VN_STOCK,
+                instrument_ids=("VCB",),
+                sentiment_hint="neutral",
             ),
         ]
 
@@ -63,15 +108,27 @@ class InMemoryMarketDataRepository(MarketDataRepository):
         self,
         market: Market,
     ) -> list[CanonicalMarketDataRecord]:
-        dataset_by_market = {
-            Market.VN_STOCK: "vn_prices",
-            Market.GOLD: "gold_spot",
+        dataset_prefix_by_market = {
+            Market.VN_STOCK: "vn_",
+            Market.US_STOCK: "us_",
         }
-        dataset_id = dataset_by_market[market]
+        dataset_prefix = dataset_prefix_by_market[market]
         return [
             record
             for record in self._records
-            if record.dataset_id == dataset_id
+            if record.dataset_id.startswith(dataset_prefix)
+        ]
+
+    def list_source_documents(
+        self,
+        market: Market,
+        symbol: str | None,
+    ) -> list[SourceDocument]:
+        return [
+            document
+            for document in self._source_documents
+            if document.market_scope == market
+            and (symbol is None or symbol in document.instrument_ids)
         ]
 
 

@@ -1,0 +1,19 @@
+{
+  "workflow_id": "risk-review",
+  "version": "1.0.0",
+  "title": "Risk Review",
+  "description": "Downside, data-quality, market, bull/bear, and evidence limitation review.",
+  "workflow_type": "atomic",
+  "market_scope": ["VN_STOCK", "US_STOCK"],
+  "required_inputs": [
+    {"name": "market", "type": "string", "required": true},
+    {"name": "symbol", "type": "string", "required": true}
+  ],
+  "required_datasets": ["price_series", "fundamentals", "source_documents"],
+  "stages": ["data-collector", "data-quality-check", "risk-review"],
+  "skill_refs": ["src/api/platform/workflows/skills/risk-review.md"],
+  "output_sections": ["Data Quality", "Risk Review"],
+  "citation_policy": "material_claims_require_citations",
+  "chart_requirements": [],
+  "step_sequence": ["data-collector", "data-quality-check", "risk-review"]
+}

@@ -8,6 +8,7 @@ import {
   type WorkflowRun
 } from "../../api/client";
 import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
+import { summarizeWorkflow } from "./workflowCatalog";
 
 type Props = {
   onRunComplete: (run: WorkflowRun) => void;
@@ -81,27 +82,15 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
       <div className="workflowCatalog">
         {error ? <ErrorAlert message={error} /> : null}
         {workflows.map((workflow) => (
-          <button
-            className="workflowCard"
+          <WorkflowCard
             key={workflow.id}
-            onClick={() => {
+            workflow={workflow}
+            onSelect={() => {
               setSelectedId(workflow.id);
               setMarket(workflow.market_scope[0] ?? "VN_STOCK");
               setSymbol("");
             }}
-            type="button"
-          >
-            <span className="meta">{workflow.market_scope.join(", ")}</span>
-            <h2>{workflow.title}</h2>
-            <p>Fixed system-defined workflow with cited output, freshness metadata, and chart artifacts.</p>
-            <div className="stageList">
-              {workflow.stages.slice(0, 4).map((stage) => (
-                <span className="stageChip" key={stage}>
-                  {stage}
-                </span>
-              ))}
-            </div>
-          </button>
+          />
         ))}
       </div>
     );
@@ -121,12 +110,9 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
           <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
             {selected.market_scope.map((scope) => (
               <option key={scope} value={scope}>
-                {scope === "VN_STOCK" ? "VN stocks" : "Gold"}
+                {scope === "VN_STOCK" ? "VN stocks" : "US stocks"}
               </option>
             ))}
-            <option disabled value="US_STOCK">
-              US stocks (future)
-            </option>
             <option disabled value="BTC">
               BTC (future)
             </option>
@@ -154,7 +140,9 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
       </section>
       <section className="panel">
         <h2>{selected.title}</h2>
+        <p>{selected.description}</p>
         <div className="meta">Markets: {selected.market_scope.join(", ")}</div>
+        <div className="meta">Sections: {selected.output_sections.join(", ")}</div>
         <div className="stageList">
           {selected.stages.map((stage) => (
             <span className="stageChip" key={stage}>
@@ -165,5 +153,30 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
         <div className="meta">Charts: {selected.chart_requirements.join(", ")}</div>
       </section>
     </div>
+  );
+}
+
+function WorkflowCard({
+  workflow,
+  onSelect,
+}: {
+  workflow: Workflow;
+  onSelect: () => void;
+}) {
+  const summary = summarizeWorkflow(workflow);
+  return (
+    <button className="workflowCard" onClick={onSelect} type="button">
+      <span className="meta">{summary.metadata}</span>
+      <h2>{summary.title}</h2>
+      <p>{summary.description}</p>
+      <div className="workflowMeta">Sections: {summary.sections}</div>
+      <div className="stageList">
+        {summary.stages.slice(0, 4).map((stage) => (
+          <span className="stageChip" key={stage}>
+            {stage}
+          </span>
+        ))}
+      </div>
+    </button>
   );
 }

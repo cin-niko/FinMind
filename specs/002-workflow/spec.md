@@ -4,8 +4,19 @@ feature: workflow
 status: draft
 owner: solo
 created: 2026-06-26
-implements: []
-validated_by: []
+implements:
+  - src/api/platform/workflows
+  - src/api/platform/models.py
+  - src/api/platform/memory.py
+  - src/api/routes/workflows.py
+  - src/api/routes/runs.py
+  - src/ui/src/api/client.ts
+  - src/ui/src/features/workflows
+  - src/ui/src/features/results/ResultView.tsx
+validated_by:
+  - tests/test_app.py
+  - tests/test_platform_services.py
+  - src/ui/package.json
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
 ---
@@ -16,11 +27,13 @@ adr_refs:
 
 Define phase 02 fixed, system-defined financial trading support workflows for the
 current market scope: VN stocks and US stocks only. The workflow suite uses
-internal data collection and data-quality gate steps, then exposes repeatable
-analysis paths such as fundamental analysis, technical analysis, news digest, risk
-review, and combined stock briefs. Workflows provide bounded analysis, validated
-inputs, evidence objects, citations, freshness metadata, chart artifacts,
-execution status, and result reinspection from the UI.
+internal data collection and data-quality gate steps, fetching the latest
+available provider data before falling back to deterministic demo data in local
+or offline test mode. It then exposes repeatable analysis paths such as
+fundamental analysis, technical analysis, news digest, risk review, and combined
+stock briefs. Workflows provide bounded analysis, validated inputs, evidence
+objects, citations, freshness metadata, chart artifacts, execution status, and
+result reinspection from the UI.
 
 This draft feature will own workflow execution and result inspection. It does not own the
 overall app shell (`../001-mvp-ui/`) or flexible agentic Q&A chatflow
@@ -39,8 +52,10 @@ and execution status.
 
 Acceptance scenarios:
 
-1. Given seeded/demo VN or US stock records are available, when the user submits
-   valid workflow inputs, then the workflow completes with structured output.
+1. Given a configured VN or US stock provider can return current records, when
+   the user submits valid workflow inputs, then the workflow completes with
+   structured output using latest provider data and visible collection
+   timestamps.
 2. Given a workflow output includes a material claim, when the user inspects the
    result, then the claim has a citation or is marked unsupported/unavailable.
 3. Given the workflow requires a chart, when it completes, then the result includes
@@ -147,9 +162,9 @@ Acceptance scenarios:
   workflows when their required evidence inputs are available.
 - **FR-006**: Workflow suite MUST support reusable workflow steps so a composite
   workflow can run another workflow or internal step as one stage.
-- **FR-007**: `data-collector` MUST be an internal step that gathers the datasets
-  required by the selected workflow, including market records, fundamentals,
-  source documents or news, and peer data when available.
+- **FR-007**: `data-collector` MUST be an internal step that gathers the latest
+  available datasets required by the selected workflow, including market records,
+  fundamentals, source documents or news, and peer data when available.
 - **FR-008**: `data-quality-check` MUST be an internal gate step that evaluates
   collected records before claim-generating analysis steps run.
 - **FR-009**: `data-quality-check` MUST output quality status, dataset statuses,
@@ -165,9 +180,10 @@ Acceptance scenarios:
 - **FR-013**: Workflow input validation MUST reject unsupported markets,
   unsupported symbols, missing inputs, and invalid values before successful
   execution.
-- **FR-014**: System MUST maintain seeded/demo canonical records for VN and US
-  stock examples with source identity, market time, collection time, freshness,
-  and unique record keys.
+- **FR-014**: System MUST maintain deterministic seeded/offline canonical records
+  for VN and US stock examples with source identity, market time, collection
+  time, freshness, and unique record keys for tests and provider-failure
+  fallback.
 - **FR-015**: News digest workflows MUST use trusted source material with source
   identity and publication or collection timestamps when available; if trusted
   source material is unavailable, the workflow MUST clearly mark the news section
@@ -198,6 +214,27 @@ Acceptance scenarios:
 - **FR-025**: User-facing workflow outputs MUST NOT expose raw agent reasoning.
 - **FR-026**: Workflow outputs MUST be framed as research support, not trading
   decisions, executable orders, or autonomous financial actions.
+- **FR-027**: VN stock collection MUST use a provider adapter backed by `vnstock`
+  for Phase 02 latest price and fundamental data where the library supports the
+  requested symbol and dataset.
+- **FR-028**: US stock collection MUST use provider adapters backed by a
+  documented US market data source for prices/news and SEC EDGAR company facts
+  for public-company fundamentals where available.
+- **FR-029**: The system MUST provide a retrieval-first `dataflows` module that
+  serves workflows now and future chatflow retrieval without implementing admin
+  ingestion, scheduled backfill, or broad realtime data operations.
+- **FR-030**: `dataflows` MUST expose a single retrieval boundary that accepts
+  market, symbol, and required dataset groups, then returns canonical market
+  records, source documents, provider statuses, collection timestamps, warnings,
+  and failure reasons.
+- **FR-031**: Workflow code MUST request data through `dataflows` and MUST NOT
+  call concrete provider adapters directly.
+- **FR-032**: Provider adapters MUST record `source_id`, provider timestamp or
+  market timestamp, `collected_at`, dataset coverage, and any provider failure
+  reason used by `data-quality-check`.
+- **FR-033**: Provider failures, missing API keys, rate limits, license
+  restrictions, unavailable symbols, or stale latest data MUST produce a
+  warning/partial/unavailable result instead of fabricated claims.
 
 ## Key Entities
 
@@ -238,10 +275,13 @@ See `../system/state-model.md` for canonical entity definitions.
 ## Assumptions
 
 - `../001-mvp-ui/` provides authenticated shell and navigation.
-- Seeded/demo VN and US stock records are enough to validate workflow contracts.
-- News digest can start from trusted source documents or curated/open-source
-  source material available to the project; native realtime news ingestion
-  requires a later bounded spec.
+- Latest per-run provider collection is enough for Phase 02; historical
+  warehouse ingestion, scheduling, and broad data operations require later
+  bounded specs.
+- Deterministic seeded/offline VN and US stock records remain necessary to
+  validate workflow contracts without network or provider credentials.
+- News digest can start from provider news where configured and trusted source
+  documents or curated/open-source source material available to the project.
 - Workflows provide advice support and evidence framing, not buy/sell decisions.
 - `data-collector` is bounded to workflow-run needs and does not implement a
   broad native ingestion platform.
@@ -273,7 +313,8 @@ See `../system/state-model.md` for canonical entity definitions.
 
 - App shell/login ownership.
 - Production flexible Q&A agentic chatflow.
-- Native realtime market data platform.
-- Native realtime news ingestion.
+- Broad native realtime market data platform beyond per-run provider fetch.
+- Broad native realtime news ingestion beyond provider/source documents required
+  by one workflow run.
 - Gold, BTC, crypto, commodities, options, futures, broker connectivity, trade
   execution, and autonomous financial actions.

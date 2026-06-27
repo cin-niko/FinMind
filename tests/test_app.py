@@ -36,14 +36,38 @@ def test_protected_workflow_routes_require_login(client: TestClient) -> None:
     workflows_response = client.get("/api/workflows")
     runs_response = client.get("/api/runs")
     run_response = client.post(
-        "/api/workflows/daily-market-brief/run",
-        json={"market": "VN_STOCK"},
+        "/api/workflows/technical-analysis/run",
+        json={"market": "VN_STOCK", "symbol": "VCB"},
     )
 
     assert workflows_response.status_code == 401
     assert workflows_response.json()["detail"] == "Authentication required"
     assert runs_response.status_code == 401
     assert run_response.status_code == 401
+
+
+def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
+    client: TestClient,
+) -> None:
+    login_response = client.post(
+        "/api/login",
+        json={"username": "analyst", "password": "secret-pass"},
+    )
+    assert login_response.status_code == 200
+
+    unsupported_market = client.post(
+        "/api/workflows/technical-analysis/run",
+        json={"market": "BTC", "symbol": "BTC"},
+    )
+    missing_symbol = client.post(
+        "/api/workflows/technical-analysis/run",
+        json={"market": "VN_STOCK"},
+    )
+
+    assert unsupported_market.status_code == 422
+    assert "supports VN stocks and US stocks only" in unsupported_market.json()["detail"]
+    assert missing_symbol.status_code == 422
+    assert missing_symbol.json()["detail"] == "symbol is required"
 
 
 def test_admin_can_login_check_session_and_logout(client: TestClient) -> None:

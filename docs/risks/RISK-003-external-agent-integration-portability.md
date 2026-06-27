@@ -61,6 +61,8 @@ details to a later integration spec.
 - Future integration specs must call the guarded runtime rather than individual
   skills directly.
 - API contract tests prove runs, citations, and artifacts are retrievable by id.
+- Phase 02 keeps workflow contracts in YAML definitions and exposes runs,
+  citations, freshness, and artifacts through the guarded FastAPI runtime.
 
 ## References
 

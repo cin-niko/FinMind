@@ -1,0 +1,19 @@
+{
+  "workflow_id": "fundamental-analysis",
+  "version": "1.0.0",
+  "title": "Fundamental Analysis",
+  "description": "Cited business quality, financial health, valuation, and peer context review.",
+  "workflow_type": "atomic",
+  "market_scope": ["VN_STOCK", "US_STOCK"],
+  "required_inputs": [
+    {"name": "market", "type": "string", "required": true},
+    {"name": "symbol", "type": "string", "required": true}
+  ],
+  "required_datasets": ["price_series", "fundamentals", "source_documents"],
+  "stages": ["data-collector", "data-quality-check", "fundamental-analysis"],
+  "skill_refs": ["src/api/platform/workflows/skills/fundamental-analysis.md"],
+  "output_sections": ["Data Quality", "Fundamentals"],
+  "citation_policy": "material_claims_require_citations",
+  "chart_requirements": [],
+  "step_sequence": ["data-collector", "data-quality-check", "fundamental-analysis"]
+}

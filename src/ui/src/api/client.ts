@@ -13,11 +13,14 @@ export class ApiError extends Error {
 export type Workflow = {
   id: string;
   title: string;
+  description: string;
+  workflow_type: "atomic" | "internal" | "composite";
   market_scope: string[];
   required_inputs: Array<{ name: string; type: string; required: boolean }>;
   stages: string[];
   requires_citations: boolean;
   chart_requirements: string[];
+  output_sections: string[];
 };
 
 export type WorkflowRunInput = {
@@ -30,7 +33,23 @@ export type WorkflowRun = {
   kind: "workflow";
   status: "success" | "partial" | "failed";
   output: {
-    sections: Array<{ title: string; content: string; citations: string[] }>;
+    sections: Array<{
+      title: string;
+      status: string;
+      content: string;
+      citations: string[];
+      warnings: string[];
+    }>;
+    quality: {
+      quality_status: "pass" | "warn" | "partial" | "fail";
+      dataset_statuses: Record<string, string>;
+      blocking_issues: string[];
+      warnings: string[];
+      allowed_claims: string[];
+      blocked_claims: string[];
+      freshness_summary: string;
+      evidence_refs: string[];
+    };
     citations: Array<{
       citation_id: string;
       evidence_id: string;
@@ -52,7 +71,10 @@ export type WorkflowRun = {
         evidence_refs: string[];
       };
     };
-    visible_execution: { stages: string[]; tool_status: string };
+    visible_execution: {
+      stages: Array<{ id: string; status: string; warnings: string[] }>;
+      tool_status: string;
+    };
   };
 };
 

@@ -118,6 +118,33 @@ Response shape:
       "freshness_summary": "Price data fresh; fundamentals stale; news unavailable.",
       "evidence_refs": ["evidence_1"]
     },
+    "collection": {
+      "status": "partial",
+      "retrieval_id": "retrieval_abc123",
+      "providers": ["vnstock", "offline_fallback"],
+      "requested_dataset_groups": ["market_price", "fundamental", "news"],
+      "provider_results": [
+        {
+          "provider_id": "vnstock",
+          "dataset_groups": ["market_price", "fundamental"],
+          "status": "success",
+          "source_ids": ["vnstock_prices", "vnstock_fundamentals"],
+          "warnings": []
+        },
+        {
+          "provider_id": "offline_fallback",
+          "dataset_groups": ["news"],
+          "status": "fallback",
+          "source_ids": ["offline_source_documents"],
+          "warnings": ["news_provider_unavailable"]
+        }
+      ],
+      "records_collected": 2,
+      "documents_collected": 1,
+      "warnings": ["source_documents_fallback"],
+      "started_at": "2026-06-27T00:00:00+00:00",
+      "completed_at": "2026-06-27T00:00:01+00:00"
+    },
     "citations": [
       {
         "citation_id": "cite_1",
@@ -170,6 +197,23 @@ Response shape:
 ```
 
 Raw agent reasoning must never appear in responses.
+
+Collection contract:
+
+- `collection.status` values: `success`, `partial`, `failed`, `fallback`.
+- `collection` is produced by `src/api/platform/dataflows/`, not direct workflow
+  provider calls.
+- `providers` may include provider ids such as `vnstock`, `alpha_vantage`,
+  `sec_edgar`, and `offline_fallback`.
+- `requested_dataset_groups` values are `market_price`, `fundamental`, and
+  `news` for Phase 02.
+- `provider_results` are safe status summaries. They must not include raw
+  provider payloads.
+- Provider API keys, credentials, raw responses, hidden prompts, and unsafe
+  diagnostics must never appear in API responses.
+- If live provider collection fails and fallback data is used, the response must
+  preserve the fallback provider id and quality warnings so user-facing claims
+  are caveated or marked unavailable.
 
 ## `GET /api/runs`
 

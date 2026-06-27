@@ -83,6 +83,12 @@ state, or output schemas.
 - MCP/Claude adapter design can expose workflow definitions as tool schemas
   without duplicating workflow contracts.
 
+Phase 02 implementation validation:
+
+- `tests/test_app.py`
+- `tests/test_platform_services.py`
+- `src/ui/package.json` build script
+
 ## References
 
 - `specs/002-workflow/spec.md`

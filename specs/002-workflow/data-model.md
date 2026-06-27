@@ -45,6 +45,8 @@ Fields:
 - `market_time`: effective market timestamp.
 - `collected_at`: collection timestamp.
 - `source_id`: source connector or demo source identity.
+- `retrieval_id`: optional id linking records fetched during the same dataflow
+  retrieval attempt.
 - `payload`: normalized values such as close, change percent, volume, EPS, BVPS,
   revenue, profit, valuation ratios, or peer metrics.
 - `freshness_status`: fresh, stale, missing, failed.
@@ -56,6 +58,103 @@ Validation:
   requested chart/indicator or the chart claim category is blocked.
 - Fundamental records used in valuation must include compatible reporting period
   metadata or valuation confidence is blocked/qualified.
+- Provider records must preserve market/effective timestamp and collection
+  timestamp separately.
+- Deterministic fallback records must use source ids that make fallback status
+  visible, not pretend to be live provider data.
+
+## DataflowRetrievalRequest
+
+Input contract for retrieving evidence-ready finance data.
+
+Fields:
+
+- `market`: `VN_STOCK` or `US_STOCK`.
+- `symbol`
+- `dataset_groups`: `market_price`, `fundamental`, `news`.
+- `lookback`: optional period/window for price history or news.
+- `allow_fallback`: whether deterministic fallback may be used when live
+  providers are unavailable.
+- `requested_by`: workflow id or future chatflow request id.
+
+Validation:
+
+- Dataset groups must map from workflow `required_datasets` or future chatflow
+  retrieval needs.
+- Unsupported markets or symbols are rejected before provider calls.
+- Fallback use must be explicit and visible in the retrieval result.
+
+## DataflowRetrievalResult
+
+Output contract returned by `DataflowService.retrieve(...)`.
+
+Fields:
+
+- `retrieval_id`
+- `market`: `VN_STOCK` or `US_STOCK`.
+- `symbol`
+- `requested_dataset_groups`: `market_price`, `fundamental`, `news`.
+- `provider_results`: provider status records.
+- `records`: canonical market data records.
+- `source_documents`: source documents/news records.
+- `started_at`
+- `completed_at`
+- `status`: success, partial, failed, fallback.
+- `warnings`
+- `failure_reasons`
+- `records_collected`
+- `documents_collected`
+
+Validation:
+
+- Provider failures, missing API keys, timeouts, rate limits, and unsupported
+  symbols must be represented in `warnings` or `failure_reasons`.
+- A fallback run must not be marked as fresh live provider data.
+- Raw provider payloads and secrets must not be returned.
+
+## DataflowProviderResult
+
+Status for one provider attempt within a retrieval.
+
+Fields:
+
+- `provider_id`: e.g. `vnstock`, `alpha_vantage`, `sec_edgar`,
+  `offline_fallback`.
+- `dataset_groups`
+- `status`: success, partial, failed, skipped, fallback.
+- `source_ids`
+- `started_at`
+- `completed_at`
+- `warnings`
+- `failure_reason`
+- `rate_limit_hint` when available.
+
+Validation:
+
+- Provider status is user-visible only as safe source/status metadata.
+- Provider diagnostics must not include credentials, raw responses, or unsafe
+  internals.
+
+## SourceProvider
+
+Adapter identity and capability metadata.
+
+Fields:
+
+- `provider_id`
+- `market_scope`
+- `dataset_capabilities`
+- `requires_api_key`
+- `license_notes`
+- `timeout_seconds`
+- `enabled`
+
+Validation:
+
+- Provider adapters must normalize output to shared canonical records/documents.
+- Provider secrets and raw responses must not appear in user-facing output.
+- Product contracts should cite source identity and data timestamp without
+  hardcoding implementation details into UI copy.
 
 ## SourceDocument
 

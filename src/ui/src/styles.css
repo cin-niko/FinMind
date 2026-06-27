@@ -942,6 +942,12 @@ button:focus-visible {
   padding: 0;
 }
 
+.workflowMeta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .citationList {
   display: grid;
   list-style: none;

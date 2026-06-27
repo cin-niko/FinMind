@@ -57,6 +57,8 @@ output status.
   markets, and incompatible output schemas.
 - `/speckit-analyze` or an equivalent spec check verifies linked ADR/risk/spec
   references remain valid.
+- Phase 02 implementation validates workflow definition loading and skill
+  compatibility in `tests/test_platform_services.py`.
 
 ## References
 

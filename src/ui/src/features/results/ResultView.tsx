@@ -14,6 +14,9 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
           <h2>Result</h2>
           <span className="badge">{run.status}</span>
         </div>
+        <div className="freshness">
+          Data quality: {run.output.quality.quality_status} · {run.output.quality.freshness_summary}
+        </div>
         {run.output.freshness.map((freshness) => (
           <div className="freshness" key={`${freshness.dataset}-${freshness.as_of}`}>
             {freshness.dataset}: {freshness.status} as of {freshness.as_of}
@@ -22,7 +25,11 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
         {run.output.sections.map((section) => (
           <article className="sectionBlock" key={section.title}>
             <h3>{section.title}</h3>
+            <div className="meta">Status: {section.status}</div>
             <p>{section.content}</p>
+            {section.warnings.length ? (
+              <div className="freshness">Warnings: {section.warnings.join(", ")}</div>
+            ) : null}
             <div className="citationRefs">Citations: {section.citations.join(", ")}</div>
           </article>
         ))}
@@ -31,8 +38,8 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
         <h2>Execution</h2>
         <div className="stageList">
           {run.output.visible_execution.stages.map((stage) => (
-            <span className="stageChip" key={stage}>
-              {stage}
+            <span className="stageChip" key={stage.id}>
+              {stage.id}: {stage.status}
             </span>
           ))}
         </div>

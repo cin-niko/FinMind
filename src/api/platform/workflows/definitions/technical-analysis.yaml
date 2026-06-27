@@ -1,0 +1,19 @@
+{
+  "workflow_id": "technical-analysis",
+  "version": "1.0.0",
+  "title": "Technical Analysis",
+  "description": "Cited trend, momentum, support/resistance, and chart-based price review.",
+  "workflow_type": "atomic",
+  "market_scope": ["VN_STOCK", "US_STOCK"],
+  "required_inputs": [
+    {"name": "market", "type": "string", "required": true},
+    {"name": "symbol", "type": "string", "required": true}
+  ],
+  "required_datasets": ["price_series"],
+  "stages": ["data-collector", "data-quality-check", "technical-analysis"],
+  "skill_refs": ["src/api/platform/workflows/skills/technical-analysis.md"],
+  "output_sections": ["Data Quality", "Technical Analysis"],
+  "citation_policy": "material_claims_require_citations",
+  "chart_requirements": ["price_series"],
+  "step_sequence": ["data-collector", "data-quality-check", "technical-analysis"]
+}

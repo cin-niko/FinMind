@@ -1,1 +1,1 @@
-"""Workflow specifications and execution services."""
+"""Workflow specifications, definitions, skills, and execution services."""

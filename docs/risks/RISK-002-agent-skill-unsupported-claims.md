@@ -60,6 +60,8 @@ enough to validate claim categories and citations more precisely.
   status.
 - Review checks inspect skill instructions for advice-only framing and evidence
   requirements.
+- Phase 02 implementation tests assert no raw reasoning appears and blocked stock
+  brief sections are marked unavailable.
 
 ## References
 
