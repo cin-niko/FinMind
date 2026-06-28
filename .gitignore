@@ -331,3 +331,9 @@ cython_debug/
 *.sqlite3
 *.db
 *.db-journal
+
+# Frontend package outputs
+src/ui/node_modules/
+src/ui/dist/
+src/finmind_ui/node_modules/
+src/finmind_ui/dist/

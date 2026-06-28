@@ -1,0 +1,43 @@
+{
+  "version": "1.0.0",
+  "required": [
+    {
+      "dataset": "ohlcv",
+      "interval": "1d",
+      "lookback": "2y",
+      "purpose": "latest price, trend context, liquidity, and chart evidence"
+    },
+    {
+      "dataset": "financial_statement",
+      "statements": ["income_statement", "balance_sheet", "cash_flow"],
+      "period": "annual",
+      "lookback": "5y",
+      "purpose": "revenue, profit, assets, debt, equity, and cash-flow history"
+    },
+    {
+      "dataset": "valuation_ratios",
+      "metrics": ["pe", "pb", "roe", "eps", "bvps"],
+      "period": "latest",
+      "purpose": "valuation and profitability context"
+    },
+    {
+      "dataset": "corporate_events",
+      "types": ["dividend", "stock_dividend", "split", "share_issuance"],
+      "lookback": "5y",
+      "purpose": "VN share-count, dividend, split, and capital-change trap checks"
+    },
+    {
+      "dataset": "company_profile",
+      "fields": ["industry", "sector", "shares_outstanding", "market_cap"],
+      "purpose": "issuer identity, sector context, and market-cap cross-check"
+    }
+  ],
+  "optional": [
+    {
+      "dataset": "source_documents",
+      "sources": ["official_disclosure", "exchange_notice", "provider_metadata"],
+      "lookback": "5y",
+      "purpose": "source verification and citation context"
+    }
+  ]
+}

@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: src/api/Dockerfile
+      dockerfile: src/finmind_api/Dockerfile
     environment:
       FINMIND_ADMIN_USERNAME: ${FINMIND_ADMIN_USERNAME:-admin}
       FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
@@ -13,7 +13,7 @@ services:
   ui:
     build:
       context: .
-      dockerfile: src/ui/Dockerfile
+      dockerfile: src/finmind_ui/Dockerfile
     environment:
       VITE_API_PROXY_TARGET: http://api:8000
     ports:

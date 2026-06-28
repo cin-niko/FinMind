@@ -21,7 +21,8 @@ are finalized.
 ## Technical Context
 
 - Existing foundation: MVP UI shell, artifact detail UI, workflow evidence/citation
-  concepts, and reusable `src/agent_core`.
+  concepts, and LangChain-backed workflow agent runtime in
+  `src/finmind_agents/runtime`.
 - Unknowns to resolve before implementation: trusted source list, retrieval
   strategy, provider/data rights, freshness rules, model/tool policy, evaluation
   set, and latency targets.

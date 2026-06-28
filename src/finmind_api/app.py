@@ -1,0 +1,16 @@
+from fastapi import FastAPI
+
+from finmind_api.auth import SessionService
+from finmind_api.platform import create_demo_platform
+from finmind_api.routes import register_routes
+from finmind_api.settings import Settings
+
+
+def create_app() -> FastAPI:
+    settings = Settings.from_env()
+    app = FastAPI(title="FinMind API")
+    app.state.settings = settings
+    app.state.session_service = SessionService(settings)
+    app.state.platform = create_demo_platform()
+    register_routes(app)
+    return app

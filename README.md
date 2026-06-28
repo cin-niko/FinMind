@@ -48,13 +48,13 @@ UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run pytest
 Start the API:
 
 ```bash
-uv run uvicorn api.app:create_app --factory --reload
+uv run uvicorn finmind_api.app:create_app --factory --reload
 ```
 
 Start the UI:
 
 ```bash
-cd src/ui
+cd src/finmind_ui
 npm install
 npm run dev
 ```
@@ -74,9 +74,9 @@ Open the UI at `http://127.0.0.1:5173`. The API is exposed at `http://127.0.0.1:
 .specify/                Spec Kit scripts, templates, workflows, and governance memory
 AGENTS.md                Agent workflow instructions
 specs/                   Product and platform specifications
-src/agent_core/          Reusable agent substrate
-src/api/                 API application
-src/ui/                  Frontend application
+src/finmind_agents/      LangChain-backed agent runtime, finance workflows, and dataflows
+src/finmind_api/         API application
+src/finmind_ui/          Frontend application
 tests/                   Backend test suite
 ```
 
@@ -104,7 +104,7 @@ UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run pytest
 Frontend verification:
 
 ```bash
-cd src/ui
+cd src/finmind_ui
 npm install
 npm run build
 ```

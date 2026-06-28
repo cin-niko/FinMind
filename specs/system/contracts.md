@@ -3,8 +3,8 @@ id: SPEC-SYSTEM-CONTRACTS-FINMIND
 status: active
 last_review: 2026-06-18
 implements:
-  - src/agent_core
-  - src/api
+  - src/finmind_agents
+  - src/finmind_api
 validated_by:
   - tests/test_app.py
   - tests/test_platform_services.py
@@ -77,7 +77,10 @@ FinMind keeps separable layers:
 - App experience in UI
 - FastAPI JSON API
 - Finance orchestration and data services
-- Reusable `agent_core`
+- LangChain-backed agent runtime
 - Data contracts and repositories
 
-Feature work may reuse `agent_core` primitives for model interaction, tool invocation, streaming, and tool artifacts. Finance-specific workflow semantics live above `agent_core` unless an abstraction is genuinely reusable.
+Feature work should use the LangChain-backed runtime in
+`src/finmind_agents/runtime` for workflow and future chatflow agent execution.
+Finance-specific workflow semantics, dataflow access, citations, and safety
+policy remain above provider model adapters.

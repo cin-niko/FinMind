@@ -1,0 +1,18 @@
+{
+  "workflow_id": "vn-financial-data-collector",
+  "version": "1.0.0",
+  "title": "VN Financial Data Collector",
+  "description": "Collects, normalizes, and checks VN stock financial data before analysis.",
+  "workflow_type": "atomic",
+  "market_scope": ["VN_STOCK"],
+  "required_inputs": [
+    {"name": "market", "type": "string", "required": true},
+    {"name": "symbol", "type": "string", "required": true}
+  ],
+  "stages": ["data-collector", "data-quality-check"],
+  "skill_refs": ["src/finmind_agents/workflows/skills/vn-financial-data-collector/SKILL.md"],
+  "output_sections": ["Data Quality", "Collected Data"],
+  "citation_policy": "material_claims_require_citations",
+  "chart_requirements": ["price_series"],
+  "step_sequence": ["data-collector", "data-quality-check"]
+}

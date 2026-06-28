@@ -6,7 +6,8 @@ owner: solo
 created: 2026-06-26
 implements: []
 validated_by: []
-adr_refs: []
+adr_refs:
+  - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
 ---
 
 # Quickstart: Workflow Validation
@@ -18,11 +19,36 @@ adr_refs: []
   - `FINMIND_ADMIN_PASSWORD`
   - `FINMIND_SESSION_SECRET`
 - Optional live provider credentials/configuration:
+  - `LITELLM_CHAT_MODEL` selects the model used by the Deep Agents workflow
+    runtime. Model strings should use the LiteLLM-compatible format for the
+    target provider.
+  - `LITELLM_API_KEY` provides the model credential through the shared LiteLLM
+    adapter. Do not add provider-specific model key names to FinMind workflow
+    contracts.
+  - `LITELLM_API_BASE` is optional and should be set only for OpenAI-compatible
+    gateways or provider deployments that require a custom base URL.
+  - `FINMIND_VNSTOCK_API_KEY` optionally registers the backend runtime with
+    vnstock before VN provider fetches. Leave it empty for guest access.
   - `FINMIND_US_ALPHA_VANTAGE_API_KEY` for US price/news collection.
   - SEC EDGAR requests must use a configured User-Agent/contact setting before
     live US fundamentals collection is enabled.
-  - VN collection uses the configured `vnstock` adapter when installed/enabled.
+  - VN collection uses the `vnstock` adapter.
 - Dependencies installed.
+
+## Package Migration Notes
+
+Phase 02 targets three package boundaries:
+
+- `src/finmind_agents`: shared agent runtime, workflow definitions, Agent Skills,
+  dataflows, validators, and finance-domain services.
+- `src/finmind_api`: FastAPI app, dependencies, routes, schemas, auth wiring,
+  and API error mapping.
+- `src/finmind_ui`: Vite frontend package for workflow forms, result views, and
+  app shell integration.
+
+The active implementation uses these package boundaries directly. New workflow
+runtime behavior should be implemented in `finmind_agents` first, then exposed
+through `finmind_api`.
 
 ## Commands
 
@@ -39,7 +65,7 @@ UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest t
 Frontend verification:
 
 ```bash
-cd src/ui
+cd src/finmind_ui
 npm run build
 ```
 
@@ -59,18 +85,40 @@ npm run build
 ## Scenario 2: VN Stock Brief
 
 1. Run `stock-brief` with `market=VN_STOCK` and a supported symbol such as `VCB`.
-2. Confirm `data-collector` requests data through `dataflows`, and `dataflows`
-   attempts latest VN provider retrieval through the `vnstock` adapter before
-   deterministic fallback is used.
-3. Confirm stages include:
+2. Confirm the runtime loads the referenced Agent Skill and
+   `DATA_REQUIREMENTS.yaml`, derives the retrieval plan under workflow policy,
+   and then requests data through `dataflows`.
+3. Confirm `dataflows` attempts latest VN provider retrieval through the
+   `vnstock` adapter before deterministic fallback is used.
+4. Confirm stages include:
    - `data-collector`
    - `data-quality-check`
    - `fundamental-analysis`
    - `technical-analysis`
    - `news-digest`
    - `risk-review`
-4. Confirm result includes data-quality status, collection status, sections,
+5. Confirm result includes data-quality status, collection status, sections,
    citations, freshness, chart artifact, and visible execution status.
+
+## Scenario 2A: VN Financial Data Collector Agent Skill
+
+1. Run the VN financial data collector skill through the workflow runtime with
+   `market=VN_STOCK` and `symbol=DXG`.
+2. Confirm the runtime uses a configured LLM model and records safe agent
+   execution metadata such as runtime adapter, policy id, skill id, tool status,
+   warnings, and blocked claim categories.
+3. Confirm detailed data needs come from the skill's `DATA_REQUIREMENTS.yaml`,
+   not duplicated workflow YAML fields.
+4. Confirm the agent derives required/optional retrieval calls from those data
+   requirements, and FinMind validates the plan before executing dataflows.
+5. Confirm the skill requests finance data through `dataflows` rather than
+   importing or calling `vnstock` directly from the skill instructions.
+6. Confirm collected price, fundamentals, company profile, and source-document
+   coverage is shown with citations and freshness where available.
+7. Confirm missing statements, ratios, peer data, or news documents cause
+   partial/unavailable sections rather than fabricated analysis.
+8. Confirm no raw model reasoning, hidden prompts, provider secrets, or raw
+   provider payloads appear in the exported report or API response.
 
 ## Scenario 3: US Stock Workflow
 

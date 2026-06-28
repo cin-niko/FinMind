@@ -3,8 +3,8 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from api.app import create_app
-from api.settings import SettingsError
+from finmind_api.app import create_app
+from finmind_api.settings import SettingsError
 
 
 @pytest.fixture
@@ -14,8 +14,28 @@ def admin_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
 
 
+class FakeAgentOrchestrator:
+    def run_skill(self, request: object) -> object:
+        from finmind_agents.agents.models import AgentRunResult
+
+        return AgentRunResult(
+            status="success",
+            section_title="Collected Data",
+            content="Agent-collected VCB data package with evidence.",
+            citations=("citation_vn_prices_VCB-2026-06-18",),
+            allowed_claims=("data_availability",),
+            blocked_claims=(),
+            warnings=(),
+        )
+
+
 @pytest.fixture
-def client(admin_env: None) -> Iterator[TestClient]:
+def client(admin_env: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
+    monkeypatch.setattr(
+        "finmind_api.platform.build_default_agent_orchestrator",
+        lambda: FakeAgentOrchestrator(),
+    )
     app = create_app()
     with TestClient(app) as test_client:
         yield test_client
@@ -36,7 +56,7 @@ def test_protected_workflow_routes_require_login(client: TestClient) -> None:
     workflows_response = client.get("/api/workflows")
     runs_response = client.get("/api/runs")
     run_response = client.post(
-        "/api/workflows/technical-analysis/run",
+        "/api/workflows/vn-financial-data-collector/run",
         json={"market": "VN_STOCK", "symbol": "VCB"},
     )
 
@@ -56,11 +76,11 @@ def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
     assert login_response.status_code == 200
 
     unsupported_market = client.post(
-        "/api/workflows/technical-analysis/run",
+        "/api/workflows/vn-financial-data-collector/run",
         json={"market": "BTC", "symbol": "BTC"},
     )
     missing_symbol = client.post(
-        "/api/workflows/technical-analysis/run",
+        "/api/workflows/vn-financial-data-collector/run",
         json={"market": "VN_STOCK"},
     )
 
@@ -68,6 +88,27 @@ def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
     assert "supports VN stocks and US stocks only" in unsupported_market.json()["detail"]
     assert missing_symbol.status_code == 422
     assert missing_symbol.json()["detail"] == "symbol is required"
+
+
+def test_workflow_run_exposes_safe_agent_metadata(client: TestClient) -> None:
+    login_response = client.post(
+        "/api/login",
+        json={"username": "analyst", "password": "secret-pass"},
+    )
+    assert login_response.status_code == 200
+
+    response = client.post(
+        "/api/workflows/vn-financial-data-collector/run",
+        json={"market": "VN_STOCK", "symbol": "VCB"},
+    )
+
+    assert response.status_code == 200
+    agent = response.json()["output"]["agent"]
+    assert agent["runtime_adapter"] == "langchain_litellm"
+    assert agent["policy_id"] == "workflow_strict"
+    assert agent["retrieval_plan_status"] in {"executed", "partial"}
+    assert "reasoning" not in str(agent).lower()
+    assert "secret" not in str(agent).lower()
 
 
 def test_admin_can_login_check_session_and_logout(client: TestClient) -> None:

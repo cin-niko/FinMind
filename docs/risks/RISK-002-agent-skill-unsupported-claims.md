@@ -34,6 +34,12 @@ and reputational risk.
 - A skill uses background model knowledge instead of collected workflow context.
 - A citation id is missing, invalid, or not linked to the claim evidence.
 - Data-quality gates mark a claim category blocked but the skill still emits it.
+- Provider retrieval fails, skips due missing credentials, or falls back to
+  deterministic data without downstream sections preserving the warning.
+- A DeepAgent/chatflow-style runtime performs extra reasoning, skill loading, or
+  tool calls beyond the workflow policy envelope and emits unsupported claims.
+- The agent derives an incomplete or excessive retrieval plan from the skill and
+  then synthesizes claims as if all required evidence was collected.
 
 ## Mitigation
 
@@ -43,14 +49,27 @@ and reputational risk.
   lack citation ids and freshness metadata.
 - Skills must instruct agents to mark unavailable sections instead of inventing
   missing news, fundamentals, or technical claims.
+- Dataflows provider results must preserve skipped, failed, partial, and fallback
+  status so workflow quality gates can block or caveat affected claim categories.
+- Agent-derived retrieval plans must be validated against skill-owned
+  `DATA_REQUIREMENTS.yaml`; missing required retrievals must become quality gate
+  warnings or blocking issues before synthesis.
 - User-facing output must never expose raw reasoning or autonomous trading
   decisions.
+- FinMind validators must run outside the agent framework and remain mandatory
+  for every runtime adapter, including LangChain `create_agent`, DeepAgents, or
+  future LangGraph adapters.
+- Workflow mode must use a strict policy envelope: dataflows-only provider
+  access, fixed skill refs, skill-owned data requirements, strict output schema,
+  and fail-closed validation.
 
 ## Residual Risk
 
 Claim detection may miss subtle unsupported phrasing, especially when generated
 text is nuanced. This risk remains open until output schemas become structured
-enough to validate claim categories and citations more precisely.
+enough to validate claim categories and citations more precisely. DeepAgent-style
+planning may add another residual risk because subagent/tool behavior can create
+claims from intermediate context unless all outputs are validated by FinMind.
 
 ## Validation
 
@@ -62,6 +81,13 @@ enough to validate claim categories and citations more precisely.
   requirements.
 - Phase 02 implementation tests assert no raw reasoning appears and blocked stock
   brief sections are marked unavailable.
+- Dataflows tests assert provider failures and fallback states are visible without
+  exposing raw provider payloads, credentials, or unsafe diagnostics.
+- Runtime adapter tests assert agent output is rejected when citations are
+  unknown, prompt/request payloads are echoed, trading instructions appear, or
+  claims rely on unavailable datasets.
+- Retrieval-plan tests assert required skill data is attempted and unsupported
+  optional data requests are rejected before provider execution.
 
 ## References
 

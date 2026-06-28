@@ -3,10 +3,10 @@ id: SPEC-SYSTEM-RUNTIME-SECURITY-FINMIND
 status: active
 last_review: 2026-06-18
 implements:
-  - src/agent_core/settings
-  - src/api/settings.py
-  - src/api/auth.py
-  - src/api/dependencies.py
+  - src/finmind_agents/runtime
+  - src/finmind_api/settings.py
+  - src/finmind_api/auth.py
+  - src/finmind_api/dependencies.py
 validated_by:
   - tests/test_app.py
 adr_refs: []

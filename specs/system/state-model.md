@@ -3,7 +3,7 @@ id: SPEC-SYSTEM-STATE-FINMIND
 status: active
 last_review: 2026-06-18
 implements:
-  - src/agent_core
+  - src/finmind_agents
 validated_by:
   - tests/test_platform_services.py
 adr_refs: []

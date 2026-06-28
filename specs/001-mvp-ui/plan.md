@@ -5,8 +5,8 @@ status: active
 owner: solo
 created: 2026-06-26
 implements:
-  - src/ui
-  - src/api
+  - src/finmind_ui
+  - src/finmind_api
 validated_by:
   - tests/test_app.py
 adr_refs: []

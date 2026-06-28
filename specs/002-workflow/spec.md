@@ -4,19 +4,11 @@ feature: workflow
 status: draft
 owner: solo
 created: 2026-06-26
-implements:
-  - src/api/platform/workflows
-  - src/api/platform/models.py
-  - src/api/platform/memory.py
-  - src/api/routes/workflows.py
-  - src/api/routes/runs.py
-  - src/ui/src/api/client.ts
-  - src/ui/src/features/workflows
-  - src/ui/src/features/results/ResultView.tsx
+implements: []
 validated_by:
   - tests/test_app.py
   - tests/test_platform_services.py
-  - src/ui/package.json
+  - src/finmind_ui/package.json
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
 ---

@@ -90,8 +90,8 @@ status: active
 owner: solo
 created: 2026-06-18
 implements:
-  - src/api
-  - src/ui
+  - src/finmind_api
+  - src/finmind_ui
 validated_by:
   - tests/test_app.py
   - tests/test_platform_services.py

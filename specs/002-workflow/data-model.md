@@ -6,7 +6,8 @@ owner: solo
 created: 2026-06-26
 implements: []
 validated_by: []
-adr_refs: []
+adr_refs:
+  - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
 ---
 
 # Data Model: Workflow
@@ -79,8 +80,8 @@ Fields:
 
 Validation:
 
-- Dataset groups must map from workflow `required_datasets` or future chatflow
-  retrieval needs.
+- Dataset groups must be requested through an agent retrieval plan derived from
+  skill-owned `DATA_REQUIREMENTS.yaml` or future chatflow retrieval needs.
 - Unsupported markets or symbols are rejected before provider calls.
 - Fallback use must be explicit and visible in the retrieval result.
 
@@ -178,6 +179,223 @@ Validation:
 - Missing or stale documents block or qualify news digest claims.
 - Source excerpts must respect source constraints.
 
+## FinMindAgentRuntime
+
+Shared runtime boundary for workflow agents in Phase 02 and future chatflow
+agents in Phase 03.
+
+Fields:
+
+- `runtime_id`: stable runtime identity.
+- `adapter`: runtime adapter such as `langchain_litellm`, `langchain_agent`, or
+  another approved adapter.
+- `model_config_ref`: safe reference to configured model settings; never a
+  secret value.
+- `policy`: linked `AgentRuntimePolicy`.
+- `tools`: approved `AgentTool` definitions.
+- `skill_registry`: available governed Agent Skills.
+- `sub_agents`: optional `SubAgentDefinition` records.
+- `validators`: output, citation, quality, market-scope, and safety validators.
+
+Validation:
+
+- Runtime adapters are swappable but must produce the same FinMind result
+  envelope.
+- Runtime configuration must not expose provider secrets, API keys, hidden
+  prompts, or raw model reasoning.
+- Workflow mode must fail closed when the model is not configured or when the
+  adapter cannot satisfy the workflow policy.
+
+## AgentRuntimePolicy
+
+Execution policy envelope for one runtime mode.
+
+Fields:
+
+- `policy_id`: e.g. `workflow_strict` or `chatflow_research`.
+- `mode`: workflow or chatflow.
+- `allowed_tools`: tool ids the agent may call.
+- `allowed_skills`: skill ids the agent may load.
+- `allowed_markets`: `VN_STOCK` and `US_STOCK` for Phase 02.
+- `allowed_dataset_groups`: dataset groups the policy permits.
+- `allow_optional_retrieval`: whether optional skill data may be requested.
+- `max_iterations`
+- `timeout_seconds`
+- `output_schema`
+- `failure_behavior`: fail_closed, partial_answer, or unavailable.
+- `citation_policy`
+- `raw_reasoning_policy`: must be hidden.
+- `human_control_policy`: advice-only, no trade/order execution.
+
+Validation:
+
+- Workflow policy must restrict skills to the YAML workflow contract and
+  datasets to the loaded skill's `DATA_REQUIREMENTS.yaml`.
+- Chatflow policy may be broader later but still must require data-driven,
+  citation-backed answers.
+- Policies must block unsupported assets and irreversible financial actions.
+
+## AgentTool
+
+Tool made available to the shared agent runtime.
+
+Fields:
+
+- `tool_id`: stable id such as `retrieve_dataflow`, `load_skill`,
+  `validate_finmind_output`, or future approved tools.
+- `description`
+- `input_schema`
+- `output_schema`
+- `allowed_policy_ids`
+- `side_effect_profile`: read_only, write_run_state, or forbidden.
+- `audit_visibility`: what safe status can appear in logs/UI.
+
+Validation:
+
+- Provider access must go through `retrieve_dataflow`; tools must not expose raw
+  provider clients directly.
+- `retrieve_dataflow` must validate requests against the workflow policy,
+  workflow inputs, and skill-owned data requirements before execution.
+- Tool outputs must be safe to include in the agent context after redaction.
+- Tool status may be visible; raw payloads, secrets, and unsafe diagnostics may
+  not be visible.
+
+## SkillDataRequirements
+
+Machine-readable data contract stored beside an Agent Skill as
+`src/finmind_agents/skills/<skill-name>/DATA_REQUIREMENTS.yaml`.
+
+Fields:
+
+- `skill_id`
+- `version`
+- `market_scope`
+- `required`: required dataset requests that must be attempted before
+  claim-generating synthesis.
+- `optional`: optional dataset requests the agent may request when policy and
+  timeout budget allow.
+- `dataset_id`
+- `dataset_group`: `market_price`, `fundamental`, `news`, or approved future
+  groups.
+- `fields`
+- `lookback`
+- `periods`
+- `freshness_policy`
+- `fallback_policy`
+- `claim_categories_supported`
+- `claim_categories_blocked_when_missing`
+
+Validation:
+
+- Required data requirements must be attempted during workflow runs.
+- Optional data requirements may be skipped only with visible warnings or
+  unavailable sections when they affect user-facing claims.
+- Market scope cannot exceed the workflow YAML market scope or runtime policy.
+- Provider names are implementation hints only when needed; skills must request
+  data through dataset contracts, not direct provider APIs.
+
+## AgentRetrievalPlan
+
+Concrete retrieval plan derived by the agent/runtime after reading an Agent Skill
+and its `DATA_REQUIREMENTS.yaml`.
+
+Fields:
+
+- `plan_id`
+- `skill_id`
+- `market`
+- `symbol`
+- `required_requests`
+- `optional_requests`
+- `reason_code`: safe short reason such as `required_by_skill` or
+  `optional_peer_context`; never raw reasoning.
+- `policy_id`
+- `status`: proposed, approved, rejected, executed, partial.
+
+Validation:
+
+- Plans are proposals until FinMind validates them.
+- Required requests must map to `SkillDataRequirements.required`.
+- Optional requests must map to `SkillDataRequirements.optional` and policy.
+- Unsupported markets, symbols, dataset groups, direct provider access, and
+  secrets are rejected before dataflows execution.
+
+## SubAgentDefinition
+
+Optional domain-specific agent used by the runtime for bounded delegation.
+
+Fields:
+
+- `sub_agent_id`: e.g. `vn_market_data_agent`, `fundamental_data_agent`,
+  `technical_data_agent`, `news_source_agent`, or `risk_review_agent`.
+- `purpose`
+- `allowed_tools`
+- `allowed_skills`
+- `output_contract`
+- `policy_overrides`
+
+Validation:
+
+- Sub-agent outputs are intermediate and cannot bypass FinMind validators.
+- Sub-agents inherit the parent run's market scope, safety policy, data-quality
+  status, citation policy, and no-raw-reasoning rule.
+
+## AgentRunRequest
+
+Input passed from workflow service to `FinMindAgentRuntime`.
+
+Fields:
+
+- `run_id`
+- `mode`: workflow for Phase 02.
+- `workflow_id`
+- `skill_id`
+- `market`
+- `symbol`
+- `data_requirements`
+- `retrieval_plan`: proposed or approved `AgentRetrievalPlan`.
+- `retrieval_results`: populated after validated `retrieve_dataflow` calls.
+- `quality_report`: populated after FinMind quality checks.
+- `evidence_refs`: populated from retrieved canonical records/documents.
+- `output_schema`
+- `policy_id`
+
+Validation:
+
+- `market`, `symbol`, and `skill_id` must be compatible with the workflow YAML
+  definition.
+- `data_requirements` must be loaded from the referenced skill, not duplicated
+  from workflow YAML.
+- Workflow agent runs may start before retrieval, but claim-generating synthesis
+  must wait until validated retrieval and data-quality context are available.
+- Missing required LLM configuration blocks execution instead of producing
+  deterministic prose disguised as analysis.
+
+## AgentRunResult
+
+Structured output from `FinMindAgentRuntime` after validation.
+
+Fields:
+
+- `status`: success, partial, failed, unavailable.
+- `adapter`
+- `skill_id`
+- `sections`
+- `citations`
+- `warnings`
+- `blocked_claims`
+- `tool_status`
+- `validation_errors`
+- `safe_execution_events`
+
+Validation:
+
+- Material claims must cite evidence or be marked unsupported/unavailable.
+- Raw chain-of-thought, hidden prompts, provider secrets, and raw provider
+  payloads must not appear.
+- Failed or partial agent execution must preserve safe status for result
+  inspection.
+
 ## WorkflowSpecification
 
 Machine-readable YAML workflow definition.
@@ -193,7 +411,6 @@ Fields:
 - `workflow_type`: atomic, internal, composite.
 - `market_scope`
 - `required_inputs`
-- `required_datasets`
 - `stages`
 - `skill_refs`: Markdown agent skills referenced by analysis stages.
 - `output_sections`
@@ -207,8 +424,10 @@ Validation:
 - Internal steps are not primary catalog cards unless diagnostics are later
   specified.
 - Composite workflows reference existing workflow or internal step ids.
-- Referenced Markdown agent skills must exist and declare compatible evidence and
-  output expectations.
+- Referenced Markdown agent skills must exist and declare compatible evidence,
+  data requirements, and output expectations.
+- Workflow YAML must not duplicate detailed dataset requirements owned by
+  `SkillDataRequirements`.
 
 ## AgentSkill
 
@@ -217,10 +436,12 @@ Governed Markdown instruction document for one analysis capability.
 Fields:
 
 - `skill_id`: stable id such as `fundamental-analysis`.
-- `skill_path`: project-relative Markdown path.
+- `skill_path`: project-relative Markdown path using
+  `src/finmind_agents/skills/<skill-name>/SKILL.md`.
 - `version`
 - `purpose`
 - `required_context`
+- `data_requirements_path`
 - `allowed_claims`
 - `blocked_behavior`
 - `output_contract`
@@ -231,6 +452,8 @@ Validation:
 
 - Skills must not declare supported markets or permissions broader than the
   workflow definition and runtime allow.
+- Skills with provider-backed data needs must include a valid
+  `DATA_REQUIREMENTS.yaml`.
 - Skills must instruct unavailable or unsupported output when evidence is stale,
   missing, failed, or blocked by `data-quality-check`.
 - Skills are not directly executable by external clients; the guarded runtime

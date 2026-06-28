@@ -35,6 +35,8 @@ citation guardrails.
   responses.
 - External agents call analysis skills directly instead of using the guarded
   workflow runtime.
+- A future DeepAgent runtime, LangGraph adapter, or MCP integration uses a
+  different tool contract than FinMind's internal runtime.
 - Artifact or citation retrieval is not separately addressable from workflow
   execution.
 
@@ -47,12 +49,20 @@ citation guardrails.
 - Do not expose Markdown skills as directly executable external tools.
 - Keep citations, artifacts, and run ids stable enough for external clients to
   inspect after execution.
+- Keep agent runtime adapters behind a shared `FinMindAgentRuntime` interface so
+  workflow mode and chatflow mode can share skills/tools while preserving
+  policy-specific limits.
+- External integrations must call FinMind-managed tools such as `retrieve_dataflow`
+  or `run_workflow`; they must not call providers or skills as unguarded
+  standalone operations.
 
 ## Residual Risk
 
 External client standards may evolve. The residual risk is acceptable if Phase 02
 keeps the core workflow contract portable and defers client-specific adapter
-details to a later integration spec.
+details to a later integration spec. DeepAgent-style runtimes may improve
+portability for chatflow, but only if their tool and state contracts are mapped
+back to FinMind-owned validation and audit boundaries.
 
 ## Validation
 
@@ -63,6 +73,8 @@ details to a later integration spec.
 - API contract tests prove runs, citations, and artifacts are retrievable by id.
 - Phase 02 keeps workflow contracts in YAML definitions and exposes runs,
   citations, freshness, and artifacts through the guarded FastAPI runtime.
+- Adapter tests must prove the same skill/dataflow contracts can run under
+  workflow policy and, later, chatflow policy without bypassing guardrails.
 
 ## References
 

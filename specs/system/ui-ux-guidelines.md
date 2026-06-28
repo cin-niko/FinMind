@@ -3,7 +3,7 @@ id: SPEC-SYSTEM-UI-UX-GUIDELINES-FINMIND
 status: active
 last_review: 2026-06-26
 implements:
-  - src/ui
+  - src/finmind_ui
 validated_by: []
 adr_refs: []
 ---
