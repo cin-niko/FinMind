@@ -1,6 +1,7 @@
 import { EmptyState } from "../../components/layout";
 import type { WorkflowRun } from "../../api/client";
 import { MarketChart } from "../charts/MarketChart";
+import { Markdown } from "../../components/Markdown";
 
 export function ResultView({ run }: { run: WorkflowRun | null }) {
   if (!run) {
@@ -33,7 +34,7 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
           <article className="sectionBlock" key={section.title}>
             <h3>{section.title}</h3>
             <div className="meta">Status: {section.status}</div>
-            <p>{section.content}</p>
+            <Markdown content={section.content} />
             {section.warnings.length ? (
               <div className="freshness">Warnings: {section.warnings.join(", ")}</div>
             ) : null}
