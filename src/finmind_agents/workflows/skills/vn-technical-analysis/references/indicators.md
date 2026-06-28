@@ -1,8 +1,8 @@
-# Technical Indicators — Công thức + code
+# Technical Indicators — Formulas + Code
 
-Code JavaScript (dùng trong HTML) và Python (dùng khi fetch data).
+Python reference implementations of the indicator formulas. Use these to compute values from collected OHLCV records and interpret the result.
 
-## Mục lục
+## Contents
 1. [Moving Averages (SMA/EMA)](#ma)
 2. [RSI(14)](#rsi)
 3. [MACD](#macd)
@@ -14,32 +14,6 @@ Code JavaScript (dùng trong HTML) và Python (dùng khi fetch data).
 
 ## Moving Averages <a name="ma"></a>
 
-**SMA (Simple Moving Average):**
-```javascript
-function SMA(data, period) {
-  const out = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < period - 1) { out.push(null); continue; }
-    const slice = data.slice(i - period + 1, i + 1);
-    out.push(slice.reduce((a,b)=>a+b,0) / period);
-  }
-  return out;
-}
-```
-
-**EMA (Exponential Moving Average):**
-```javascript
-function EMA(data, period) {
-  const k = 2 / (period + 1);
-  const out = [data[0]];
-  for (let i = 1; i < data.length; i++) {
-    out.push(data[i] * k + out[i-1] * (1 - k));
-  }
-  return out;
-}
-```
-
-**Python:**
 ```python
 def SMA(d, p):
     out = [None] * (p - 1)
@@ -55,87 +29,85 @@ def EMA(d, p):
     return o
 ```
 
-**Diễn giải:**
-- Giá trên MA10 = xu hướng tăng ngắn hạn
-- Giá trên MA20 = xu hướng tăng trung hạn
-- Giá trên MA50 = xu hướng tăng dài hạn
-- MA50 cắt lên MA200 = **Golden Cross** (bullish mạnh)
-- MA50 cắt xuống MA200 = **Death Cross** (bearish mạnh)
+**Interpretation:**
+- Price above MA10 = short-term uptrend
+- Price above MA20 = medium-term uptrend
+- Price above MA50 = long-term uptrend
+- MA50 crossing above MA200 = **Golden Cross** (strongly bullish)
+- MA50 crossing below MA200 = **Death Cross** (strongly bearish)
 
 ---
 
 ## RSI(14) <a name="rsi"></a>
 
-**JavaScript:**
-```javascript
-function RSI(data, period = 14) {
-  const rs = new Array(data.length).fill(null);
-  if (data.length <= period) return rs;
-  let avgGain = 0, avgLoss = 0;
-  for (let i = 1; i <= period; i++) {
-    const ch = data[i] - data[i-1];
-    if (ch > 0) avgGain += ch; else avgLoss += Math.abs(ch);
-  }
-  avgGain /= period; avgLoss /= period;
-  rs[period] = avgLoss === 0 ? 100 : 100 - 100/(1 + avgGain/avgLoss);
-  for (let i = period + 1; i < data.length; i++) {
-    const ch = data[i] - data[i-1];
-    avgGain = (avgGain*(period-1) + (ch > 0 ? ch : 0)) / period;
-    avgLoss = (avgLoss*(period-1) + (ch < 0 ? Math.abs(ch) : 0)) / period;
-    rs[i] = avgLoss === 0 ? 100 : 100 - 100/(1 + avgGain/avgLoss);
-  }
-  return rs;
-}
+```python
+def RSI(d, p=14):
+    out = [None] * len(d)
+    if len(d) <= p:
+        return out
+    avg_gain = avg_loss = 0.0
+    for i in range(1, p + 1):
+        ch = d[i] - d[i-1]
+        if ch > 0: avg_gain += ch
+        else: avg_loss += abs(ch)
+    avg_gain /= p; avg_loss /= p
+    out[p] = 100 if avg_loss == 0 else 100 - 100 / (1 + avg_gain / avg_loss)
+    for i in range(p + 1, len(d)):
+        ch = d[i] - d[i-1]
+        avg_gain = (avg_gain * (p-1) + (ch if ch > 0 else 0)) / p
+        avg_loss = (avg_loss * (p-1) + (abs(ch) if ch < 0 else 0)) / p
+        out[i] = 100 if avg_loss == 0 else 100 - 100 / (1 + avg_gain / avg_loss)
+    return out
 ```
 
-**Diễn giải:**
-- RSI < 30 → **Quá bán** (oversold, cơ hội mua)
-- RSI > 70 → **Quá mua** (overbought, cảnh báo bán)
-- RSI 30-70 → Trung tính
+**Interpretation:**
+- RSI < 30 → **Oversold** (potential buy opportunity)
+- RSI > 70 → **Overbought** (sell warning)
+- RSI 30-70 → Neutral
 
-⚠️ **Bẫy cổ phiếu chu kỳ:** RSI thấp không phải lúc nào cũng = mua. Trong downtrend mạnh, RSI có thể ở vùng 20-30 lâu. Kết hợp với MA và MACD.
+⚠️ **Cyclical-stock trap:** a low RSI does not always mean buy. In a strong downtrend RSI can stay in the 20-30 zone for a long time. Combine with MA and MACD.
 
 ---
 
 ## MACD <a name="macd"></a>
 
-```javascript
-const ema12 = EMA(closes, 12);
-const ema26 = EMA(closes, 26);
-const macdLine = closes.map((_, i) => ema12[i] - ema26[i]);
-const signalLine = EMA(macdLine, 9);
-const histogram = macdLine.map((m, i) => m - signalLine[i]);
+```python
+ema12 = EMA(closes, 12)
+ema26 = EMA(closes, 26)
+macd_line = [a - b for a, b in zip(ema12, ema26)]
+signal_line = EMA(macd_line, 9)
+histogram = [m - s for m, s in zip(macd_line, signal_line)]
 ```
 
-**Diễn giải:**
-- MACD > Signal → **Bullish** (crossover lên = tín hiệu mua)
-- MACD < Signal → **Bearish** (crossover xuống = tín hiệu bán)
-- Histogram > 0 và tăng → momentum bullish mạnh
-- Histogram < 0 và giảm → momentum bearish mạnh
+**Interpretation:**
+- MACD > Signal → **Bullish** (upward crossover = buy signal)
+- MACD < Signal → **Bearish** (downward crossover = sell signal)
+- Histogram > 0 and rising → strong bullish momentum
+- Histogram < 0 and falling → strong bearish momentum
 
 ---
 
 ## Bollinger Bands <a name="bb"></a>
 
-```javascript
-function Bollinger(data, period = 20, mult = 2) {
-  const sma = SMA(data, period);
-  return data.map((_, i) => {
-    if (i < period - 1) return { upper: null, middle: null, lower: null };
-    const slice = data.slice(i - period + 1, i + 1);
-    const mean = sma[i];
-    const variance = slice.reduce((s, v) => s + (v - mean)**2, 0) / period;
-    const sd = Math.sqrt(variance);
-    return { upper: mean + mult * sd, middle: mean, lower: mean - mult * sd };
-  });
-}
-```
+```python
+def bollinger(d, p=20, mult=2):
+    sma = SMA(d, p)
+    out = []
+    for i in range(len(d)):
+        if i < p - 1:
+            out.append((None, None, None))
+            continue
+        slice_ = d[i-p+1:i+1]
+        mean = sma[i]
+        var = sum((v - mean) ** 2 for v in slice_) / p
+        sd = var ** 0.5
+        out.append((mean + mult * sd, mean, mean - mult * sd))
+    return out
 
-**BB Position (current price trong dải):**
-```javascript
-const bbPos = (price - lower) / (upper - lower) * 100;
-// < 20% = gần dải dưới (oversold)
-// > 80% = gần dải trên (overbought)
+# BB Position (where the current price sits within the band):
+# bb_pos = (price - lower) / (upper - lower) * 100
+# < 20% = near the lower band (oversold)
+# > 80% = near the upper band (overbought)
 ```
 
 ---
@@ -163,38 +135,35 @@ def beta(stock, market):
     return cov/var if var else 0
 ```
 
-**Diễn giải:**
-- Beta > 1: cổ phiếu biến động mạnh hơn thị trường (aggressive)
-- Beta = 1: biến động bằng thị trường
-- Beta < 1: biến động ít hơn (defensive)
-- Beta < 0: di chuyển ngược thị trường (hiếm)
+**Interpretation:**
+- Beta > 1: the stock moves more than the market (aggressive)
+- Beta = 1: moves in line with the market
+- Beta < 1: moves less than the market (defensive)
+- Beta < 0: moves opposite to the market (rare)
 
 **Alpha = stock_perf - beta × market_perf**
-- Alpha > 0: outperform thị trường
-- Alpha < 0: underperform thị trường
+- Alpha > 0: outperforms the market
+- Alpha < 0: underperforms the market
 
 ---
 
 ## Performance metrics <a name="perf"></a>
 
-```javascript
-const perf1y = (closes[closes.length-1] / closes[0] - 1) * 100;
-const perfFrom52wHigh = (current / Math.max(...closes) - 1) * 100;
-const perfFrom52wLow = (current / Math.min(...closes) - 1) * 100;
+```python
+perf_1y = (closes[-1] / closes[0] - 1) * 100
+perf_from_52w_high = (current / max(closes) - 1) * 100
+perf_from_52w_low = (current / min(closes) - 1) * 100
 
-// Volatility (annualized)
-const returns = [];
-for (let i = 1; i < closes.length; i++) {
-  returns.push(closes[i]/closes[i-1] - 1);
-}
-const meanRet = returns.reduce((a,b)=>a+b,0) / returns.length;
-const variance = returns.reduce((s,v)=>s+(v-meanRet)**2,0) / returns.length;
-const weeklyVol = Math.sqrt(variance) * 100;
-const annualVol = weeklyVol * Math.sqrt(52);  // tuần → năm
+# Volatility (annualized)
+returns = [closes[i]/closes[i-1] - 1 for i in range(1, len(closes))]
+mean_ret = sum(returns) / len(returns)
+variance = sum((v - mean_ret) ** 2 for v in returns) / len(returns)
+weekly_vol = variance ** 0.5 * 100
+annual_vol = weekly_vol * (52 ** 0.5)  # weekly -> annual
 ```
 
-**Benchmark volatility VN:**
-- < 15%: thấp (phòng thủ — VNM, VCB)
-- 15-25%: trung bình (HPG, FPT)
-- 25-40%: cao (MWG, VIC)
-- > 40%: rất cao (cổ phiếu nhỏ, penny)
+**VN benchmark volatility:**
+- < 15%: low (defensive — VNM, VCB)
+- 15-25%: moderate (HPG, FPT)
+- 25-40%: high (MWG, VIC)
+- > 40%: very high (small-cap, penny stocks)

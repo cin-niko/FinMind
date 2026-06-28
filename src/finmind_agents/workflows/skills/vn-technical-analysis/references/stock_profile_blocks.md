@@ -1,13 +1,13 @@
-# Stock Profile Blocks — Methodology 15 block cốt lõi
+# Stock Profile Blocks — Core 15-block methodology
 
-> Reference cho **mode PROFILE**. Methodology từ dashboard phân tích thị trường nội bộ (đã port sang Python).
+> Reference for **PROFILE mode**. Methodology from an internal market-analysis dashboard (ported to Python).
 >
-> Triết lý: **"What I See"** — mô tả lịch sử giá-khối lượng. MỌI block kèm `interpretation_guardrail` cảnh báo đây là quan sát quá khứ, KHÔNG phải tín hiệu/dự báo/khuyến nghị.
+> Philosophy: **"What I See"** — describe historical price-volume behavior. Every block carries an `interpretation_guardrail` warning that this is past observation, NOT a signal/forecast/recommendation.
 >
-> Input chung cho mọi block: `rows` = list daily OHLCV (mỗi row có `date, open, high, low, close, volume, value, range_pct`). Từ vnstock: `value = close * volume * 1000` (giá vnstock = nghìn đồng, ×1000 ra đồng).
+> Shared input for every block: `rows` = a list of daily OHLCV (each row has `date, open, high, low, close, volume, value, range_pct`). From the provider: `value = close * volume * 1000` (provider close is in thousand VND; ×1000 gives VND).
 
-## Mục lục
-1. [Helpers dùng chung](#helpers) — mean/std/skew/kurtosis/quantile/percentile/returns/drawdown
+## Contents
+1. [Shared helpers](#helpers) — mean/std/skew/kurtosis/quantile/percentile/returns/drawdown
 2. [price_behavior_profile](#b1)
 3. [volatility_profile](#b2)
 4. [drawdown_profile](#b3)
@@ -28,9 +28,9 @@
 
 ---
 
-## Helpers dùng chung <a name="helpers"></a>
+## Shared helpers <a name="helpers"></a>
 
-Methodology nền cho mọi block (helpers chuẩn hóa OHLCV + thống kê).
+Foundational methodology for every block (OHLCV normalization + statistics).
 
 ```python
 import math
@@ -78,7 +78,7 @@ def excess_kurtosis(values=[]):
     return ((n*(n+1)) / ((n-1)*(n-2)*(n-3))) * z4 - (3*(n-1)**2)/((n-2)*(n-3))
 
 def quantile(values, q):
-    """q trong [0,1]. Dùng linear interpolation (giống stock_history_calculations.mjs)."""
+    """q in [0,1]. Uses linear interpolation (like stock_history_calculations.mjs)."""
     nums = sorted(v for v in values if finite(v))
     if not nums:
         return None
@@ -94,7 +94,7 @@ def median(values=[]):
     return quantile(values, 0.5)
 
 def percentile_of_value(values, value):
-    """Vị trí percentile của `value` trong `values` (0-100). Dùng floor counting (giống source)."""
+    """Percentile position of `value` within `values` (0-100). Uses floor counting (like the source)."""
     nums = [v for v in values if finite(v)]
     if not nums or not finite(value):
         return None
@@ -109,7 +109,7 @@ def log_returns(rows=[]):
     return out
 
 def daily_returns_pct(rows=[]):
-    """Return % (không phải decimal). Dùng cho distribution/drawdown."""
+    """Return % (not a decimal). Used for distribution/drawdown."""
     out = []
     for i in range(1, len(rows)):
         p, c = rows[i-1].get("close"), rows[i].get("close")
@@ -118,7 +118,7 @@ def daily_returns_pct(rows=[]):
     return out
 
 def drawdown_series(rows=[]):
-    """Series drawdown (decimal, âm) theo running peak."""
+    """Drawdown series (decimal, negative) against the running peak."""
     peak = None
     out = []
     for row in rows:
@@ -130,14 +130,14 @@ def drawdown_series(rows=[]):
     return out
 
 def realized_vol(rows, window):
-    """HV annualized %, dùng log returns."""
+    """Annualized HV %, using log returns."""
     values = log_returns(rows)[-window:]
     if len(values) < max(5, window // 3):
         return None
     return round_(std_dev(values) * math.sqrt(252) * 100)
 
 def realized_vol_history(rows, window):
-    """Toàn bộ history HV để tính percentile."""
+    """Full HV history to compute the percentile."""
     returns = log_returns(rows)
     min_count = max(5, window // 3)
     values = []
@@ -149,7 +149,7 @@ def realized_vol_history(rows, window):
     return values
 
 def pct_change(rows, window):
-    """Return % của window phiên gần nhất."""
+    """Return % of the most recent window of sessions."""
     if len(rows) <= window:
         return None
     start = rows[-1-window].get("close")
@@ -159,7 +159,7 @@ def pct_change(rows, window):
     return round_((end/start - 1) * 100)
 
 def line_change_pct(points, window):
-    """% change của field `value` trong list of dict, cách `window` ngày."""
+    """% change of the `value` field in a list of dicts, `window` days apart."""
     if len(points) <= window:
         return None
     a = points[-1-window].get("value")
@@ -169,11 +169,11 @@ def line_change_pct(points, window):
     return round_((b/a - 1) * 100)
 ```
 
-### Helpers phụ trợ (moving average tại index, drawdown episodes)
+### Auxiliary helpers (moving average at index, drawdown episodes)
 
 ```python
 def sma_at(rows, index, field, window):
-    """SMA của `field` kết thúc tại index (inclusive)."""
+    """SMA of `field` ending at index (inclusive)."""
     if index < window - 1:
         return None
     slice_ = rows[index-window+1:index+1]
@@ -182,7 +182,7 @@ def sma_at(rows, index, field, window):
     return sum(vals)/len(vals) if len(vals) == window else None
 
 def vwma_at(rows, index, field, window):
-    """VWMA = sum(close*volume)/sum(volume) trên window."""
+    """VWMA = sum(close*volume)/sum(volume) over the window."""
     if index < window - 1:
         return None
     slice_ = rows[index-window+1:index+1]
@@ -195,7 +195,7 @@ def vwma_at(rows, index, field, window):
     return (num/den) if ok and den > 0 else None
 
 def moving_average_before(rows, index, field, window):
-    """Trailing MA kết thúc TRƯỚC index (cho effort-result, dùng dữ liệu quá khứ)."""
+    """Trailing MA ending BEFORE index (for effort-result, uses past data)."""
     return sma_at(rows, index-1, field, window)
 
 def average_value(rows, window):
@@ -205,8 +205,8 @@ def average_value(rows, window):
     return sum(vals)/len(vals) if vals else None
 
 def drawdown_episodes(rows):
-    """Tách episodes: mỗi episode = từ peak đến recovery (về lại peak).
-    Trả list of {trough_date, depth_pct, recovery_days, ...}. Sort theo depth tăng dần."""
+    """Split episodes: each episode = from peak to recovery (back to the peak).
+    Returns a list of {trough_date, depth_pct, recovery_days, ...}. Sorted by depth ascending."""
     peak = None; peak_date = None
     episodes = []
     in_dd = False; trough_idx = None; trough_close = None
@@ -234,13 +234,13 @@ def drawdown_episodes(rows):
         eps_depth = (trough_close/peak_at_start - 1)*100 if peak_at_start else None
         episodes.append({
             "peak_date": peak_at_start_date, "trough_date": rows[trough_idx]["date"],
-            "depth_pct": round_(eps_depth), "recovery_days": None,  # chưa recover
+            "depth_pct": round_(eps_depth), "recovery_days": None,  # not yet recovered
         })
     episodes.sort(key=lambda e: e["depth_pct"] or 0)
     return episodes
 ```
 
-> **Lưu ý đơn vị:** vnstock trả `close` = nghìn đồng. Khi tính `value` cho block liquidity/effort-result: `value = close * volume * 1000` (ra đồng). Giữ nhất quán trong toàn bộ rows trước khi gọi các block.
+> **Unit note:** the provider returns `close` in thousand VND. When computing `value` for the liquidity/effort-result blocks: `value = close * volume * 1000` (to VND). Keep this consistent across all rows before calling the blocks.
 
 ---
 
@@ -270,7 +270,7 @@ def price_behavior_profile(rows):
             if finite(high_52w) and finite(latest_close) and high_52w > 0 else None,
         "distance_from_52w_low_pct": round_((latest_close/low_52w - 1)*100)
             if finite(low_52w) and finite(latest_close) and low_52w > 0 else None,
-        "rolling_returns": rolling,  # 4 windows, xem helper dưới
+        "rolling_returns": rolling,  # 4 windows, see helper below
         "daily_return_distribution": {
             "observations": len(returns),
             "median_pct": round_(median(returns)),
@@ -278,11 +278,11 @@ def price_behavior_profile(rows):
             "p90_pct": round_(quantile(returns, 0.9)),
             **threshold_counts(returns),
         },
-        "interpretation_guardrail": "Hành vi giá là quan sát lịch sử; không phải dự báo xu hướng tương lai.",
+        "interpretation_guardrail": "Price behavior is historical observation; not a forecast of future trend.",
     }
 
 def rolling_return_profile(rows, window):
-    """Trả {window, current_return_pct, percentile, median, p10, p90, observations}."""
+    """Returns {window, current_return_pct, percentile, median, p10, p90, observations}."""
     series = rolling_return_series(rows, window)  # list of value
     values = [v for v in series if finite(v)]
     current = values[-1] if values else None
@@ -297,7 +297,7 @@ def rolling_return_profile(rows, window):
     }
 
 def rolling_return_series(rows, window):
-    """Slide window qua toàn bộ history, mỗi bước = return % của window đó."""
+    """Slide the window across the full history; each step is the return % of that window."""
     out = []
     for i in range(window, len(rows)):
         a = rows[i-window].get("close"); b = rows[i].get("close")
@@ -339,7 +339,7 @@ def volatility_profile(rows):
         "hv60_percentile_1y": percentile_of_value(vol60_hist[-252:], current_vol60),
         "range_pct_median_63d": round_(median(range_63)),
         "range_pct_p90_63d": round_(quantile(range_63, 0.9)),
-        "interpretation_guardrail": "Biến động là độ phân tán lịch sử; không phải dải giá kỳ vọng hay dự báo biến động tương lai.",
+        "interpretation_guardrail": "Volatility is historical dispersion; not an expected price band or a forecast of future volatility.",
     }
 ```
 
@@ -355,7 +355,7 @@ def drawdown_profile(rows):
     finite_dd = [v for v in dd_series if finite(v)]
     current = finite_dd[-1] if finite_dd else None
     max_depth = min(finite_dd) if finite_dd else None
-    # underwater days = số phiên liên tiếp gần nhất price < peak
+    # underwater days = most recent consecutive sessions with price < peak
     underwater = 0
     for v in reversed(dd_series):
         if finite(v) and v < 0:
@@ -375,7 +375,7 @@ def drawdown_profile(rows):
         "median_recovery_days": round_(median(recovery_days), 0) if recovery_days else None,
         "worst_episodes": episodes[:5],
         "max_runup": max_runup_profile(rows),
-        "interpretation_guardrail": "Mức giảm từ đỉnh nhạy với cửa sổ và dữ liệu chưa điều chỉnh sự kiện vốn; không phải dự báo đáy/đỉnh.",
+        "interpretation_guardrail": "Drawdown from peak is sensitive to the window and to unadjusted corporate-action data; not a bottom/top forecast.",
     }
 
 def max_runup_profile(rows):
@@ -424,7 +424,7 @@ def liquidity_profile(rows):
         "liquidity_stability": round_(std_dev(values_252)/mean(values_252) * 100)
             if values_252 and mean(values_252) else None,  # CV%
         "volume_spike_days_1y": spike_days,
-        "interpretation_guardrail": "Thanh khoản tính từ giá đóng cửa × khối lượng; không phản ánh block trade, sổ lệnh hay dữ liệu intraday.",
+        "interpretation_guardrail": "Liquidity is computed from close × volume; it does not reflect block trades, the order book, or intraday data.",
     }
 ```
 
@@ -439,10 +439,10 @@ def return_distribution_profile(rows):
     daily = daily_returns_pct(rows)
     one_year = daily[-252:]
     histogram_bins = [
-        ("<= -10%", float("-inf"), -10), ("-10% đến -5%", -10, -5),
-        ("-5% đến -2%", -5, -2), ("-2% đến 0%", -2, 0),
-        ("0% đến 2%", 0, 2), ("2% đến 5%", 2, 5),
-        ("5% đến 10%", 5, 10), ("> 10%", 10, float("inf")),
+        ("<= -10%", float("-inf"), -10), ("-10% to -5%", -10, -5),
+        ("-5% to -2%", -5, -2), ("-2% to 0%", -2, 0),
+        ("0% to 2%", 0, 2), ("2% to 5%", 2, 5),
+        ("5% to 10%", 5, 10), ("> 10%", 10, float("inf")),
     ]
     def stats(sample):
         return {
@@ -468,7 +468,7 @@ def return_distribution_profile(rows):
             {"label": lbl, "count": sum(1 for v in one_year if mn < v <= mx)}
             for lbl, mn, mx in histogram_bins
         ],
-        "interpretation_guardrail": "Phân phối lợi suất là thống kê mô tả quá khứ; không giả định phân phối chuẩn và không dự báo lợi suất tương lai.",
+        "interpretation_guardrail": "The return distribution is descriptive past statistics; it does not assume a normal distribution or forecast future returns.",
     }
 ```
 
@@ -476,7 +476,7 @@ def return_distribution_profile(rows):
 
 ## B6. tail_risk_profile <a name="b6"></a>
 
-Historical VaR/ES (không phải mô hình).
+Historical VaR/ES (not a model).
 
 ```python
 def tail_risk_profile(rows):
@@ -498,7 +498,7 @@ def tail_risk_profile(rows):
         "down_10pct_days_1y": sum(1 for v in tail if v <= -10),
         "rolling_21d_p05_pct": round_(quantile(rolling21, 0.05)),
         "rolling_63d_p05_pct": round_(quantile(rolling63, 0.05)),
-        "interpretation_guardrail": "Tail risk dùng lịch sử đã quan sát; VaR/ES ở đây là mô tả historical, không phải mô hình rủi ro giao dịch.",
+        "interpretation_guardrail": "Tail risk uses observed history; VaR/ES here is a historical description, not a trading risk model.",
     }
 ```
 
@@ -506,7 +506,7 @@ def tail_risk_profile(rows):
 
 ## B7. liquidity_risk_profile <a name="b7"></a>
 
-Stress test theo value lịch sử.
+Stress test on historical trading value.
 
 ```python
 def liquidity_risk_profile(rows):
@@ -530,11 +530,11 @@ def liquidity_risk_profile(rows):
     zero_vol = sum(1 for r in tail if (r.get("volume") or 0) <= 0)
     thin_days = sum(1 for r in tail if finite(r.get("value")) and r["value"] <= severe_thr) if severe_thr else 0
     drought_days = sum(1 for r in tail if finite(r.get("value")) and r["value"] <= drought_thr) if drought_thr else 0
-    label = "trung bình"
+    label = "moderate"
     if zero_vol > 5 or thin_days >= 40 or (finite(avg20) and finite(med252) and avg20 < med252*0.4):
         label = "cao"
     if zero_vol == 0 and thin_days < 10 and finite(avg20) and finite(med252) and avg20 >= med252*0.8:
-        label = "thấp"
+        label = "low"
     return {
         "observations_1y": len(tail),
         "latest_value": latest.get("value"),
@@ -547,7 +547,7 @@ def liquidity_risk_profile(rows):
         "severe_thin_value_days_1y": thin_days,
         "trade_capacity_scenarios": [days_to_trade(n) for n in (1_000_000_000, 5_000_000_000, 10_000_000_000)],
         "liquidity_risk_label": label,
-        "interpretation_guardrail": "Rủi ro thanh khoản chỉ là stress test theo giá trị giao dịch lịch sử; không phản ánh sổ lệnh thời gian thực hoặc chi phí trượt giá thực tế.",
+        "interpretation_guardrail": "Liquidity risk is only a stress test on historical trading value; it does not reflect the live order book or real slippage costs.",
     }
 ```
 
@@ -555,11 +555,11 @@ def liquidity_risk_profile(rows):
 
 ## B8. relative_strength + dynamic_beta + correlation <a name="b8"></a>
 
-Cần benchmark (VNINDEX) series.
+Requires a benchmark (VNINDEX) series.
 
 ```python
 def paired_rows(stock_rows, bench_rows):
-    """Pair theo date (inner join), trả list of {date, stock:{close}, benchmark:{close}}."""
+    """Pair by date (inner join); returns a list of {date, stock:{close}, benchmark:{close}}."""
     bench_by_date = {r.get("date"): r for r in bench_rows}
     out = []
     for r in stock_rows:
@@ -569,13 +569,13 @@ def paired_rows(stock_rows, bench_rows):
     return out
 
 def benchmark_metrics(paired, window=252):
-    """Trả {window, observations, stock_return_pct, benchmark_return_pct, relative_return_pct,
+    """Returns {window, observations, stock_return_pct, benchmark_return_pct, relative_return_pct,
     correlation, beta, r2, hit_rate_pct, stock_max_drawdown_pct, benchmark_max_drawdown_pct,
     drawdown_similarity}."""
     pairs = paired[-(window+1):]
     if len(pairs) < max(5, window // 2):
         return None
-    # returns dạng decimal
+    # returns as decimals
     stock_rets, bench_rets = [], []
     for i in range(1, len(pairs)):
         sp, sc = pairs[i-1]["stock"]["close"], pairs[i]["stock"]["close"]
@@ -627,9 +627,9 @@ def benchmark_metrics(paired, window=252):
     }
 
 def relative_strength_profile(stock_rows, bench_rows, benchmarks=("VNINDEX", "VN30")):
-    """Tính metrics cho nhiều benchmark + best-fit + dynamic_beta + correlation.
-    `benchmarks` = dict {id: rows}. Trả 3 sub-profile."""
-    # Sử dụng cho từng benchmark
+    """Compute metrics for multiple benchmarks + best-fit + dynamic_beta + correlation.
+    `benchmarks` = dict {id: rows}. Returns 3 sub-profiles."""
+    # Used per benchmark
     comparisons = []
     for bid, brows in benchmarks.items():
         paired = paired_rows(stock_rows, brows)
@@ -646,7 +646,7 @@ def relative_strength_profile(stock_rows, bench_rows, benchmarks=("VNINDEX", "VN
         "relative_strength_profile": {
             "best_fit_benchmark": best_fit,
             "comparisons": comparisons,
-            "interpretation_guardrail": "So sánh benchmark là mô tả lịch sử theo dữ liệu hiện có, không phải tín hiệu dự báo.",
+            "interpretation_guardrail": "Benchmark comparison is historical description from current data, not a forecast signal.",
         },
         "dynamic_beta_profile": {
             "primary_benchmark": "VNINDEX",
@@ -664,29 +664,29 @@ def relative_strength_profile(stock_rows, bench_rows, benchmarks=("VNINDEX", "VN
     }
 ```
 
-**Ngưỡng R² (từ `ANALYTICS_STANDARD.md:62-71`):**
-- `R² < 0.40` → **low** (beta không đáng đọc sâu)
+**R² thresholds (from `ANALYTICS_STANDARD.md:62-71`):**
+- `R² < 0.40` → **low** (beta not worth a deep read)
 - `0.40 ≤ R² ≤ 0.70` → **medium**
-- `R² > 0.70` → **high** (beta đáng tin)
+- `R² > 0.70` → **high** (beta trustworthy)
 
 ---
 
 ## B9. regime_profile <a name="b9"></a>
 
-Phân loại trạng thái thị trường theo VNINDEX.
+Classify the market regime from VNINDEX.
 
 ```python
 def classify_regime(r60, r120, drawdown, vol_rank):
-    """Trả {id, label, r60, r120, drawdown_pct, vol_rank}.
-    r60/r120/drawdown dạng decimal. vol_rank = percentile 0-100."""
+    """Returns {id, label, r60, r120, drawdown_pct, vol_rank}.
+    r60/r120/drawdown are decimals. vol_rank = percentile 0-100."""
     if not all(finite(x) for x in (r60, r120, drawdown)):
-        return {"id": "unknown", "label": "chưa đủ dữ liệu"}
+        return {"id": "unknown", "label": "insufficient data"}
     if drawdown <= -0.18 or (r60 <= -0.12 and (vol_rank or 0) >= 75):
         rid = "stress"; label = "stress"
     elif r60 > 0.06 and r120 > 0.08 and drawdown > -0.08:
         rid = "uptrend"; label = "uptrend"
     elif r60 > 0.04 and r120 <= 0.08 and drawdown > -0.14:
-        rid = "recovery"; label = "phục hồi"
+        rid = "recovery"; label = "recovery"
     else:
         rid = "sideways"; label = "sideways"
     return {"id": rid, "label": label,
@@ -694,8 +694,8 @@ def classify_regime(r60, r120, drawdown, vol_rank):
             "drawdown_pct": round_(drawdown*100), "vol_rank": vol_rank}
 
 def regime_profile(stock_rows, vnindex_rows):
-    """current_market_regime + behavior_by_market_regime (stock avg ret per regime)."""
-    # Tính regime cho mỗi ngày VNINDEX
+    """current_market_regime + behavior_by_market_regime (stock avg return per regime)."""
+    # Compute the regime for each VNINDEX day
     rows = vnindex_rows
     regimes_by_date = {}
     for i, row in enumerate(rows):
@@ -704,7 +704,7 @@ def regime_profile(stock_rows, vnindex_rows):
         r60 = (row["close"]/rows[i-60]["close"] - 1) if rows[i-60].get("close") else None
         r120 = (row["close"]/rows[i-120]["close"] - 1) if rows[i-120].get("close") else None
         dd = drawdown_series(rows[:i+1])[-1]
-        # vol rank = percentile của HV20 tại i
+        # vol rank = percentile of HV20 at i
         vol_hist = realized_vol_history(rows[:i+1], 20)
         vol_now = vol_hist[-1] if vol_hist else None
         vol_rank = percentile_of_value(vol_hist, vol_now) if finite(vol_now) else None
@@ -743,7 +743,7 @@ def regime_profile(stock_rows, vnindex_rows):
         "primary_benchmark": "VNINDEX",
         "current_market_regime": current,
         "behavior_by_market_regime": behavior,
-        "regime_guardrail": "Regime dùng trạng thái benchmark hiện có; không thay thế lịch sử thành phần point-in-time.",
+        "regime_guardrail": "Regime uses the current benchmark state; it does not replace point-in-time constituent history.",
     }
 ```
 
@@ -751,7 +751,7 @@ def regime_profile(stock_rows, vnindex_rows):
 
 ## B10. volume_price_profile <a name="b10"></a>
 
-(compact). Đo up/down value & correlation.
+(compact). Measures up/down value & correlation.
 
 ```python
 def volume_price_profile(rows):
@@ -763,7 +763,7 @@ def volume_price_profile(rows):
     up_value = [v for v in up_value if v is not None]
     down_value = [v for v in down_value if v is not None]
     avg_up = mean(up_value); avg_down = mean(down_value)
-    # correlation giữa abs(return) và value
+    # correlation between abs(return) and value
     pairs = []
     for i in range(1, len(tail)):
         ret = finite(tail[i].get("close")) and finite(tail[i-1].get("close"))
@@ -783,7 +783,7 @@ def volume_price_profile(rows):
         "avg_value_down_days": round_(avg_down) if avg_down else None,
         "up_down_value_ratio_1y": round_(avg_up/avg_down, 4) if avg_up and avg_down else None,
         "abs_return_value_correlation_1y": ret_value_corr,
-        "interpretation_guardrail": "Quan hệ giá-khối lượng là đồng biến hay nghịch biến trong quá khứ; không kết luận dòng tiền tương lai.",
+        "interpretation_guardrail": "The price-volume relationship is co- or counter-movement in the past; it does not imply future money flow.",
     }
 ```
 
@@ -830,23 +830,23 @@ def vpci_profile(rows, short_window=20, long_window=100):
         "vpci_20d_change_pct": vpci_change_20d,
         "vpci_percentile_1y": percentile_of_value([v["value"] for v in valid[-252:]], latest_valid.get("value")),
         "confirmation_label": label,
-        "interpretation_guardrail": "VPCI/VWMA/SMA mô tả mức đồng thuận giữa giá và volume; không phải tín hiệu giao dịch hay dự báo giá.",
+        "interpretation_guardrail": "VPCI/VWMA/SMA describe the degree of price-volume agreement; not a trade signal or price forecast.",
     }
 
 def confirmation_label(vpci_latest, vpci_change_20d, price_vs_sma_long, volume_ratio):
     known = [v for v in (vpci_latest, price_vs_sma_long, volume_ratio) if finite(v)]
     if len(known) < 2:
-        return "chưa đủ dữ liệu"
+        return "insufficient data"
     vc = vpci_change_20d or 0
     if finite(vpci_latest) and vpci_latest > 0 and vc >= 0 and (price_vs_sma_long or 0) >= 0 and (volume_ratio or 0) >= 0.8:
-        return "giá-volume cùng xác nhận"
+        return "price-volume confirmed"
     if finite(vpci_latest) and vpci_latest < 0 and vc <= 0 and (price_vs_sma_long or 0) <= 0 and (volume_ratio or 0) >= 0.8:
-        return "giá-volume cùng suy yếu"
+        return "price-volume weakening together"
     if (price_vs_sma_long or 0) >= 0 and (finite(vpci_latest) and vpci_latest <= 0):
-        return "giá đi trước volume"
+        return "price leads volume"
     if (price_vs_sma_long or 0) <= 0 and (finite(vpci_latest) and vpci_latest >= 0):
-        return "volume không cùng chiều giá"
-    return "hỗn hợp"
+        return "volume not confirming price"
+    return "mixed"
 ```
 
 ---
@@ -885,14 +885,14 @@ def money_flow_profile(rows):
         "latest_date": latest.get("date"),
         "obv_latest": round_(latest.get("obv"), 0) if latest.get("obv") is not None else None,
         "vpt_latest": round_(latest.get("vpt"), 4) if latest.get("vpt") is not None else None,
-        "obv_20d_change_pct": vpt_chg,  # lưu ý: source dùng line_change_pct
+        "obv_20d_change_pct": vpt_chg,  # note: the source uses line_change_pct
         "vpt_20d_change_pct": vpt_chg,
         "cmf_20d": round_(cmf20, 4) if finite(cmf20) else None,
         "cmf_60d": round_(cmf60, 4) if finite(cmf60) else None,
         "positive_flow_days_1y": sum(1 for c in tail if c["ret_pct"] > 0 and c.get("volume", 0) > 0),
         "negative_flow_days_1y": sum(1 for c in tail if c["ret_pct"] < 0 and c.get("volume", 0) > 0),
         "money_flow_label": label,
-        "interpretation_guardrail": "Money flow mô tả áp lực từ OHLCV ngày; không thay thế dữ liệu intraday, block trade, sổ lệnh hoặc khuyến nghị giao dịch.",
+        "interpretation_guardrail": "Money flow describes pressure from daily OHLCV; it does not replace intraday data, block trades, the order book, or trade recommendations.",
     }
 
 def cmf_at(rows, index, window=20):
@@ -916,16 +916,16 @@ def money_flow_label(cmf20, cmf60, vpt_chg, obv_chg):
     vals = [v for v in (cmf20, cmf60, vpt_chg, obv_chg) if finite(v)]
     pos = sum(1 for v in vals if v > 0); neg = sum(1 for v in vals if v < 0)
     if pos + neg < 2:
-        return "chưa đủ dữ liệu"
+        return "insufficient data"
     if pos >= 3 and (cmf20 or 0) > 0.03 and (cmf60 or 0) >= 0:
-        return "áp lực tiền dương"
+        return "positive money-flow pressure"
     if neg >= 3 and (cmf20 or 0) < -0.03 and (cmf60 or 0) <= 0:
-        return "áp lực tiền âm"
+        return "negative money-flow pressure"
     if pos >= 3 and (not finite(cmf20) or cmf20 >= 0) and (not finite(cmf60) or cmf60 >= -0.03):
-        return "nghiêng dương nhưng yếu"
+        return "positive but weak"
     if neg >= 3 and (not finite(cmf20) or cmf20 <= 0) and (not finite(cmf60) or cmf60 <= 0.03):
-        return "nghiêng âm nhưng yếu"
-    return "hỗn hợp"
+        return "negative but weak"
+    return "mixed"
 ```
 
 ---
@@ -933,8 +933,8 @@ def money_flow_label(cmf20, cmf60, vpt_chg, obv_chg):
 ## B13. effort_result_profile (Wyckoff) <a name="b13"></a>
 
 
-- **Effort** = mean(normalized_volume_20d, normalized_value_20d) — mức nỗ lực giao dịch so trung bình.
-- **Result** = max(|return|, intraday range) — kết quả giá.
+- **Effort** = mean(normalized_volume_20d, normalized_value_20d) — trading effort versus its average.
+- **Result** = max(|return|, intraday range) — the price result.
 
 ```python
 def effort_result_profile(rows):
@@ -979,21 +979,21 @@ def effort_result_profile(rows):
         "latest_effort_ratio": latest.get("effort_ratio"),
         "latest_result_pct": latest.get("result_pct"),
         "effort_result_label": label,
-        "interpretation_guardrail": "Effort-result đo từ dữ liệu ngày để nhận diện phiên nhiều giao dịch nhưng biến động tương ứng thấp/cao; không kết luận hấp thụ/cạn cung theo nghĩa tín hiệu.",
+        "interpretation_guardrail": "Effort-result is measured from daily data to spot high-trade sessions with correspondingly low/high movement; it does not imply absorption/supply as a signal.",
     }
 
 def effort_result_label(low_cnt, high_cnt, he_cnt, latest_effort, latest_rpe, median_rpe):
     if not he_cnt:
-        return "chưa đủ high-effort events"
+        return "insufficient high-effort events"
     low_share = low_cnt / he_cnt; high_share = high_cnt / he_cnt
     if (finite(latest_effort) and latest_effort >= 2 and finite(latest_rpe) and finite(median_rpe)
             and latest_rpe <= median_rpe * 0.7):
-        return "effort cao, result thấp"
+        return "high effort, low result"
     if low_share >= 0.45:
-        return "thường có effort cao nhưng result thấp"
+        return "often high effort but low result"
     if high_share >= 0.45:
-        return "effort cao thường đi cùng result lớn"
-    return "effort-result hỗn hợp"
+        return "high effort usually with large result"
+    return "effort-result mixed"
 ```
 
 ---
@@ -1022,7 +1022,7 @@ def high_volume_behavior_profile(rows, threshold=2):
             "forward_return_20d_pct": round_(forward_return(rows, i, 20), 4),
             "forward_return_60d_pct": round_(forward_return(rows, i, 60), 4),
         })
-    events_1y = events[-252:]  # xấp xỉ 1 năm
+    events_1y = events[-252:]  # approximately 1 year
     stats20 = forward_window_stats(events, "forward_return_20d_pct")
     label = high_volume_behavior_label(stats20, len(events))
     return {
@@ -1037,7 +1037,7 @@ def high_volume_behavior_profile(rows, threshold=2):
         "post_high_volume_label": label,
         "latest_high_volume_event": events[-1] if events else None,
         "recent_high_volume_events": events[-12:],
-        "interpretation_guardrail": "Event study mô tả điều đã xảy ra sau các phiên volume cao; không dùng để dự báo phiên kế tiếp hoặc sinh tín hiệu mua bán.",
+        "interpretation_guardrail": "The event study describes what happened after high-volume sessions; it is not used to forecast the next session or generate buy/sell signals.",
     }
 
 def forward_return(rows, index, window):
@@ -1061,19 +1061,19 @@ def forward_window_stats(events, key):
 
 def high_volume_behavior_label(stats20, event_count):
     if event_count < 5 or stats20.get("matured_events", 0) < 5:
-        return "chưa đủ high-volume events"
+        return "insufficient high-volume events"
     if (stats20.get("positive_rate_pct") or 0) >= 60 and (stats20.get("median_pct") or 0) > 0:
-        return "sau volume cao thường giữ giá tốt hơn"
+        return "tends to hold price better after high volume"
     if (stats20.get("positive_rate_pct") or 100) <= 40 and (stats20.get("median_pct") or 0) < 0:
-        return "sau volume cao thường suy yếu"
-    return "hành vi sau volume cao hỗn hợp"
+        return "tends to weaken after high volume"
+    return "mixed post-high-volume behavior"
 ```
 
 ---
 
 ## B15. pvi_nvi_participation_profile <a name="b15"></a>
 
-PVI cập nhật phiên volume tăng; NVI phiên volume giảm; base=1000.
+PVI updates on up-volume sessions; NVI on down-volume sessions; base=1000.
 
 ```python
 def pvi_nvi_profile(rows):
@@ -1111,29 +1111,29 @@ def pvi_nvi_profile(rows):
         "higher_volume_days_1y": sum(1 for s in tail if s["volume_direction"] == "higher_volume"),
         "lower_volume_days_1y": sum(1 for s in tail if s["volume_direction"] == "lower_volume"),
         "participation_regime_label": label,
-        "interpretation_guardrail": "PVI/NVI mô tả price change xảy ra nhiều hơn ở phiên volume tăng hay giảm; không phải tín hiệu giao dịch.",
+        "interpretation_guardrail": "PVI/NVI describe whether price change happens more on up- or down-volume sessions; not a trade signal.",
     }
 
 def pvi_nvi_label(pvi_chg20, nvi_chg20, pvi_nvi_ratio):
     known = [v for v in (pvi_chg20, nvi_chg20, pvi_nvi_ratio) if finite(v)]
     if len(known) < 2:
-        return "chưa đủ dữ liệu"
+        return "insufficient data"
     if (pvi_chg20 or 0) > 0 and (nvi_chg20 or 0) <= 0:
-        return "high-volume participation nổi bật hơn"
+        return "high-volume participation stands out"
     if (nvi_chg20 or 0) > 0 and (pvi_chg20 or 0) <= 0:
-        return "low-volume participation nổi bật hơn"
+        return "low-volume participation stands out"
     if (pvi_chg20 or 0) > 0 and (nvi_chg20 or 0) > 0:
-        return "participation cùng chiều"
+        return "participation aligned"
     if (pvi_chg20 or 0) < 0 and (nvi_chg20 or 0) < 0:
-        return "participation cùng suy yếu"
-    return "participation hỗn hợp"
+        return "participation weakening together"
+    return "participation mixed"
 ```
 
 ---
 
 ## B16. volume_at_price_profile <a name="b16"></a>
 
-Xấp xỉ VAP: gán volume/value vào bin theo typical-price, 12 bins trên 252 phiên.
+VAP approximation: assign volume/value into bins by typical price, 12 bins over 252 sessions.
 
 ```python
 def volume_at_price_profile(rows, window=252, bin_count=12):
@@ -1144,7 +1144,7 @@ def volume_at_price_profile(rows, window=252, bin_count=12):
             tail.append({**r, "typical_price": tp})
     prices = [t["typical_price"] for t in tail]
     if not prices:
-        return {"acceptance_label": "chưa đủ dữ liệu"}
+        return {"acceptance_label": "insufficient data"}
     min_p, max_p = min(prices), max(prices)
     span = max(max_p - min_p, 0); step = span/bin_count if span > 0 else None
     bins = [{"bin_index": i, "days": 0, "volume": 0.0, "value": 0.0} for i in range(bin_count)]
@@ -1168,16 +1168,16 @@ def volume_at_price_profile(rows, window=252, bin_count=12):
         cur_bin = bins[max(0, min(bin_count-1, int((latest_close - min_p)/step)))]
     else:
         cur_bin = None
-    label = "chưa đủ dữ liệu"
+    label = "insufficient data"
     if len(tail) >= 60 and poc:
         if cur_bin and cur_bin["bin_index"] == poc["bin_index"]:
-            label = "giá hiện tại nằm trong vùng volume lớn nhất"
+            label = "current price is within the highest-volume zone"
         elif latest_close and latest_close > min_p + step*poc["bin_index"]:
-            label = "giá hiện tại nằm trên vùng volume lớn nhất"
+            label = "current price is above the highest-volume zone"
         elif latest_close:
-            label = "giá hiện tại nằm dưới vùng volume lớn nhất"
+            label = "current price is below the highest-volume zone"
         else:
-            label = "volume-at-price hỗn hợp"
+            label = "volume-at-price mixed"
     return {
         "methodology": "Daily volume-at-price approximation: assigns each day volume/value to typical-price bins over trailing 252 sessions",
         "window": window, "bin_count": bin_count, "observations": len(tail),
@@ -1186,7 +1186,7 @@ def volume_at_price_profile(rows, window=252, bin_count=12):
         "current_price_bin_index": cur_bin["bin_index"] if cur_bin else None,
         "volume_concentration_top3_pct": round_(conc, 2),
         "acceptance_label": label,
-        "interpretation_guardrail": "VAP là xấp xỉ từ dữ liệu ngày; không thay thế volume profile intraday, order book hoặc phân bổ khớp lệnh thực tế trong phiên.",
+        "interpretation_guardrail": "VAP is an approximation from daily data; it does not replace intraday volume profile, the order book, or actual in-session matched distribution.",
     }
 
 def typical_price(row):
@@ -1201,16 +1201,16 @@ def typical_price(row):
 
 ## B17. industry_peer_profile <a name="b17"></a>
 
-Cần data ngành. **Guardrail**: peer theo phân loại hiện tại, KHÔNG point-in-time.
+Requires sector data. **Guardrail**: peers are by current classification, NOT point-in-time.
 
 ```python
 def industry_peer_profile(symbol, symbol_metrics, peer_metrics_list):
     """symbol_metrics = {return_60d_pct, hv60_pct, avg_value_60d, ...}
-    peer_metrics_list = list of cùng dict cho các mã cùng industry_group."""
+    peer_metrics_list = a list of the same dict for tickers in the same industry_group."""
     if not peer_metrics_list:
         return {
             "peer_count": 0,
-            "industry_peer_guardrail": "Chưa có dữ liệu peer ngành; so sánh ngành chỉ là tham chiếu theo phân ngành hiện tại.",
+            "industry_peer_guardrail": "No sector peer data; the sector comparison is only a reference by current classification.",
         }
     def percentile_in(metric):
         vals = [p.get(metric) for p in peer_metrics_list + [symbol_metrics]]
@@ -1230,22 +1230,22 @@ def industry_peer_profile(symbol, symbol_metrics, peer_metrics_list):
         "symbol_return_percentile_in_peer": percentile_in("return_60d_pct"),
         "symbol_volatility_percentile_in_peer": percentile_in("hv60_pct"),
         "symbol_liquidity_percentile_in_peer": percentile_in("avg_value_60d"),
-        "interpretation_guardrail": "Peer theo phân loại hiện tại, không phải point-in-time; chỉ đọc như tham chiếu tương đối.",
+        "interpretation_guardrail": "Peers are by current classification, not point-in-time; read only as a relative reference.",
     }
 ```
 
-> Nếu không có data ngành từ vnstock → bỏ qua block này hoặc trả `peer_count: 0` với guardrail.
+> If no sector data is available, skip this block or return `peer_count: 0` with the guardrail.
 
 ---
 
-## Tổng hợp: orchestrator mẫu
+## Orchestration: sample orchestrator
 
 ```python
 def build_stock_profile(symbol, stock_rows, vnindex_rows=None, vn30_rows=None):
-    """Orchestrator cho mode PROFILE. Trả dict schema JSON.
-    `*_rows` = list daily OHLCV đã normalize (có 'value' = close*volume*1000)."""
+    """Orchestrator for PROFILE mode. Returns a JSON-schema dict.
+    `*_rows` = a list of normalized daily OHLCV (with 'value' = close*volume*1000)."""
     if len(stock_rows) < 60:
-        return {"error": "Không đủ dữ liệu (cần ≥60 phiên)", "symbol": symbol}
+        return {"error": "Insufficient data (need >=60 sessions)", "symbol": symbol}
     benchmarks = {}
     if vnindex_rows:
         benchmarks["VNINDEX"] = vnindex_rows
@@ -1277,14 +1277,14 @@ def build_stock_profile(symbol, stock_rows, vnindex_rows=None, vn30_rows=None):
         payload.update(rs)
         if vnindex_rows:
             payload["regime_profile"] = regime_profile(stock_rows, vnindex_rows)
-    # Anti-conclusion panel (bắt buộc mode profile)
+    # Anti-conclusion panel (required in profile mode)
     payload["non_conclusion"] = [
-        "Không kết luận đây là khuyến nghị hoặc lời gọi giao dịch.",
-        "Tỷ lệ trong quá khứ không đảm bảo lặp lại trong tương lai.",
-        "Các cửa sổ quan sát chồng lấp, không phải quan sát độc lập.",
-        "Dữ liệu giá chưa điều chỉnh corporate actions được kiểm chứng đầy đủ.",
+        "This is not a recommendation or a call to trade.",
+        "Past ratios do not guarantee future repetition.",
+        "Observation windows overlap; they are not independent observations.",
+        "Price data is not fully verified for corporate actions.",
     ]
     return payload
 ```
 
-**Kiểm tra readiness** (subset của `profileReadinessProfile` ở source line 1162-1204): đảm bảo mỗi block có field label chính (`confirmation_label`, `money_flow_label`, `effort_result_label`, `post_high_volume_label`, `participation_regime_label`, `acceptance_label`, `liquidity_risk_label`) trước khi render narrative.
+**Readiness check** (subset of `profileReadinessProfile` at source line 1162-1204): ensure every block has its core label field (`confirmation_label`, `money_flow_label`, `effort_result_label`, `post_high_volume_label`, `participation_regime_label`, `acceptance_label`, `liquidity_risk_label`) before rendering narrative.

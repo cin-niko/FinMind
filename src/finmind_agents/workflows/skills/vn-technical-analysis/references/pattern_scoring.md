@@ -1,24 +1,24 @@
-# Pattern Scoring — 8 setup heuristic + family + archetype
+# Pattern Scoring — 8 setup heuristics + family + archetype
 
-> ✅ **PORTABLE — chạy 100% với vnstock thuần**
+> ✅ **PORTABLE — runs 100% on pure vnstock**
 >
-> File này chứa phần pattern scoring không cần dependency ngoài. Chỉ cần daily OHLCV từ vnstock là tính được toàn bộ.
+> This file contains the pattern-scoring portion with no external dependencies. Only daily OHLCV from vnstock is needed to compute everything.
 >
-> Methodology 8 setup heuristic (đã port sang Python, self-contained).
-> Triết lý: **"Cấu trúc đang hình thành chỉ là cấu trúc cần quan sát, không phải tín hiệu mua bán."** (non_advice_boundary)
+> The 8-setup heuristic methodology (ported to Python, self-contained).
+> Philosophy: **"A structure that is still forming is only a structure to observe, not a buy/sell signal."** (non_advice_boundary)
 
-## Mục lục
-1. [Helpers chung](#helpers)
-2. [8 Setup detection heuristic (chiều tăng)](#setups)
+## Contents
+1. [Shared helpers](#helpers)
+2. [8 setup-detection heuristics (upside)](#setups)
 3. [Setup status + reader_note](#status)
-4. [5 Pattern family classification](#family)
+4. [5 pattern-family classification](#family)
 5. [Stock archetype](#archetype)
 
 ---
 
-## Helpers chung <a name="helpers"></a>
+## Shared helpers <a name="helpers"></a>
 
-Helpers chuẩn (xử lý số + slope tuyến tính) dùng cho cả setups và pattern scoring.
+Standard helpers (numeric handling + linear-regression slope) used by both setups and pattern scoring.
 
 ```python
 import math
@@ -31,14 +31,14 @@ def finite(v):
     return x if math.isfinite(x) else None
 
 def pct(a, b):
-    """(a/b - 1) * 100. b=0 → 0.0."""
+    """(a/b - 1) * 100. b=0 -> 0.0."""
     return (a/b - 1) * 100 if b else 0.0
 
 def clamp(value, low=0.0, high=100.0):
     return max(low, min(high, value))
 
 def slope(values):
-    """Hệ số góc (linear regression) qua values."""
+    """Slope (linear regression) through values."""
     if len(values) < 2:
         return 0.0
     n = len(values)
@@ -50,15 +50,15 @@ def slope(values):
 
 ---
 
-## 8 Setup detection heuristic <a name="setups"></a>
+## 8 setup-detection heuristics <a name="setups"></a>
 
-**Chỉ phát hiện mẫu CHIỀU TĂNG**. Mỗi hàm trả dict qua `setup()` (xem [Status](#status)).
+Detects **UPSIDE patterns only**. Each function returns a dict via `setup()` (see [Status](#status)).
 
-Yêu cầu input: `rows` = daily OHLCV, cần ≥75 phiên cho cup_with_handle, ≥65 cho các mẫu khác.
+Input: `rows` = daily OHLCV; needs ≥75 sessions for cup_with_handle, ≥65 for the others.
 
 ```python
 def detect_bull_flag(rows):
-    """Cờ tăng. Pole = 30 phiên trước, flag = 14 phiên gần nhất."""
+    """Bull flag. Pole = prior 30 sessions, flag = last 14 sessions."""
     current = rows[-1]["close"]
     recent = rows[-14:]
     pole = rows[-44:-14]
@@ -73,11 +73,11 @@ def detect_bull_flag(rows):
     score = 30 + min(pole_move, 35) + compact - max(0, pullback - 8) * 2
     if pole_move < 10 or recent_range > 16:
         score -= 20
-    return setup("bull_flags", "Cờ tăng", score, recent_high, recent_low, recent_high, current,
-                 "Cần có nhịp dẫn trước rõ và phần nghỉ không quá rộng.")
+    return setup("bull_flags", "Bull flag", score, recent_high, recent_low, recent_high, current,
+                 "Needs a clear prior leading leg and a rest that is not too wide.")
 
 def detect_bull_pennant(rows):
-    """Cờ đuôi nheo tăng. Co biên dao động ở 12 phiên gần nhất."""
+    """Bull pennant. Range compression over the last 12 sessions."""
     current = rows[-1]["close"]
     recent = rows[-12:]
     prior = rows[-42:-12]
@@ -92,11 +92,11 @@ def detect_bull_pennant(rows):
     score = 35 + min(prior_move, 30) + clamp(compression * 55, 0, 35) - max(0, pct(recent_high, recent_low) - 14) * 2
     if prior_move < 10:
         score -= 18
-    return setup("bull_pennants", "Cờ đuôi nheo tăng", score, recent_high, recent_low, recent_high, current,
-                 "Cần thấy biên dao động co lại thay vì chỉ đi ngang rộng.")
+    return setup("bull_pennants", "Bull pennant", score, recent_high, recent_low, recent_high, current,
+                 "Needs the range to compress, not just drift sideways wide.")
 
 def detect_ascending_triangle(rows):
-    """Tam giác tăng. Kháng cự phẳng + đáy dốc lên."""
+    """Ascending triangle. Flat resistance + rising lows."""
     current = rows[-1]["close"]
     window = rows[-45:]
     highs = [r["high"] for r in window]
@@ -106,11 +106,11 @@ def detect_ascending_triangle(rows):
     low_rise = pct(min(lows[-10:]), min(lows[:15]))
     distance = max(0.0, pct(resistance, current))
     score = 45 + min(max(low_rise, 0), 18) * 1.8 + max(0, 8 - high_spread) * 3 - distance * 1.5
-    return setup("triangles_ascending", "Tam giác tăng", score, resistance, min(lows[-20:]), resistance, current,
-                 "Cần kháng cự đủ phẳng và đáy sau cao hơn đáy trước.")
+    return setup("triangles_ascending", "Ascending triangle", score, resistance, min(lows[-20:]), resistance, current,
+                 "Needs sufficiently flat resistance and later lows higher than earlier lows.")
 
 def detect_falling_wedge(rows):
-    """Nêm giảm. 2 biên cùng dốc xuống + thu hẹp."""
+    """Falling wedge. Both edges slope down + converge."""
     current = rows[-1]["close"]
     window = rows[-40:]
     highs = [r["high"] for r in window]
@@ -123,11 +123,11 @@ def detect_falling_wedge(rows):
     upper_now = highs[0] + high_slope * (len(highs) - 1)
     distance = max(0.0, pct(upper_now, current)) if upper_now > 0 else None
     score = 40 + clamp(narrows * 60, 0, 35) + (12 if high_slope < 0 and low_slope < 0 else -15) - (distance or 0) * 1.2
-    return setup("wedges_falling", "Nêm giảm", score, upper_now, min(lows[-15:]), upper_now, current,
-                 "Cần hai biên cùng dốc xuống và độ rộng thu hẹp.")
+    return setup("wedges_falling", "Falling wedge", score, upper_now, min(lows[-15:]), upper_now, current,
+                 "Needs both edges sloping down and the width narrowing.")
 
 def detect_cup_with_handle(rows):
-    """Cốc tay cầm. Cần ≥75 phiên. Độ sâu cốc ~25%, tay cầm nông."""
+    """Cup and handle. Needs >=75 sessions. Cup depth ~25%, shallow handle."""
     if len(rows) < 75:
         return None
     current = rows[-1]["close"]
@@ -144,12 +144,12 @@ def detect_cup_with_handle(rows):
     score = 35 + min(recovery, 35) + max(0, 35 - abs(depth - 25)) - max(0, handle_pullback - 16) * 2
     if depth < 12 or depth > 50:
         score -= 18
-    return setup("cup_with_handle", "Cốc tay cầm", score, confirmation,
+    return setup("cup_with_handle", "Cup and handle", score, confirmation,
                  min(r["low"] for r in handle), confirmation, current,
-                 "Mẫu dài, dễ nhiễu nếu tay cầm quá sâu hoặc hồi chưa đủ.")
+                 "Long pattern; noisy if the handle is too deep or recovery is insufficient.")
 
 def detect_rectangle_bottom(rows):
-    """Chữ nhật đáy. Vùng đi ngang rõ sau nhịp giảm."""
+    """Rectangle bottom. A clear sideways band after a decline."""
     current = rows[-1]["close"]
     window = rows[-35:]
     prior = rows[-75:-35]
@@ -159,11 +159,11 @@ def detect_rectangle_bottom(rows):
     prior_drop = pct(prior[0]["close"], min(r["close"] for r in prior)) if prior else 0
     distance = max(0.0, pct(high, current))
     score = 42 + max(0, 18 - abs(range_pct - 12)) * 2 + min(max(prior_drop, 0), 18) - distance
-    return setup("rectangle_bottoms", "Chữ nhật đáy", score, high, low, high, current,
-                 "Cần vùng đi ngang đủ rõ sau một nhịp giảm hoặc tích lũy.")
+    return setup("rectangle_bottoms", "Rectangle bottom", score, high, low, high, current,
+                 "Needs a sufficiently clear sideways band after a decline or accumulation.")
 
 def detect_double_bottom(rows):
-    """Hai đáy. Tách ≥12 phiên, lệch <8%."""
+    """Double bottom. Separation >=12 sessions, mismatch <8%."""
     current = rows[-1]["close"]
     window = rows[-65:]
     lows = [r["low"] for r in window]
@@ -178,17 +178,16 @@ def detect_double_bottom(rows):
     score = 48 + max(0, 8 - low_gap) * 4 + min(separation, 30) * 0.5 - distance * 1.5
     if separation < 12:
         score -= 15
-    return setup("double_bottoms", "Hai đáy", score, neckline, min(first_low, second_low), neckline, current,
-                 "Hai đáy cần tách nhau đủ xa và không lệch quá mạnh.")
+    return setup("double_bottoms", "Double bottom", score, neckline, min(first_low, second_low), neckline, current,
+                 "The two lows need enough separation and must not differ too much.")
 
 def detect_measured_move_up(rows):
-    """Measured Move tăng. Nhịp đầu + pha điều chỉnh ~50%."""
-    current = rows[-1]["close"]
-    first = rows[-70:-35]
-    pullback = rows[-35:-12]
-    recent = rows[-12:]
-    if not first or not pullback:
+    """Measured move up. Leg + measured pullback."""
+    if len(rows) < 65:
         return None
+    recent = rows[-65:]
+    first = recent[:30]
+    pullback = recent[30:50]
     leg_low = min(r["low"] for r in first)
     leg_high = max(r["high"] for r in first)
     leg_move = pct(leg_high, leg_low)
@@ -198,17 +197,17 @@ def detect_measured_move_up(rows):
     score = 38 + min(leg_move, 30) + max(0, 30 - abs(retrace - 50)) - max(0, pct(confirmation, current)) * 1.2
     if leg_move < 12 or retrace < 25 or retrace > 75:
         score -= 18
-    return setup("measured_move_up", "Measured Move tăng", score, confirmation, pull_low, confirmation, current,
-                 "Cần nhịp đầu rõ, pha điều chỉnh vừa phải và chưa bị rơi vào vùng răng cưa.")
+    return setup("measured_move_up", "Measured move up", score, confirmation, pull_low, confirmation, current,
+                 "Needs a clear leading leg, a moderate correction, and not yet falling into a chop zone.")
 
 DETECTORS = [detect_bull_flag, detect_bull_pennant, detect_ascending_triangle,
              detect_falling_wedge, detect_cup_with_handle, detect_rectangle_bottom,
              detect_double_bottom, detect_measured_move_up]
 
 def scan_setups(rows):
-    """Chạy tất cả detectors, sort theo score desc. Trả top 6."""
+    """Run all detectors, sort by score desc. Return top 6."""
     candidates = [d(rows) for d in DETECTORS]
-    candidates = [c for c in candidates if c]  # bỏ None
+    candidates = [c for c in candidates if c]  # drop None
     candidates.sort(key=lambda c: (-float(c["completion_score"]),
                                     float(c.get("distance_to_confirmation_pct") or 999),
                                     c["pattern_name"]))
@@ -223,18 +222,18 @@ def scan_setups(rows):
 
 ```python
 def status_from_score(score, distance_pct, noisy=False):
-    """Trả 1 trong: 'gần xác nhận' / 'đang hình thành' / 'chưa đủ sạch' / 'nhiễu'."""
+    """Return one of: 'near_confirmation' / 'forming' / 'not_clean' / 'noisy'."""
     if noisy:
-        return "nhiễu"
+        return "noisy"
     if score >= 78 and distance_pct is not None and distance_pct <= 3:
-        return "gần xác nhận"
+        return "near_confirmation"
     if score >= 62:
-        return "đang hình thành"
-    return "chưa đủ sạch"
+        return "forming"
+    return "not_clean"
 
 def setup(pattern_id, pattern_name, score, confirmation_price, watch_low, watch_high,
           current_close, caution, status=None):
-    """Wrap 1 setup candidate. Score <55 → None (bỏ)."""
+    """Wrap one setup candidate. Score <55 -> None (dropped)."""
     score = round(clamp(score), 2)
     if score < 55:
         return None
@@ -256,30 +255,30 @@ def setup(pattern_id, pattern_name, score, confirmation_price, watch_low, watch_
     }
 
 def reader_note(pattern_name, status, distance):
-    """4 template narrative theo status."""
-    if status == "gần xác nhận":
-        return f"{pattern_name} đang ở gần vùng cần xác nhận; vẫn cần chờ giá đóng cửa vượt mốc quan sát."
-    if status == "đang hình thành":
-        return f"{pattern_name} có cấu trúc đáng quan sát nhưng chưa đủ điều kiện xác nhận."
-    if status == "nhiễu":
-        return f"{pattern_name} có vài nét giống mẫu nhưng đường giá còn nhiễu."
-    suffix = f", còn cách vùng xác nhận khoảng {distance:.2f}%" if distance is not None else ""
-    return f"{pattern_name} chưa đủ sạch để đọc mạnh{suffix}."
+    """Four narrative templates by status."""
+    if status == "near_confirmation":
+        return f"{pattern_name} is near the confirmation zone; still wait for a closing break above the watch level."
+    if status == "forming":
+        return f"{pattern_name} has an observable structure but does not yet meet confirmation conditions."
+    if status == "noisy":
+        return f"{pattern_name} has a few traits of the pattern but the price action is still noisy."
+    suffix = f", about {distance:.2f}% from the confirmation zone" if distance is not None else ""
+    return f"{pattern_name} is not clean enough to read strongly{suffix}."
 ```
 
-**Tóm tắt ngưỡng score:**
-| Score | Status | Ý nghĩa |
+**Score-threshold summary:**
+| Score | Status | Meaning |
 |---|---|---|
-| < 55 | (bỏ) | Không đủ để quan tâm |
-| 55-61 | chưa đủ sạch | Cấu trúc yếu, còn xa vùng xác nhận |
-| 62-77 | đang hình thành | Đáng quan sát, chưa confirm |
-| ≥78 & dist≤3% | gần xác nhận | Gần vùng confirm, chờ breakout |
+| < 55 | (dropped) | Not worth attention |
+| 55-61 | not_clean | Weak structure, far from confirmation |
+| 62-77 | forming | Worth observing, not confirmed |
+| ≥78 & dist≤3% | near_confirmation | Near confirmation, awaiting breakout |
 
 ---
 
-## 5 Pattern family classification <a name="family"></a>
+## 5 pattern-family classification <a name="family"></a>
 
-Map pattern_id → family. **Portable** (chỉ dict lookup).
+Map pattern_id → family. **Portable** (dict lookup only).
 
 ```python
 CONTINUATION_PATTERNS = {
@@ -301,7 +300,7 @@ DOWNSIDE_PATTERNS = {
 }
 
 def pattern_family(pattern_id):
-    """Trả 1 trong 5: trend_following / accumulation_breakout / defensive_caution / reversal_or_recovery / mixed."""
+    """Return one of 5: trend_following / accumulation_breakout / defensive_caution / reversal_or_recovery / mixed."""
     if pattern_id in CONTINUATION_PATTERNS:
         return "trend_following"
     if pattern_id in ACCUMULATION_PATTERNS:
@@ -319,38 +318,38 @@ def pattern_family(pattern_id):
 
 ## Stock archetype <a name="archetype"></a>
 
-Phân loại cổ phiếu theo kiểu hành vi chủ đạo, suy ra từ setup hiện tại + high-volume behavior. Chỉ dùng dữ liệu OHLCV.
+Classify a stock by its dominant behavior tendency, inferred from the current setup + high-volume behavior. Uses OHLCV data only.
 
 ```python
 def estimate_archetype(setups, high_volume_behavior):
-    """Phân loại archetype từ setup hiện tại + high-volume behavior.
-    `setups` = output scan_setups(); `high_volume_behavior` = block B14 từ stock_profile_blocks.md.
-    Trả {primary, reader_note}."""
+    """Classify archetype from the current setup + high-volume behavior.
+    `setups` = output of scan_setups(); `high_volume_behavior` = block B14 from stock_profile_blocks.md.
+    Returns {primary, reader_note}."""
     families = [pattern_family(s["pattern_id"]) for s in setups]
     hv_label = high_volume_behavior.get("post_high_volume_label", "") if high_volume_behavior else ""
     if not setups:
         return {"primary": "no_current_setup",
-                "reader_note": "Không có setup chiều tăng rõ trong các mẫu heuristic; đọc theo từng phiên."}
+                "reader_note": "No clear upside setup among the heuristic patterns; read session by session."}
     if "trend_following" in families:
         return {"primary": "trend_following",
-                "reader_note": "Setup hiện tại nghiêng tiếp diễn; đọc ưu tiên theo sức giữ xu hướng."}
+                "reader_note": "Current setup leans continuation; read primarily by trend-retention strength."}
     if "accumulation_breakout" in families:
         return {"primary": "accumulation_breakout",
-                "reader_note": "Setup hiện tại nghiêng tích lũy; đọc kỹ ở phiên xác nhận thoát nền."}
-    if "suy yếu" in hv_label:
+                "reader_note": "Current setup leans accumulation; read carefully at the session that confirms a base breakout."}
+    if "weakening" in hv_label:
         return {"primary": "trap_prone",
-                "reader_note": "Hành vi sau volume cao suy yếu; thận trọng với phá vỡ giả."}
+                "reader_note": "Post-high-volume behavior is weakening; be cautious of false breakouts."}
     return {"primary": "mixed",
-            "reader_note": "Setup hiện tại pha trộn; đọc theo từng cấu trúc cụ thể."}
+            "reader_note": "Current setup is mixed; read each specific structure on its own."}
 ```
 
-**Bảng 4 archetype:**
-| Primary | Khi nào | Đọc như |
+**Four-archetype table:**
+| Primary | When | Read as |
 |---|---|---|
-| `trend_following` | có setup thuộc family trend_following | Ưu tiên nhịp tiếp diễn, sức giữ xu hướng |
-| `accumulation_breakout` | có setup thuộc family accumulation_breakout | Đọc nền tích lũy + phiên xác nhận thoát nền |
-| `trap_prone` | hành vi sau volume cao suy yếu | Thận trọng phá vỡ giả |
-| `mixed` | không khớp rule nào | Đọc theo từng cấu trúc cụ thể |
-| `no_current_setup` | không có setup nào | Đọc theo từng phiên |
+| `trend_following` | a setup belongs to the trend_following family | Prioritize continuation momentum and trend-retention strength |
+| `accumulation_breakout` | a setup belongs to the accumulation_breakout family | Read the accumulation base + the session that confirms the base breakout |
+| `trap_prone` | post-high-volume behavior is weakening | Be cautious of false breakouts |
+| `mixed` | no rule matches | Read each specific structure on its own |
+| `no_current_setup` | no setup at all | Read session by session |
 
-> **Guardrail**: archetype chỉ mô tả xu hướng hành vi lịch sử quan sát được; không phải dự báo hay nhãn phân loại cố định.
+> **Guardrail**: the archetype only describes an observable historical behavior tendency; it is not a forecast or a fixed classification label.

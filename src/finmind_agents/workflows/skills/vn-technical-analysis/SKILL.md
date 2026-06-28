@@ -1,6 +1,6 @@
 ---
 name: vn-technical-analysis
-description: Technical analysis of Vietnam-listed stocks from real OHLCV data collected by the collect_data step, in two modes. Mode ACTIVE computes MA/RSI/MACD/Bollinger/Beta/Correlation, detects candlestick and chart patterns, performs honest divergence checks, renders candlestick + volume charts, and maps a Tech Score to a BUY/SELL verdict. Mode PROFILE builds a quantitative price-volume profile (volatility, drawdown, VPCI/OBV/CMF, Wyckoff effort-result, volume-at-price, tail risk VaR/ES, pattern scoring, archetype) in neutral descriptive non-advice language. Use when the user asks for technical analysis, timing, a stock profile/personality, beta/correlation, or candlestick/chart patterns. Core rule: never fabricate or simulate price data.
+description: Technical analysis of Vietnam-listed stocks from real OHLCV data collected by the collect_data step, in two modes. Mode ACTIVE computes MA/RSI/MACD/Bollinger/Beta/Correlation, detects candlestick and chart patterns, performs honest divergence checks, and maps a Tech Score to a BUY/SELL verdict. Mode PROFILE builds a quantitative price-volume profile (volatility, drawdown, VPCI/OBV/CMF, Wyckoff effort-result, volume-at-price, tail risk VaR/ES, pattern scoring, archetype) in neutral descriptive non-advice language. Use when the user asks for technical analysis, timing, a stock profile/personality, beta/correlation, or candlestick/chart patterns. Core rule: never fabricate or simulate price data. Outputs a native Markdown report; the candlestick + volume chart is rendered separately as a workflow chart artifact.
 ---
 
 # VN Technical Analysis
@@ -8,15 +8,15 @@ description: Technical analysis of Vietnam-listed stocks from real OHLCV data co
 Version: 1.0.0
 Purpose: Technical analysis from real OHLCV data collected by the collect_data step, answering timing (ACTIVE) or price-volume profile (PROFILE) questions that fundamental and news analysis cannot.
 Blocked Behavior: Do not fabricate, simulate, or model price data. If the collected OHLCV records are missing or insufficient, say "no data" and block the claim. Do not mix ACTIVE verdict language into PROFILE output or vice versa.
-Output Contract: ACTIVE — HTML dashboard + JSON (tech_score, verdict). PROFILE — Markdown narrative + JSON profile (vn-technical-profile-v1) + optional HTML dashboard. Every indicator and pattern must be computed from collected records, with citations.
-Citation Policy: Every indicator value, pattern, and chart must trace to collected OHLCV records; never present model-memory or simulated prices as analysis.
+Output Contract: ACTIVE — Markdown technical report (indicator values, detected patterns, Tech Score, BUY/SELL/NEUTRAL verdict). PROFILE — Markdown narrative profile in neutral descriptive non-advice language with the four mandatory non-conclusion points. Every indicator and pattern must be computed from collected records, with citations. The candlestick + volume chart is rendered separately by the workflow runtime; the skill does not render HTML or charts.
+Citation Policy: Every indicator value and pattern must trace to collected OHLCV records; never present model-memory or simulated prices as analysis.
 
 ## Role
 
 Perform technical analysis on Vietnam-listed stocks from real price data that the
 `collect_data` step has already gathered. The skill has two modes and never
 fetches data itself. It consumes collected OHLCV records and company-overview
-context.
+context, and produces a native Markdown report.
 
 ## When To Use
 
@@ -40,6 +40,9 @@ or model a price series — if the collected records are missing or insufficient
 say "no data" and block the claim. Do not mix the two modes' language: PROFILE
 never outputs BUY/SELL/bullish/signal; ACTIVE never outputs long non-advice
 guardrails. Do not provide order or irreversible financial action instructions.
+Produce a native Markdown report — do not render HTML, dashboards, or charts.
+The candlestick + volume chart is rendered separately by the workflow runtime as
+a chart artifact.
 
 ## Required Context
 
@@ -75,8 +78,10 @@ Compute from collected records:
   `references/indicators.md`
 - Tech Score mapped to a BUY / SELL / NEUTRAL verdict
 
-Render the candlestick + volume dashboard using `assets/technical_template.html`.
-Prices are in thousand VND (e.g. 19.38 = 19,380 VND).
+Then write a Markdown technical report with the indicator values, the detected
+patterns (with evidence), the Tech Score, and the verdict. Prices are in
+thousand VND (e.g. 19.38 = 19,380 VND). Do not render HTML or charts — the
+candlestick + volume chart is rendered separately by the workflow runtime.
 
 ### Step 4: PROFILE Mode — Quantitative Price-Volume Profile
 
@@ -85,25 +90,26 @@ records: volatility, drawdown, VPCI/OBV/CMF, Wyckoff effort-result,
 volume-at-price, tail risk (VaR/ES), PVI/NVI, regime, pattern scoring, and
 archetype. Use `neutral_descriptive_non_advice` language — describe, never
 recommend. See `references/stock_profile_blocks.md`,
-`references/pattern_scoring.md`, `references/metric_guardrails.md`, and
-`references/profile_render.md`.
+`references/pattern_scoring.md`, and `references/metric_guardrails.md`.
 
-Render the single-page profile dashboard using `assets/profile_template.html`
-with `{{TOKEN}}` placeholders (string-replace, never f-string/format). QA the
-render per `references/profile_render.md`: no leftover tokens, canvas count
-matches chart count, valid JS, and no ACTIVE-mode language leaking in.
+Then write a Markdown narrative profile following the render-narrative procedure
+in `references/metric_guardrails.md` (look up metric labels + guardrails, apply
+`CONSUMER_LABELS`, scrub copy, avoid forbidden words, use standard terminology,
+and append the four non-conclusion points). Do not render HTML, dashboards, or
+charts.
 
 ### Step 5: Output
 
-ACTIVE: HTML dashboard + JSON `{schema, tech_score, verdict, indicators,
-patterns, citations}`. PROFILE: Markdown narrative + JSON
-`vn-technical-profile-v1` (see `references/profile_render.md` schema) + optional
-HTML dashboard. Every figure must cite the collected records it was computed
-from.
+ACTIVE: a Markdown technical report covering indicator values, detected
+patterns with evidence, Tech Score, and BUY/SELL/NEUTRAL verdict, plus citations.
+PROFILE: a Markdown narrative profile (neutral descriptive, non-advice) with the
+four mandatory non-conclusion points, plus citations. Every figure must cite the
+collected records it was computed from.
 
 ## Output Contract
 
 - Output must be computed from collected OHLCV records only.
+- Output is native Markdown — no HTML, no dashboards, no chart rendering.
 - ACTIVE output includes a Tech Score and a BUY/SELL/NEUTRAL verdict.
 - PROFILE output uses neutral descriptive language with the four mandatory
   non-conclusion points and never includes a verdict.
@@ -112,7 +118,7 @@ from.
 
 ## Citation Policy
 
-- Every indicator, pattern, and chart must cite the collected OHLCV records.
+- Every indicator and pattern must cite the collected OHLCV records.
 - Benchmark-dependent metrics (beta/correlation) must cite the benchmark records;
   if absent, mark unavailable.
 - Never present simulated or model-memory prices as analysis.
@@ -150,36 +156,46 @@ from.
 - `references/stock_profile_blocks.md`
 - `references/pattern_scoring.md`
 - `references/metric_guardrails.md`
-- `references/profile_render.md`
-- `assets/technical_template.html`
-- `assets/profile_template.html`
 
 ## Output Examples
 
-ACTIVE JSON:
-```json
-{
-  "schema": "vn-technical-active-v1",
-  "symbol": "HPG",
-  "tech_score": 62,
-  "verdict": "BUY",
-  "indicators": {"rsi_14": 54.2, "macd": "rising"},
-  "patterns": [{"name": "double_bottom", "evidence": "two troughs at 19,120"}],
-  "citations": ["citation_vn_prices_HPG-2026-06-18"]
-}
+ACTIVE Markdown report:
+```markdown
+# HPG — Technical Analysis (ACTIVE)
+
+## Verdict: BUY (Tech Score 62)
+
+## Indicators
+- RSI(14): 54.2 — neutral
+- MACD: rising above signal — bullish momentum
+- Price vs MA20/MA50/MA200: above MA20, above MA50, below MA200
+- Beta vs VNINDEX: 1.18 (aggressive)
+
+## Patterns
+- Double bottom (potential): two troughs at 19.12 and 19.20 (~0.4% apart),
+  neckline 19.95 — not yet confirmed.
+- No RSI divergence at the two most recent swing lows.
+
+## Citations
+- citation_vn_prices_HPG-2026-06-18
 ```
 
-PROFILE JSON:
-```json
-{
-  "schema": "vn-technical-profile-v1",
-  "language_policy": "neutral_descriptive_non_advice",
-  "symbol": "HPG",
-  "price_behavior_profile": {"latest_close": 23600, "return_1y_pct": 8.4},
-  "volatility_profile": {"hv60_pct": 34.5},
-  "non_conclusion": [
-    "This is not a recommendation or trade call.",
-    "Past ratios do not guarantee future repetition."
-  ]
-}
+PROFILE Markdown report:
+```markdown
+# HPG — Stock Profile (descriptive, non-advice)
+
+*Describes historical price-volume behavior. Not a trade recommendation.*
+
+## Price behavior
+- Latest close: 23,600 VND
+- 1-year return: 8.4%, outperforming VNINDEX over the window.
+
+## Volatility
+- HV60 (annualized): 34.5% — high regime for VN large-caps.
+
+## Reading notes
+- This is not a recommendation or a call to trade.
+- Past ratios do not guarantee future repetition.
+- Do not read a basket/sector comparison as complete history if it is only a current snapshot.
+- Do not use long-horizon results without verifying corporate actions.
 ```
