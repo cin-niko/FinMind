@@ -3,10 +3,8 @@ services:
     build:
       context: .
       dockerfile: src/finmind_api/Dockerfile
-    environment:
-      FINMIND_ADMIN_USERNAME: ${FINMIND_ADMIN_USERNAME:-admin}
-      FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
-      FINMIND_SESSION_SECRET: ${FINMIND_SESSION_SECRET:-session-secret-with-length}
+    env_file:
+      - .env
     ports:
       - "8000:8000"
 

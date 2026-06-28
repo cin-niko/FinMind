@@ -2,9 +2,10 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from finmind_api.dependencies import require_session
 from finmind_agents.models import Session
+from finmind_agents.runtime.service import AgentOrchestratorError
 from finmind_agents.workflows.validation import WorkflowValidationError
+from finmind_api.dependencies import require_session
 
 router = APIRouter(prefix="/api", tags=["workflows"])
 
@@ -34,3 +35,8 @@ def run_workflow(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except WorkflowValidationError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    except AgentOrchestratorError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
