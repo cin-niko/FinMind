@@ -1,8 +1,8 @@
 from finmind_agents.dataflows.models import (
     DataflowProviderResult,
-    DataflowRetrievalRequest,
+    DataflowCollectionRequest,
     DatasetGroup,
-    RetrievalStatus,
+    CollectionStatus,
 )
 from finmind_agents.dataflows.providers.base import (
     ProviderCapability,
@@ -36,7 +36,7 @@ class OfflineFallbackProvider:
     def __init__(self, market_data: MarketDataRepository) -> None:
         self._market_data = market_data
 
-    def fetch(self, request: DataflowRetrievalRequest) -> ProviderFetchResult:
+    def fetch(self, request: DataflowCollectionRequest) -> ProviderFetchResult:
         records = [
             record
             for record in self._market_data.list_by_market(request.market)
@@ -62,9 +62,9 @@ class OfflineFallbackProvider:
         ):
             warnings.append("fundamental_fallback_unavailable")
         status = (
-            RetrievalStatus.FALLBACK
+            CollectionStatus.FALLBACK
             if records or source_documents
-            else RetrievalStatus.FAILED
+            else CollectionStatus.FAILED
         )
         return ProviderFetchResult(
             provider_result=DataflowProviderResult(
@@ -74,7 +74,7 @@ class OfflineFallbackProvider:
                 source_ids=tuple(sorted({record.source_id for record in records})),
                 warnings=tuple(warnings),
                 failure_reason="offline fallback has no matching data"
-                if status == RetrievalStatus.FAILED
+                if status == CollectionStatus.FAILED
                 else None,
             ),
             records=tuple(records),

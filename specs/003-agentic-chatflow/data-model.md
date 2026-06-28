@@ -14,13 +14,13 @@ adr_refs: []
 Draft expected entities:
 
 - `ChatConversation`: production conversation record.
-- `ChatMessage`: user and assistant messages with evidence-linked outputs.
-- `ExecutionRun`: chatflow execution status, tools, retrieval, and artifacts.
-- `EvidenceObject`: grounding units for chat claims.
-- `Citation`: user-visible source references.
-- `Artifact`: generated report, chart, table, evidence list, or citation bundle.
+- `ChatMessage`: user and assistant messages with cited outputs.
+- `ExecutionRun`: chatflow execution status, tools, collection, and artifacts.
+- `Citation`: user-visible source-level references (source id, dataset id, timestamp).
+- `GroundingCheck`: post-answer audit that cited sources are a subset of collected sources.
+- `Artifact`: generated report, chart, table, or citation bundle with source refs.
 - `SourceDocument`: trusted company, market, macro, or news source.
 - `CanonicalMarketDataRecord`: market data referenced by chat answers.
 
-Final fields and relationships require `/speckit-plan` after source and retrieval
+Final fields and relationships require `/speckit-plan` after source and collection
 decisions are made.

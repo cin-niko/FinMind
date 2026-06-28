@@ -86,35 +86,38 @@ npm run build
 
 1. Run `stock-brief` with `market=VN_STOCK` and a supported symbol such as `VCB`.
 2. Confirm the runtime loads the referenced Agent Skill and
-   `DATA_REQUIREMENTS.yaml`, derives the retrieval plan under workflow policy,
+   `DATA_REQUIREMENTS.yaml`, derives the collection plan under workflow policy,
    and then requests data through `dataflows`.
-3. Confirm `dataflows` attempts latest VN provider retrieval through the
+3. Confirm `dataflows` attempts latest VN provider collection through the
    `vnstock` adapter before deterministic fallback is used.
 4. Confirm stages include:
-   - `data-collector`
-   - `data-quality-check`
+   - `collect_data`
+   - `data-audit`
    - `fundamental-analysis`
    - `technical-analysis`
    - `news-digest`
    - `risk-review`
-5. Confirm result includes data-quality status, collection status, sections,
-   citations, freshness, chart artifact, and visible execution status.
+5. Confirm result includes steps, grounding status, collection status, sections,
+   citations, chart artifact, and source refs.
 
-## Scenario 2A: VN Financial Data Collector Agent Skill
+## Scenario 2A: VN Financial Data Auditor Agent Skill
 
-1. Run the VN financial data collector skill through the workflow runtime with
-   `market=VN_STOCK` and `symbol=DXG`.
+1. Run the VN financial data auditor skill through the workflow runtime with
+   `market=VN_STOCK` and `symbol=DXG` (the `vn-financial-data-collector` workflow
+   runs `collect_data` then the `vn-financial-data-auditor` skill).
 2. Confirm the runtime uses a configured LLM model and records safe agent
-   execution metadata such as runtime adapter, policy id, skill id, tool status,
-   warnings, and blocked claim categories.
+   execution metadata such as skill id, step status, warnings, and blocked claim
+   categories.
 3. Confirm detailed data needs come from the skill's `DATA_REQUIREMENTS.yaml`,
    not duplicated workflow YAML fields.
-4. Confirm the agent derives required/optional retrieval calls from those data
+4. Confirm the agent derives required/optional collection calls from those data
    requirements, and FinMind validates the plan before executing dataflows.
-5. Confirm the skill requests finance data through `dataflows` rather than
-   importing or calling `vnstock` directly from the skill instructions.
+5. Confirm the skill audits already-collected records through `dataflows`
+   rather than importing or calling `vnstock` directly from the skill
+   instructions; collection is owned by the `collect_data` step.
 6. Confirm collected price, fundamentals, company profile, and source-document
-   coverage is shown with citations and freshness where available.
+   coverage is shown with citations (source id, dataset id, timestamp) where
+   available.
 7. Confirm missing statements, ratios, peer data, or news documents cause
    partial/unavailable sections rather than fabricated analysis.
 8. Confirm no raw model reasoning, hidden prompts, provider secrets, or raw
@@ -124,12 +127,11 @@ npm run build
 
 1. Run `technical-analysis` or `stock-brief` with `market=US_STOCK` and a
    supported symbol such as `AAPL`.
-2. Confirm `data-collector` requests data through `dataflows`, and `dataflows`
-   attempts latest US provider retrieval through Alpha Vantage for prices/news
+2. Confirm `collect_data` requests data through `dataflows`, and `dataflows`
+   attempts latest US provider collection through Alpha Vantage for prices/news
    when configured and SEC EDGAR company facts for fundamentals where available.
 3. Confirm output uses US stock records, not VN stock defaults.
-4. Confirm citations and freshness reference US datasets and provider/fallback
-   source identity.
+4. Confirm citations reference US datasets and provider/fallback source identity.
 
 ## Scenario 4: Provider Failure Or Fallback
 
@@ -138,14 +140,16 @@ npm run build
 2. Confirm `collection.status` is `partial`, `failed`, or `fallback`.
 3. Confirm `collection.provider_results` identifies the failed/skipped/fallback
    provider without raw provider payloads or secrets.
-4. Confirm `data-quality-check` returns `warn`, `partial`, or `fail`.
+4. Confirm affected skill steps are `unavailable` and `grounding.grounding_status`
+   is `blocked`.
 5. Confirm blocked claim categories are omitted or marked unavailable.
 6. Confirm fallback data is labeled as fallback and not presented as live data.
 
-## Scenario 5: Quality Gate
+## Scenario 5: Grounding Gate
 
 1. Run a workflow where one required dataset is missing or stale.
-2. Confirm `data-quality-check` returns `warn`, `partial`, or `fail`.
+2. Confirm the affected skill step is `unavailable` and
+   `grounding.grounding_status` is `blocked`.
 3. Confirm blocked claim categories are omitted or marked unavailable.
 4. Confirm unaffected sections remain inspectable for partial results.
 
@@ -161,4 +165,4 @@ npm run build
 2. Refresh with a valid session.
 3. Open `History` -> `Workflow Runs`.
 4. Reopen the completed run and confirm output, quality, collection status,
-   citations, freshness, artifacts, and visible execution status remain visible.
+   citations, artifacts, and step/grounding status remain visible.

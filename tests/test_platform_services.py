@@ -81,17 +81,30 @@ def test_workflow_definitions_load_phase_02_catalog(
     assert response.status_code == 200
     workflows = response.json()
     workflow_ids = {workflow["id"] for workflow in workflows}
-    assert workflow_ids == {"vn-financial-data-collector"}
+    assert workflow_ids == {
+        "vn-financial-data-collector",
+        "vn-fundamental-analysis",
+        "vn-technical-analysis",
+    }
     assert "gold-brief" not in workflow_ids
     assert all(workflow["requires_citations"] for workflow in workflows)
     assert all("stages" in workflow for workflow in workflows)
-    collector = workflows[0]
+    by_id = {workflow["id"]: workflow for workflow in workflows}
+    collector = by_id["vn-financial-data-collector"]
     assert collector["workflow_type"] == "atomic"
     assert collector["market_scope"] == ["VN_STOCK"]
     assert collector["output_sections"] == [
-        "Data Quality",
         "Collected Data",
     ]
+    fundamental = by_id["vn-fundamental-analysis"]
+    assert fundamental["workflow_type"] == "composite"
+    assert fundamental["output_sections"] == [
+        "Collected Data",
+        "Fundamental Analysis",
+    ]
+    technical = by_id["vn-technical-analysis"]
+    assert technical["workflow_type"] == "atomic"
+    assert technical["output_sections"] == ["Technical Analysis"]
 
 
 def test_workflow_yaml_definitions_reference_existing_agent_skills() -> None:
@@ -140,7 +153,9 @@ def test_workflow_agent_skills_use_standard_format() -> None:
     assert skill_paths
     for path in skill_paths:
         assert path.parent.name in {
-            "vn-financial-data-collector",
+            "vn-financial-data-auditor",
+            "vn-fundamental-analysis",
+            "vn-technical-analysis",
         }
         content = path.read_text(encoding="utf-8")
         assert content.startswith("---\n")
@@ -160,7 +175,7 @@ def test_vn_collector_skill_declares_low_level_data_requirements() -> None:
     from finmind_agents.dataflows.requirements import load_data_requirements
 
     requirements = load_data_requirements(
-        "src/finmind_agents/workflows/skills/vn-financial-data-collector/DATA_REQUIREMENTS.yaml"
+        "src/finmind_agents/workflows/skills/vn-financial-data-auditor/DATA_REQUIREMENTS.yaml"
     )
 
     assert [requirement.dataset for requirement in requirements] == [
@@ -182,12 +197,12 @@ def test_vn_collector_skill_declares_low_level_data_requirements() -> None:
 
 def test_dataflow_request_derives_dataset_groups_from_low_level_requirements() -> None:
     from finmind_agents.dataflows.models import (
-        DataflowRetrievalRequest,
+        DataflowCollectionRequest,
         DataRequirement,
         DatasetGroup,
     )
 
-    request = DataflowRetrievalRequest(
+    request = DataflowCollectionRequest(
         market=Market.VN_STOCK,
         symbol="DXG",
         requested_by="vn-financial-data-collector",
@@ -205,14 +220,14 @@ def test_dataflow_request_derives_dataset_groups_from_low_level_requirements() -
     )
 
 
-def test_agent_retrieval_plan_rejects_undeclared_dataset() -> None:
-    from finmind_agents.dataflows.models import AgentRetrievalPlan, DataRequirement
+def test_agent_collection_plan_rejects_undeclared_dataset() -> None:
+    from finmind_agents.dataflows.models import AgentCollectionPlan, DataRequirement
     from finmind_agents.dataflows.requirements import (
-        RetrievalPlanError,
-        validate_agent_retrieval_plan,
+        CollectionPlanError,
+        validate_agent_collection_plan,
     )
 
-    plan = AgentRetrievalPlan(
+    plan = AgentCollectionPlan(
         skill_id="vn-financial-data-collector",
         market=Market.VN_STOCK,
         symbol="DXG",
@@ -221,8 +236,8 @@ def test_agent_retrieval_plan_rejects_undeclared_dataset() -> None:
         policy_id="workflow_strict",
     )
 
-    with pytest.raises(RetrievalPlanError, match="not declared"):
-        validate_agent_retrieval_plan(
+    with pytest.raises(CollectionPlanError, match="not declared"):
+        validate_agent_collection_plan(
             plan,
             declared_requirements=(DataRequirement(dataset="ohlcv"),),
             allow_optional=True,
@@ -232,10 +247,10 @@ def test_agent_retrieval_plan_rejects_undeclared_dataset() -> None:
 def test_dataflow_service_passes_effective_groups_to_provider() -> None:
     from finmind_agents.dataflows.models import (
         DataflowProviderResult,
-        DataflowRetrievalRequest,
+        DataflowCollectionRequest,
         DataRequirement,
         DatasetGroup,
-        RetrievalStatus,
+        CollectionStatus,
     )
     from finmind_agents.dataflows.providers.base import (
         ProviderCapability,
@@ -255,13 +270,13 @@ def test_dataflow_service_passes_effective_groups_to_provider() -> None:
             ),
         )
 
-        def fetch(self, request: DataflowRetrievalRequest) -> ProviderFetchResult:
+        def fetch(self, request: DataflowCollectionRequest) -> ProviderFetchResult:
             seen_groups.append(request.dataset_groups)
             return ProviderFetchResult(
                 provider_result=DataflowProviderResult(
                     provider_id=self.provider_id,
                     dataset_groups=request.dataset_groups,
-                    status=RetrievalStatus.FAILED,
+                    status=CollectionStatus.FAILED,
                     warnings=("no_data",),
                     failure_reason="test provider has no data",
                 )
@@ -269,8 +284,8 @@ def test_dataflow_service_passes_effective_groups_to_provider() -> None:
 
     DataflowService(
         registry=DataflowProviderRegistry(providers=(RecordingProvider(),))
-    ).retrieve(
-        DataflowRetrievalRequest(
+    ).collect(
+        DataflowCollectionRequest(
             market=Market.VN_STOCK,
             symbol="DXG",
             requested_by="test",
@@ -317,8 +332,58 @@ def test_workflow_uses_agent_skill_output(
 
     assert collected["content"] == "Agent-collected VCB data package with evidence."
     assert collected["citations"] == ["citation_vn_prices_VCB-2026-06-18"]
-    assert result["output"]["agent"]["status"] == "success"
-    assert result["output"]["agent"]["retrieval_plan_status"] == "executed"
+    assert collected["status"] == "success"
+    assert result["output"]["steps"][-1]["kind"] == "skill"
+    assert result["output"]["steps"][-1]["status"] == "success"
+
+
+def test_fundamental_analysis_workflow_runs_collector_audit_and_analysis_steps(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/workflows/vn-fundamental-analysis/run",
+        json={"market": "VN_STOCK", "symbol": "VCB"},
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    steps = result["output"]["steps"]
+    assert [step["id"] for step in steps] == [
+        "collect_data",
+        "vn-financial-data-auditor",
+        "vn-fundamental-analysis",
+    ]
+    assert all(step["kind"] == "skill" for step in steps[1:])
+    assert all(step["status"] == "success" for step in steps[1:])
+    assert result["status"] == "success"
+    # upstream-dependent skill has no DATA_REQUIREMENTS, so collect fetches only
+    # the auditor's groups
+    assert result["output"]["collection"]["requested_dataset_groups"] == [
+        "market_price",
+        "fundamental",
+        "news",
+    ]
+
+
+def test_technical_analysis_workflow_runs_collect_and_analysis_steps(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/workflows/vn-technical-analysis/run",
+        json={"market": "VN_STOCK", "symbol": "VCB"},
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    steps = result["output"]["steps"]
+    assert [step["id"] for step in steps] == [
+        "collect_data",
+        "vn-technical-analysis",
+    ]
+    assert steps[-1]["kind"] == "skill"
+    assert steps[-1]["status"] == "success"
+    assert result["status"] == "success"
+    assert "market_price" in result["output"]["collection"]["requested_dataset_groups"]
 
 
 def test_agent_orchestrator_requires_litellm_chat_model(
@@ -339,7 +404,7 @@ def test_agent_orchestrator_requires_litellm_chat_model(
                 skill_markdown="# Skill",
                 data_requirements=(),
                 context={},
-                evidence_ids=("citation_vn_prices_VCB-2026-06-18",),
+                citation_ids=("citation_vn_prices_VCB-2026-06-18",),
             )
         )
 
@@ -402,7 +467,7 @@ def test_agent_orchestrator_accepts_json_chat_response(
             skill_markdown="# Skill",
             data_requirements=(),
             context={},
-            evidence_ids=("citation_vn_prices_DXG-2026-06-26",),
+            citation_ids=("citation_vn_prices_DXG-2026-06-26",),
         )
     )
 
@@ -447,7 +512,7 @@ def test_agent_orchestrator_coerces_structured_content_to_string(
             skill_markdown="# Skill",
             data_requirements=(),
             context={},
-            evidence_ids=("citation_vn_prices_DXG-2026-06-26",),
+            citation_ids=("citation_vn_prices_DXG-2026-06-26",),
         )
     )
 
@@ -482,7 +547,7 @@ def test_agent_orchestrator_reports_sanitized_provider_error(
                 skill_markdown="# Skill",
                 data_requirements=(),
                 context={},
-                evidence_ids=("citation_vn_prices_DXG-2026-06-26",),
+                citation_ids=("citation_vn_prices_DXG-2026-06-26",),
             )
         )
 
@@ -496,13 +561,13 @@ def test_agent_orchestrator_reports_sanitized_provider_error(
 def test_dataflow_models_serialize_safe_provider_statuses() -> None:
     from finmind_agents.dataflows.models import (
         DataflowProviderResult,
-        DataflowRetrievalRequest,
-        DataflowRetrievalResult,
+        DataflowCollectionRequest,
+        DataflowCollectionResult,
         DatasetGroup,
-        RetrievalStatus,
+        CollectionStatus,
     )
 
-    request = DataflowRetrievalRequest(
+    request = DataflowCollectionRequest(
         market=Market.VN_STOCK,
         symbol="VCB",
         dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
@@ -511,26 +576,26 @@ def test_dataflow_models_serialize_safe_provider_statuses() -> None:
     provider = DataflowProviderResult(
         provider_id="vnstock",
         dataset_groups=(DatasetGroup.MARKET_PRICE,),
-        status=RetrievalStatus.SUCCESS,
+        status=CollectionStatus.SUCCESS,
         source_ids=("vnstock_prices",),
         warnings=(),
     )
-    result = DataflowRetrievalResult(
-        retrieval_id="retrieval_test",
+    result = DataflowCollectionResult(
+        collection_id="collection_test",
         market=request.market,
         symbol=request.symbol,
         requested_dataset_groups=request.dataset_groups,
         provider_results=(provider,),
         records=(),
         source_documents=(),
-        status=RetrievalStatus.SUCCESS,
+        status=CollectionStatus.SUCCESS,
         warnings=(),
         failure_reasons=(),
     )
 
     serialized = result.to_output()
 
-    assert serialized["retrieval_id"] == "retrieval_test"
+    assert serialized["collection_id"] == "collection_test"
     assert serialized["requested_dataset_groups"] == ["market_price", "fundamental"]
     assert serialized["provider_results"][0]["provider_id"] == "vnstock"
     assert "raw" not in str(serialized).lower()
@@ -623,7 +688,7 @@ def test_vnstock_api_key_env_is_supported(
 def test_dataflow_fallback_labels_provider_failure_without_raw_payloads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from finmind_agents.dataflows.models import DataflowRetrievalRequest, DatasetGroup
+    from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
     from finmind_api.platform import create_demo_platform
 
     monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
@@ -632,8 +697,8 @@ def test_dataflow_fallback_labels_provider_failure_without_raw_payloads(
     monkeypatch.delenv("FINMIND_US_ALPHA_VANTAGE_API_KEY", raising=False)
     platform = create_demo_platform()
 
-    result = platform.dataflow_service.retrieve(
-        DataflowRetrievalRequest(
+    result = platform.dataflow_service.collect(
+        DataflowCollectionRequest(
             market=Market.US_STOCK,
             symbol="AAPL",
             dataset_groups=(DatasetGroup.NEWS,),
@@ -655,7 +720,7 @@ def test_dataflow_fallback_labels_provider_failure_without_raw_payloads(
 def test_vnstock_provider_fetches_live_price_and_fundamental_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from finmind_agents.dataflows.models import DataflowRetrievalRequest, DatasetGroup
+    from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
     from finmind_agents.dataflows.providers.vnstock import VnstockProvider
 
     class FakeEquityMarket:
@@ -705,7 +770,7 @@ def test_vnstock_provider_fetches_live_price_and_fundamental_records(
     monkeypatch.setitem(sys.modules, "vnstock", fake_vnstock)
 
     result = VnstockProvider().fetch(
-        DataflowRetrievalRequest(
+        DataflowCollectionRequest(
             market=Market.VN_STOCK,
             symbol="VCB",
             dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
@@ -733,7 +798,7 @@ def test_vnstock_provider_fetches_live_price_and_fundamental_records(
 def test_vnstock_provider_supports_top_level_vnstock_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from finmind_agents.dataflows.models import DataflowRetrievalRequest, DatasetGroup
+    from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
     from finmind_agents.dataflows.providers.vnstock import VnstockProvider
 
     class FakeQuote:
@@ -779,7 +844,7 @@ def test_vnstock_provider_supports_top_level_vnstock_api(
     monkeypatch.setitem(sys.modules, "vnstock", fake_vnstock)
 
     result = VnstockProvider().fetch(
-        DataflowRetrievalRequest(
+        DataflowCollectionRequest(
             market=Market.VN_STOCK,
             symbol="DXG",
             dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
@@ -802,7 +867,7 @@ def test_vnstock_provider_supports_top_level_vnstock_api(
 def test_vnstock_provider_registers_api_key_before_fetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from finmind_agents.dataflows.models import DataflowRetrievalRequest, DatasetGroup
+    from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
     from finmind_agents.dataflows.providers.vnstock import VnstockProvider
 
     registered: list[str] = []
@@ -820,7 +885,7 @@ def test_vnstock_provider_registers_api_key_before_fetch(
     monkeypatch.setitem(sys.modules, "vnstock", fake_vnstock)
 
     result = VnstockProvider(api_key="vnstock-secret").fetch(
-        DataflowRetrievalRequest(
+        DataflowCollectionRequest(
             market=Market.VN_STOCK,
             symbol="VCB",
             dataset_groups=(DatasetGroup.MARKET_PRICE,),
@@ -835,7 +900,7 @@ def test_vnstock_provider_registers_api_key_before_fetch(
 def test_vnstock_provider_registration_failure_does_not_leak_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from finmind_agents.dataflows.models import DataflowRetrievalRequest, DatasetGroup
+    from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
     from finmind_agents.dataflows.providers.vnstock import VnstockProvider
 
     def fail_register(api_key: str) -> None:
@@ -849,7 +914,7 @@ def test_vnstock_provider_registration_failure_does_not_leak_key(
     monkeypatch.setitem(sys.modules, "vnstock", fake_vnstock)
 
     result = VnstockProvider(api_key="vnstock-secret").fetch(
-        DataflowRetrievalRequest(
+        DataflowCollectionRequest(
             market=Market.VN_STOCK,
             symbol="VCB",
             dataset_groups=(DatasetGroup.MARKET_PRICE,),
@@ -862,7 +927,7 @@ def test_vnstock_provider_registration_failure_does_not_leak_key(
     assert "vnstock-secret" not in str(result.provider_result)
 
 
-def test_workflow_run_returns_cited_fresh_chart_result(
+def test_workflow_run_returns_cited_chart_result(
     client: TestClient,
 ) -> None:
     response = client.post(
@@ -875,17 +940,19 @@ def test_workflow_run_returns_cited_fresh_chart_result(
     assert result["kind"] == "workflow"
     assert result["status"] == "success"
     assert result["inputs"]["symbol"] == "VCB"
-    assert result["output"]["quality"]["quality_status"] in {"pass", "warn"}
+    assert result["output"]["grounding"]["grounding_status"] == "pass"
     analysis_section = next(
         section
         for section in result["output"]["sections"]
         if section["title"] == "Collected Data"
     )
     assert analysis_section["citations"]
-    assert result["output"]["citations"][0]["source_type"] == "market_data"
-    assert result["output"]["freshness"][0]["status"] == "fresh"
+    assert result["output"]["citations"]
+    assert result["output"]["citations"][0]["dataset_id"] in {"vn_prices", "vn_fundamentals"}
+    assert result["output"]["citations"][0]["source_id"]
+    assert result["output"]["citations"][0]["timestamp"]
     collection = result["output"]["collection"]
-    assert collection["retrieval_id"].startswith("retrieval_")
+    assert collection["collection_id"].startswith("collection_")
     assert "market_price" in collection["requested_dataset_groups"]
     assert collection["provider_results"]
     assert "raw" not in str(collection).lower()
@@ -893,7 +960,7 @@ def test_workflow_run_returns_cited_fresh_chart_result(
     chart = result["output"]["artifacts"]["chart"]
     assert chart["artifact_type"] == "chart"
     assert chart["payload"]["series"]
-    assert chart["evidence_refs"]
+    assert chart["source_refs"]
     assert "reasoning" not in str(result).lower()
 
     run_response = client.get(f"/api/runs/{result['id']}")
@@ -1000,10 +1067,10 @@ def test_unsupported_market_validation_stops_before_dataflow_calls(
 ) -> None:
     from finmind_agents.dataflows.service import DataflowService
 
-    def fail_retrieve(self: DataflowService, request: object) -> object:
+    def fail_collect(self: DataflowService, request: object) -> object:
         raise AssertionError("dataflows should not run for invalid market")
 
-    monkeypatch.setattr(DataflowService, "retrieve", fail_retrieve)
+    monkeypatch.setattr(DataflowService, "collect", fail_collect)
 
     response = client.post(
         "/api/workflows/vn-financial-data-collector/run",

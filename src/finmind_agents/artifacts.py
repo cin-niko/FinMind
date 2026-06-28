@@ -1,10 +1,10 @@
-from finmind_agents.models import Artifact, CanonicalMarketDataRecord, EvidenceObject
+from finmind_agents.models import Artifact, CanonicalMarketDataRecord, Citation
 
 
 def build_chart_artifact(
     workflow_id: str,
     records: list[CanonicalMarketDataRecord],
-    evidence: list[EvidenceObject],
+    citations: list[Citation],
 ) -> Artifact:
     return Artifact(
         artifact_id=f"artifact_{workflow_id}_{records[0].dataset_id}",
@@ -32,5 +32,5 @@ def build_chart_artifact(
                 for record in records
             ],
         },
-        evidence_refs=tuple(item.evidence_id for item in evidence),
+        source_refs=tuple(citation.citation_id for citation in citations),
     )

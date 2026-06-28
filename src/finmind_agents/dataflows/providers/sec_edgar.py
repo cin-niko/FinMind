@@ -1,8 +1,8 @@
 from finmind_agents.dataflows.models import (
     DataflowProviderResult,
-    DataflowRetrievalRequest,
+    DataflowCollectionRequest,
     DatasetGroup,
-    RetrievalStatus,
+    CollectionStatus,
 )
 from finmind_agents.dataflows.providers.base import ProviderCapability, ProviderFetchResult
 from finmind_agents.models import Market
@@ -20,13 +20,13 @@ class SecEdgarProvider:
     def __init__(self, user_agent: str = "") -> None:
         self._user_agent = user_agent
 
-    def fetch(self, request: DataflowRetrievalRequest) -> ProviderFetchResult:
+    def fetch(self, request: DataflowCollectionRequest) -> ProviderFetchResult:
         if not self._user_agent:
             return ProviderFetchResult(
                 provider_result=DataflowProviderResult(
                     provider_id=self.provider_id,
                     dataset_groups=_supported_groups(request.dataset_groups),
-                    status=RetrievalStatus.SKIPPED,
+                    status=CollectionStatus.SKIPPED,
                     warnings=("sec_edgar_user_agent_missing",),
                     failure_reason="SEC EDGAR User-Agent is not configured",
                 )
@@ -35,9 +35,9 @@ class SecEdgarProvider:
             provider_result=DataflowProviderResult(
                 provider_id=self.provider_id,
                 dataset_groups=_supported_groups(request.dataset_groups),
-                status=RetrievalStatus.SKIPPED,
+                status=CollectionStatus.SKIPPED,
                 warnings=("sec_edgar_live_fetch_not_enabled",),
-                failure_reason="SEC EDGAR live retrieval is not enabled in this harness",
+                failure_reason="SEC EDGAR live collection is not enabled in this harness",
             )
         )
 

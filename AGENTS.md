@@ -4,7 +4,7 @@ This file orients any AI coding agent working in this repository. Read it before
 
 ## 1. What This Repo Is
 
-FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated, workflow-first finance advice workbench for VN stocks and US stocks, with evidence-backed outputs, citations, freshness, canonical contracts, chart artifacts, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with evidence/citations, not hallucination.
+FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated, workflow-first finance advice workbench for VN stocks and US stocks, with evidence-backed outputs, citations, canonical contracts, chart artifacts, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with citations and source provenance, not hallucination.
 
 The target repo split is `src/finmind_agents` for the shared agentic and
 finance orchestration layer, `src/finmind_api` for the backend API layer, and
@@ -150,7 +150,7 @@ tests/                   current test suite
 ## 9. Current Feature State
 
 1. `001-mvp-ui`: active implemented feature covering auth, app shell, deterministic mock chat UI, artifact detail, navigation, grouped history layout, and UI foundations.
-2. `002-workflow`: draft phase 02 feature for a guarded workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock and US stock scope, citations, freshness, chart artifacts, execution status, and workflow run inspection.
+2. `002-workflow`: draft phase 02 feature for a guarded workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock and US stock scope, citations, chart artifacts, execution status, and workflow run inspection.
 3. `003-agentic-chatflow`: draft phase 03 feature for future evidence-backed flexible Q&A chatflow over trusted sources.
 
 Deleted roadmap folders such as data operations and extension hardening are not canonical. Recreate future capabilities through a fresh Spec Kit cycle only when scope, data access, safety, and contracts are ready.

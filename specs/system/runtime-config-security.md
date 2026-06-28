@@ -32,7 +32,7 @@ V1 uses cookie-backed web sessions for authenticated browser access. Session coo
 
 Current seeded/demo workflow coverage is VN stocks and US stocks. Future market
 coverage is not valid user-facing scope until a new bounded spec defines the
-asset coverage, source eligibility, freshness rules, and safety behavior.
+asset coverage, source eligibility, and safety behavior.
 
 Mock/demo surfaces are still user-facing scope surfaces. Controls must not present
 unsupported markets or assets as enabled runnable choices. If roadmap markets are
@@ -51,7 +51,7 @@ V1 excludes:
 
 ## Evidence Safety
 
-Generated material claims must show citations and freshness metadata, or be omitted, qualified, or marked unsupported/unavailable. Stale data must be visible as stale rather than silently presented as current.
+Generated material claims must show citations (source id, dataset id, timestamp) or be omitted, qualified, or marked unsupported/unavailable. Data age is conveyed by citation timestamps; records must not be silently presented as more current than their citation timestamp.
 
 ## Reasoning Safety
 

@@ -14,7 +14,7 @@ Use vnstock-backed data collection first:
 
 ## Priority 2: Official Or Trusted VN Web Sources
 
-Use later only when explicit web retrieval is implemented and source eligibility
+Use later only when explicit web collection is implemented and source eligibility
 is approved:
 
 - Vietstock financial pages

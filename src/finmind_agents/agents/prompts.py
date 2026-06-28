@@ -41,7 +41,7 @@ def build_skill_user_prompt(request: AgentRunRequest) -> str:
             for requirement in request.data_requirements
         ],
         "context": request.context,
-        "allowed_evidence_ids": list(request.evidence_ids),
+        "allowed_citation_ids": list(request.citation_ids),
     }
     return (
         "Run the provided skill and return an AgentRunResult JSON object. "

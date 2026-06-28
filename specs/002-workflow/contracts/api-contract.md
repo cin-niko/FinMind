@@ -17,7 +17,7 @@ All endpoints require an authenticated cookie-backed session.
 ## `GET /api/workflows`
 
 Returns UI-runnable workflow catalog entries. Internal steps such as
-`data-collector` and `data-quality-check` are not primary catalog cards.
+`collect_data` and the data-audit skill are not primary catalog cards.
 
 Response item shape:
 
@@ -33,8 +33,8 @@ Response item shape:
     { "name": "symbol", "type": "string", "required": true }
   ],
   "stages": [
-    "data-collector",
-    "data-quality-check",
+    "collect_data",
+    "data-audit",
     "fundamental-analysis",
     "technical-analysis",
     "news-digest",
@@ -91,37 +91,39 @@ Response shape:
 {
   "id": "run_abc123",
   "kind": "workflow",
-  "status": "success",
+  "status": "partial",
   "inputs": { "market": "VN_STOCK", "symbol": "VCB" },
   "started_at": "2026-06-27T00:00:00+00:00",
   "completed_at": "2026-06-27T00:00:02+00:00",
   "output": {
     "sections": [
       {
-        "title": "Fundamentals",
+        "title": "Collected Data",
         "status": "success",
-        "content": "Business quality and valuation summary.",
+        "content": "Audited VCB financial data package with citations.",
         "citations": ["cite_1"],
-        "warnings": []
+        "warnings": [],
+        "allowed_claims": ["data_availability"],
+        "blocked_claims": []
+      },
+      {
+        "title": "Fundamentals",
+        "status": "partial",
+        "content": "Fundamental analysis on available statements; news-dependent claims blocked.",
+        "citations": ["cite_1"],
+        "warnings": ["news_missing"],
+        "allowed_claims": ["financial_history"],
+        "blocked_claims": ["recent_news_impact"]
       }
     ],
-    "quality": {
-      "quality_status": "warn",
-      "dataset_statuses": {
-        "price_series": "fresh",
-        "fundamentals": "stale",
-        "news_docs": "missing"
-      },
-      "blocking_issues": ["news_digest_unavailable"],
-      "warnings": ["fundamentals_stale"],
-      "allowed_claims": ["technical_trend", "price_momentum"],
-      "blocked_claims": ["recent_news_impact"],
-      "freshness_summary": "Price data fresh; fundamentals stale; news unavailable.",
-      "evidence_refs": ["evidence_1"]
-    },
+    "steps": [
+      { "id": "collect_data", "kind": "collect_data", "status": "fallback", "warnings": [] },
+      { "id": "vn-financial-data-auditor", "kind": "skill", "status": "success", "warnings": [] },
+      { "id": "vn-fundamental-analysis", "kind": "skill", "status": "partial", "warnings": ["news_missing"] }
+    ],
     "collection": {
       "status": "partial",
-      "retrieval_id": "retrieval_abc123",
+      "collection_id": "collection_abc123",
       "providers": ["vnstock", "offline_fallback"],
       "requested_dataset_groups": ["market_price", "fundamental", "news"],
       "provider_results": [
@@ -143,36 +145,17 @@ Response shape:
       "records_collected": 2,
       "documents_collected": 1,
       "warnings": ["source_documents_fallback"],
+      "failure_reasons": [],
       "started_at": "2026-06-27T00:00:00+00:00",
       "completed_at": "2026-06-27T00:00:01+00:00"
-    },
-    "agent": {
-      "status": "partial",
-      "runtime_adapter": "langchain_litellm",
-      "policy_id": "workflow_strict",
-      "skill_id": "vn-financial-data-collector",
-      "retrieval_plan_status": "executed",
-      "tool_status": "partial",
-      "allowed_claims": ["price_snapshot", "company_profile"],
-      "blocked_claims": ["audited_financial_trend", "recent_news_impact"],
-      "warnings": ["fundamentals_missing", "news_provider_unavailable"],
-      "validation_errors": []
     },
     "citations": [
       {
         "citation_id": "cite_1",
-        "evidence_id": "evidence_1",
+        "source_id": "vnstock_prices",
+        "dataset_id": "vn_prices",
         "label": "Demo VN Prices",
-        "source_type": "market_data",
-        "source_reference": "VCB-2026-06-18",
         "timestamp": "2026-06-18T07:00:00+00:00"
-      }
-    ],
-    "freshness": [
-      {
-        "dataset": "vn_prices",
-        "status": "fresh",
-        "as_of": "2026-06-18T07:00:00+00:00"
       }
     ],
     "artifacts": {
@@ -180,6 +163,7 @@ Response shape:
         "artifact_id": "artifact_1",
         "artifact_type": "chart",
         "title": "VCB Price Series",
+        "inputs": ["vn_prices"],
         "payload": {
           "series": [{ "time": "2026-06-18", "value": 58200 }],
           "table": [
@@ -190,20 +174,17 @@ Response shape:
             }
           ]
         },
-        "evidence_refs": ["evidence_1"]
+        "source_refs": ["cite_1"]
       }
     },
-    "visible_execution": {
-      "stages": [
-        { "id": "data-collector", "status": "success", "warnings": [] },
-        { "id": "data-quality-check", "status": "partial", "warnings": ["fundamentals_stale"] },
-        { "id": "news-digest", "status": "unavailable", "warnings": ["news_digest_unavailable"] }
-      ],
-      "tool_status": "partial"
+    "grounding": {
+      "grounding_status": "pass",
+      "blocked_claims": ["recent_news_impact"],
+      "uncited_claims": []
     }
   },
   "logs": [
-    { "event": "workflow_started", "stage": "data-collector" },
+    { "event": "workflow_started", "stage": "collect_data" },
     { "event": "workflow_completed", "status": "partial" }
   ]
 }
@@ -211,38 +192,44 @@ Response shape:
 
 Raw agent reasoning must never appear in responses.
 
-Agent contract:
+Step and grounding contract:
 
-- `agent.status` values: `success`, `partial`, `failed`, `unavailable`.
-- `runtime_adapter` is a safe runtime identity such as `langchain_litellm` or
-  `langchain_agent`; it is not a provider secret or hidden prompt.
-- `policy_id` identifies the runtime policy envelope. Phase 02 workflow runs use
-  a strict workflow policy with fixed skills, skill-owned data requirements,
-  bounded iterations, dataflows-only tool access, and fail-closed behavior.
-- `skill_id` identifies the governed Agent Skill executed for the stage or run.
-- `retrieval_plan_status` indicates whether the agent-derived retrieval plan was
-  proposed, approved, rejected, executed, or partial. It is safe status metadata,
-  not raw reasoning.
-- `tool_status`, `warnings`, `blocked_claims`, and `validation_errors` are safe
-  execution metadata for UI inspection.
-- `agent` must never contain raw chain-of-thought, hidden prompts, provider
-  secrets, raw provider payloads, or unsafe diagnostics.
-- Material claims generated by an agent must pass FinMind validators for
-  citations, freshness, data-quality gates, market scope, and advice-only
-  framing before appearing in `sections`.
+- `steps` is the ordered `step_sequence` execution trace. Each step has `kind`
+  `collect_data` or `skill`, a `status`, and `warnings`.
+- `collect_data` step status is informational only (`success`, `partial`,
+  `failed`, `fallback`); run status is derived from skill steps.
+- Skill step `status` values: `success`, `partial`, `failed`. There is no
+  pre-skill fail-fast: a skill runs on whatever `collect_data` returned and
+  resolves which claims it can support, reporting `blocked_claims` for the rest.
+  Run status is `failed` if any skill step failed, else `partial` if any skill
+  step is `partial`, else `success`.
+- `collect_data` is the only hard floor: zero records and zero source documents
+  fails the run before any skill step.
+- `grounding.grounding_status` is `pass` or `blocked`. It is `blocked` only when
+  claims cite sources not present in the returned citations (`uncited_claims`).
+- `grounding.blocked_claims` lists claim categories the skill reported blocked
+  (surfaced for transparency).
+- `grounding.uncited_claims` lists claims whose citations are not a subset of the
+  returned citation ids (a grounding violation).
+- Raw agent reasoning must never appear in `steps`, `sections`, or `grounding`.
+- Material claims generated by a skill must pass FinMind validators for
+  citations, market scope, and advice-only framing before appearing in
+  `sections`. Data age is conveyed by citation `timestamp`; there is no separate
+  freshness field.
 
 Collection contract:
 
 - `collection.status` values: `success`, `partial`, `failed`, `fallback`.
 - `collection` is produced by `src/finmind_agents/dataflows/` after a
-  FinMind-validated retrieval plan, not direct workflow or agent provider calls.
+  FinMind-validated collection plan, not direct workflow or agent provider calls.
 - `providers` may include provider ids such as `vnstock`, `alpha_vantage`,
   `sec_edgar`, and `offline_fallback`.
 - `requested_dataset_groups` values are `market_price`, `fundamental`, and
   `news` for Phase 02.
-- Requested dataset groups are derived from the referenced skill's
-  `DATA_REQUIREMENTS.yaml` and the agent's approved retrieval plan. Workflow YAML
-  must not duplicate detailed dataset requirements.
+- Requested dataset groups are derived from the referenced skills'
+  `DATA_REQUIREMENTS.yaml` (raw-data skills only; upstream-dependent skills have
+  none and are not added to the collect fetch list). Workflow YAML must not
+  duplicate detailed dataset requirements.
 - `provider_results` are safe status summaries. They must not include raw
   provider payloads.
 - Provider API keys, credentials, raw responses, hidden prompts, and unsafe

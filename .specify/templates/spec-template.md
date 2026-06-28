@@ -79,7 +79,7 @@
 - How does system handle [error scenario]?
 - What unsupported, stale, missing, failed, or unsafe state must be blocked or clearly marked?
 - Where must human review or confirmation remain in the workflow?
-- What user-facing status, evidence, citation, freshness, artifact, or error state is shown?
+- What user-facing status, evidence, citation, artifact, or error state is shown?
 - What performance boundary could make this feature unusable?
 
 ## Requirements *(mandatory)*

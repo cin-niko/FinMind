@@ -3,9 +3,9 @@ from dataclasses import replace
 from uuid import uuid4
 
 from finmind_agents.dataflows.models import (
-    DataflowRetrievalRequest,
-    DataflowRetrievalResult,
-    RetrievalStatus,
+    DataflowCollectionRequest,
+    DataflowCollectionResult,
+    CollectionStatus,
     dataflow_now,
 )
 from finmind_agents.dataflows.providers.base import ProviderFetchResult
@@ -16,7 +16,7 @@ from finmind_agents.dataflows.registry import DataflowProviderRegistry
 class DataflowService:
     registry: DataflowProviderRegistry
 
-    def retrieve(self, request: DataflowRetrievalRequest) -> DataflowRetrievalResult:
+    def collect(self, request: DataflowCollectionRequest) -> DataflowCollectionResult:
         started_at = dataflow_now()
         dataset_groups = request.effective_dataset_groups()
         provider_request = replace(request, dataset_groups=dataset_groups)
@@ -68,8 +68,8 @@ class DataflowService:
             has_data=bool(records or source_documents),
             warnings=warnings,
         )
-        return DataflowRetrievalResult(
-            retrieval_id=f"retrieval_{uuid4().hex[:12]}",
+        return DataflowCollectionResult(
+            collection_id=f"collection_{uuid4().hex[:12]}",
             market=request.market,
             symbol=request.symbol,
             requested_dataset_groups=dataset_groups,
@@ -85,17 +85,17 @@ class DataflowService:
 
 
 def _result_status(
-    provider_statuses: tuple[RetrievalStatus, ...],
+    provider_statuses: tuple[CollectionStatus, ...],
     has_data: bool,
     warnings: tuple[str, ...],
-) -> RetrievalStatus:
+) -> CollectionStatus:
     if not has_data:
-        return RetrievalStatus.FAILED
-    if RetrievalStatus.SUCCESS in provider_statuses and not warnings:
-        return RetrievalStatus.SUCCESS
-    if RetrievalStatus.FALLBACK in provider_statuses and not warnings:
-        return RetrievalStatus.FALLBACK
-    return RetrievalStatus.PARTIAL
+        return CollectionStatus.FAILED
+    if CollectionStatus.SUCCESS in provider_statuses and not warnings:
+        return CollectionStatus.SUCCESS
+    if CollectionStatus.FALLBACK in provider_statuses and not warnings:
+        return CollectionStatus.FALLBACK
+    return CollectionStatus.PARTIAL
 
 
 def _missing_groups(

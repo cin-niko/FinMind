@@ -30,7 +30,7 @@ class AgentRuntimePolicy:
     allowed_skills: tuple[str, ...]
     allowed_markets: tuple[Market, ...]
     allowed_dataset_groups: tuple[str, ...]
-    allow_optional_retrieval: bool
+    allow_optional_collection: bool
     max_iterations: int
     timeout_seconds: float
     output_schema: str
@@ -47,11 +47,11 @@ class AgentRuntimePolicy:
         return cls(
             policy_id="workflow_strict",
             mode=RuntimeMode.WORKFLOW,
-            allowed_tools=("retrieve_dataflow", "load_skill", "validate_finmind_output"),
+            allowed_tools=("collect_dataflow", "load_skill", "validate_finmind_output"),
             allowed_skills=allowed_skills,
             allowed_markets=(Market.VN_STOCK, Market.US_STOCK),
             allowed_dataset_groups=("market_price", "fundamental", "news"),
-            allow_optional_retrieval=True,
+            allow_optional_collection=True,
             max_iterations=4,
             timeout_seconds=45.0,
             output_schema="workflow_agent_result",

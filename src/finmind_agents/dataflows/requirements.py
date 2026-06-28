@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import Any
 
 from finmind_agents.dataflows.models import (
-    AgentRetrievalPlan,
+    AgentCollectionPlan,
     DataRequirement,
     Market,
-    RetrievalPlanStatus,
+    CollectionPlanStatus,
 )
 
 
@@ -14,8 +14,8 @@ class DataRequirementError(ValueError):
     """Raised when a skill data requirement contract is invalid."""
 
 
-class RetrievalPlanError(ValueError):
-    """Raised when an agent retrieval plan violates skill or runtime policy."""
+class CollectionPlanError(ValueError):
+    """Raised when an agent collection plan violates skill or runtime policy."""
 
 
 def load_data_requirements(path: str | Path) -> tuple[DataRequirement, ...]:
@@ -35,7 +35,7 @@ def load_data_requirements(path: str | Path) -> tuple[DataRequirement, ...]:
     return tuple(requirements)
 
 
-def build_agent_retrieval_plan(
+def build_agent_collection_plan(
     *,
     skill_id: str,
     market: Market,
@@ -43,8 +43,8 @@ def build_agent_retrieval_plan(
     data_requirements: tuple[DataRequirement, ...],
     policy_id: str = "workflow_strict",
     allow_optional: bool = True,
-) -> AgentRetrievalPlan:
-    plan = AgentRetrievalPlan(
+) -> AgentCollectionPlan:
+    plan = AgentCollectionPlan(
         skill_id=skill_id,
         market=market,
         symbol=symbol,
@@ -58,36 +58,36 @@ def build_agent_retrieval_plan(
         ),
         policy_id=policy_id,
     )
-    validate_agent_retrieval_plan(
+    validate_agent_collection_plan(
         plan,
         declared_requirements=data_requirements,
         allow_optional=allow_optional,
     )
-    return AgentRetrievalPlan(
+    return AgentCollectionPlan(
         skill_id=plan.skill_id,
         market=plan.market,
         symbol=plan.symbol,
         required_requests=plan.required_requests,
         optional_requests=plan.optional_requests,
         policy_id=plan.policy_id,
-        status=RetrievalPlanStatus.APPROVED,
+        status=CollectionPlanStatus.APPROVED,
     )
 
 
-def mark_retrieval_plan_executed(plan: AgentRetrievalPlan) -> AgentRetrievalPlan:
-    return AgentRetrievalPlan(
+def mark_collection_plan_executed(plan: AgentCollectionPlan) -> AgentCollectionPlan:
+    return AgentCollectionPlan(
         skill_id=plan.skill_id,
         market=plan.market,
         symbol=plan.symbol,
         required_requests=plan.required_requests,
         optional_requests=plan.optional_requests,
         policy_id=plan.policy_id,
-        status=RetrievalPlanStatus.EXECUTED,
+        status=CollectionPlanStatus.EXECUTED,
     )
 
 
-def validate_agent_retrieval_plan(
-    plan: AgentRetrievalPlan,
+def validate_agent_collection_plan(
+    plan: AgentCollectionPlan,
     *,
     declared_requirements: tuple[DataRequirement, ...],
     allow_optional: bool,
@@ -101,20 +101,20 @@ def validate_agent_retrieval_plan(
     }
     for requirement in plan.required_requests:
         if requirement.dataset not in declared:
-            raise RetrievalPlanError(
+            raise CollectionPlanError(
                 f"{requirement.dataset} is not declared by skill data requirements"
             )
     for requirement in plan.optional_requests:
         if not allow_optional:
-            raise RetrievalPlanError("Optional retrieval is not allowed by policy")
+            raise CollectionPlanError("Optional collection is not allowed by policy")
         if requirement.dataset not in optional_declared:
-            raise RetrievalPlanError(
+            raise CollectionPlanError(
                 f"{requirement.dataset} is not declared optional by skill data requirements"
             )
     planned_required = {requirement.dataset for requirement in plan.required_requests}
     missing_required = sorted(required_declared - planned_required)
     if missing_required:
-        raise RetrievalPlanError(
+        raise CollectionPlanError(
             f"Required skill data was not planned: {', '.join(missing_required)}"
         )
 

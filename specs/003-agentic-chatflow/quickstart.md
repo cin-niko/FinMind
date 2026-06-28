@@ -16,7 +16,7 @@ This feature is draft and has no runnable implementation validation yet.
 Before implementation, define:
 
 - trusted source list
-- retrieval strategy
+- collection strategy
 - citation policy
 - safety refusal policy
 - evaluation prompts and expected grounded answers

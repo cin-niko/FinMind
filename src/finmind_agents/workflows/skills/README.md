@@ -1,13 +1,13 @@
 # Workflow Agent Skills
 
 Markdown agent skills describe governed workflow behavior. The current active
-runtime skill is `vn-financial-data-collector`; analysis skills will be added
+runtime skill is `vn-financial-data-auditor`; analysis skills will be added
 back only after their core logic is specified and reviewed.
 
 Skills are not directly executable API or external-agent tools. The workflow
 runtime invokes them only through validated YAML workflow definitions and still
-enforces market scope, data-quality gates, citation policy, freshness, and
-advice-only safety rules.
+enforces market scope, citation policy, grounding, and advice-only
+safety rules.
 
 ## Standard Format
 
@@ -17,7 +17,7 @@ and is referenced by workflow YAML with that full project-relative path. Each
 
 - YAML frontmatter with `name`, `description`, and `version`.
 - Optional `DATA_REQUIREMENTS.yaml` for low-level machine-readable data needs
-  consumed by the orchestrator before calling `DataflowService.retrieve(...)`.
+  consumed by the orchestrator before calling `DataflowService.collect(...)`.
 - Compatibility fields consumed by the current loader: `Version`, `Purpose`,
   `Blocked Behavior`, `Output Contract`, and `Citation Policy`.
 - Agent operating sections: `Role`, `When To Use`, `Required Context`,

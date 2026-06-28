@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "required": [
+    {
+      "dataset": "ohlcv",
+      "interval": "1d",
+      "lookback": "1y",
+      "purpose": "daily price series for MA/RSI/MACD/Bollinger, candlestick and chart patterns, volatility, drawdown, and volume-price confirmation"
+    },
+    {
+      "dataset": "ohlcv",
+      "interval": "1d",
+      "lookback": "3y",
+      "purpose": "longer history for rolling percentile, HV252, VaR/ES, and profile-mode statistics"
+    },
+    {
+      "dataset": "company_profile",
+      "fields": ["industry", "sector", "shares_outstanding", "market_cap"],
+      "purpose": "issuer identity, market-cap context, and beta/correlation benchmark selection"
+    }
+  ],
+  "optional": [
+    {
+      "dataset": "ohlcv",
+      "interval": "1d",
+      "lookback": "5y",
+      "purpose": "extended history for archetype and regime analysis when available"
+    }
+  ]
+}

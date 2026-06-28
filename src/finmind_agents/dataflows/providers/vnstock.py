@@ -4,9 +4,9 @@ from typing import Any
 
 from finmind_agents.dataflows.models import (
     DataflowProviderResult,
-    DataflowRetrievalRequest,
+    DataflowCollectionRequest,
     DatasetGroup,
-    RetrievalStatus,
+    CollectionStatus,
     dataflow_now,
 )
 from finmind_agents.dataflows.providers.base import ProviderCapability, ProviderFetchResult
@@ -29,7 +29,7 @@ class VnstockProvider:
     def __init__(self, api_key: str = "") -> None:
         self._api_key = api_key.strip()
 
-    def fetch(self, request: DataflowRetrievalRequest) -> ProviderFetchResult:
+    def fetch(self, request: DataflowCollectionRequest) -> ProviderFetchResult:
         try:
             vnstock = import_module("vnstock")
         except ImportError:
@@ -37,7 +37,7 @@ class VnstockProvider:
                 provider_result=DataflowProviderResult(
                     provider_id=self.provider_id,
                     dataset_groups=_supported_groups(request.dataset_groups),
-                    status=RetrievalStatus.SKIPPED,
+                    status=CollectionStatus.SKIPPED,
                     warnings=("vnstock_unavailable",),
                     failure_reason="vnstock package is not installed",
                 )
@@ -52,7 +52,7 @@ class VnstockProvider:
                         provider_result=DataflowProviderResult(
                             provider_id=self.provider_id,
                             dataset_groups=_supported_groups(request.dataset_groups),
-                            status=RetrievalStatus.FAILED,
+                            status=CollectionStatus.FAILED,
                             warnings=("vnstock_registration_failed",),
                             failure_reason="vnstock API key registration failed",
                         )
@@ -93,7 +93,7 @@ class VnstockProvider:
                 provider_result=DataflowProviderResult(
                     provider_id=self.provider_id,
                     dataset_groups=_supported_groups(request.dataset_groups),
-                    status=RetrievalStatus.FAILED,
+                    status=CollectionStatus.FAILED,
                     warnings=tuple(warnings or ["vnstock_empty_result"]),
                     failure_reason=failure_reason,
                 )
@@ -103,7 +103,7 @@ class VnstockProvider:
             provider_result=DataflowProviderResult(
                 provider_id=self.provider_id,
                 dataset_groups=_supported_groups(request.dataset_groups),
-                status=RetrievalStatus.PARTIAL if warnings else RetrievalStatus.SUCCESS,
+                status=CollectionStatus.PARTIAL if warnings else CollectionStatus.SUCCESS,
                 source_ids=source_ids,
                 warnings=tuple(warnings),
             ),
@@ -121,7 +121,7 @@ def _supported_groups(groups: tuple[DatasetGroup, ...]) -> tuple[DatasetGroup, .
 
 def _fetch_price_records(
     vnstock: Any,
-    request: DataflowRetrievalRequest,
+    request: DataflowCollectionRequest,
 ) -> list[Any]:
     end = dataflow_now().date()
     start = end - timedelta(days=45)
@@ -170,7 +170,7 @@ def _fetch_price_records(
 
 def _fetch_fundamental_records(
     vnstock: Any,
-    request: DataflowRetrievalRequest,
+    request: DataflowCollectionRequest,
 ) -> list[Any]:
     finance_failure = None
     try:
@@ -223,14 +223,14 @@ def _fetch_fundamental_records(
 
 def _fetch_company_overview_rows(
     vnstock: Any,
-    request: DataflowRetrievalRequest,
+    request: DataflowCollectionRequest,
 ) -> list[dict[str, Any]]:
     company = vnstock.Company(source="KBS", symbol=request.symbol)
     return _rows_from_provider_payload(company.overview())
 
 
 def _fundamental_record_from_company_overview(
-    request: DataflowRetrievalRequest,
+    request: DataflowCollectionRequest,
     row: dict[str, Any],
 ) -> Any:
     market_time = _parse_datetime(row.get("as_of_date") or row.get("date") or dataflow_now())

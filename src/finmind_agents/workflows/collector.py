@@ -2,16 +2,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from finmind_agents.dataflows.models import (
-    AgentRetrievalPlan,
+    AgentCollectionPlan,
     DataRequirement,
-    DataflowRetrievalRequest,
-    DataflowRetrievalResult,
-    DatasetGroup,
+    DataflowCollectionRequest,
+    DataflowCollectionResult,
 )
 from finmind_agents.dataflows.requirements import (
-    build_agent_retrieval_plan,
+    build_agent_collection_plan,
     load_data_requirements,
-    mark_retrieval_plan_executed,
+    mark_collection_plan_executed,
 )
 from finmind_agents.dataflows.service import DataflowService
 from finmind_agents.models import (
@@ -27,8 +26,8 @@ from finmind_agents.workflows.validation import WorkflowValidationError
 class CollectedWorkflowData:
     records: tuple[CanonicalMarketDataRecord, ...]
     source_documents: tuple[SourceDocument, ...]
-    retrieval: DataflowRetrievalResult
-    retrieval_plan: AgentRetrievalPlan
+    collection: DataflowCollectionResult
+    collection_plan: AgentCollectionPlan
 
 
 def collect_workflow_data(
@@ -40,27 +39,27 @@ def collect_workflow_data(
     if not symbol:
         raise WorkflowValidationError("symbol is required")
     data_requirements = data_requirements_for_workflow(workflow)
-    retrieval_plan = build_agent_retrieval_plan(
+    collection_plan = build_agent_collection_plan(
         skill_id=primary_skill_id(workflow),
         market=market,
         symbol=symbol,
         data_requirements=data_requirements,
     )
-    retrieval = dataflows.retrieve(
-        DataflowRetrievalRequest(
+    collection = dataflows.collect(
+        DataflowCollectionRequest(
             market=market,
             symbol=symbol,
-            data_requirements=retrieval_plan.all_requests(),
+            data_requirements=collection_plan.all_requests(),
             requested_by=workflow.workflow_id,
         )
     )
-    if not retrieval.records and not retrieval.source_documents:
+    if not collection.records and not collection.source_documents:
         raise WorkflowValidationError("Required market data is missing")
     return CollectedWorkflowData(
-        records=retrieval.records,
-        source_documents=retrieval.source_documents,
-        retrieval=retrieval,
-        retrieval_plan=mark_retrieval_plan_executed(retrieval_plan),
+        records=collection.records,
+        source_documents=collection.source_documents,
+        collection=collection,
+        collection_plan=mark_collection_plan_executed(collection_plan),
     )
 
 
@@ -69,10 +68,28 @@ def data_requirements_for_workflow(
 ) -> tuple[DataRequirement, ...]:
     requirements: list[DataRequirement] = []
     for skill_ref in workflow.skill_refs:
-        requirements_path = Path(skill_ref).with_name("DATA_REQUIREMENTS.yaml")
-        if requirements_path.exists():
-            requirements.extend(load_data_requirements(requirements_path))
+        requirements.extend(_load_requirements_for_skill_ref(skill_ref))
     return tuple(requirements)
+
+
+def data_requirements_for_skill(
+    workflow: WorkflowSpecification,
+    skill_id: str,
+) -> tuple[DataRequirement, ...]:
+    skill_ref = skill_ref_for_id(workflow, skill_id)
+    if skill_ref is None:
+        return ()
+    return _load_requirements_for_skill_ref(skill_ref)
+
+
+def skill_ref_for_id(
+    workflow: WorkflowSpecification,
+    skill_id: str,
+) -> str | None:
+    for skill_ref in workflow.skill_refs:
+        if Path(skill_ref).parent.name == skill_id:
+            return skill_ref
+    return None
 
 
 def primary_skill_id(workflow: WorkflowSpecification) -> str:
@@ -81,22 +98,8 @@ def primary_skill_id(workflow: WorkflowSpecification) -> str:
     return Path(workflow.skill_refs[0]).parent.name
 
 
-def required_dataset_categories_for_requirements(
-    data_requirements: tuple[DataRequirement, ...],
-) -> tuple[str, ...]:
-    categories: list[str] = []
-    for requirement in data_requirements:
-        if not requirement.required:
-            continue
-        category = _quality_dataset_for_group(requirement.dataset_group())
-        if category not in categories:
-            categories.append(category)
-    return tuple(categories)
-
-
-def _quality_dataset_for_group(group: DatasetGroup) -> str:
-    if group is DatasetGroup.MARKET_PRICE:
-        return "price_series"
-    if group is DatasetGroup.FUNDAMENTAL:
-        return "fundamentals"
-    return "source_documents"
+def _load_requirements_for_skill_ref(skill_ref: str) -> tuple[DataRequirement, ...]:
+    requirements_path = Path(skill_ref).with_name("DATA_REQUIREMENTS.yaml")
+    if requirements_path.exists():
+        return load_data_requirements(requirements_path)
+    return ()

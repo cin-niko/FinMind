@@ -3,7 +3,6 @@ from typing import Any
 
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
-    FreshnessStatus,
     Market,
     SourceDocument,
 )
@@ -27,7 +26,6 @@ def normalize_price_record(
         collected_at=collected_at,
         source_id=source_id,
         payload=payload,
-        freshness_status=FreshnessStatus.FRESH,
     )
 
 
@@ -49,7 +47,6 @@ def normalize_fundamental_record(
         collected_at=collected_at,
         source_id=source_id,
         payload=payload,
-        freshness_status=FreshnessStatus.FRESH,
     )
 
 

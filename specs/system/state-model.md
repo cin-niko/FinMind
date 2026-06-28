@@ -16,9 +16,9 @@ This spec defines stable domain state shared across FinMind features. Feature fo
 ## Market Scope
 
 `002-workflow` uses seeded/demo VN stock and US stock records to validate the workflow,
-evidence, citation, freshness, and chart contracts. Future market scope is not
+citation, grounding, and chart contracts. Future market scope is not
 canonical until a new bounded feature spec defines supported assets, source
-eligibility, freshness rules, and safety behavior.
+eligibility, and safety behavior.
 
 ## Entities
 
@@ -76,7 +76,6 @@ Normalized market data item used by workflows, charts, indicators, and evidence.
 - `collected_at`: ingestion collection timestamp
 - `source_id`: source connector identifier
 - `payload`: normalized data values
-- `freshness_status`: fresh, stale, missing, failed
 
 Rules:
 
@@ -135,31 +134,22 @@ Rules:
 - Partial runs distinguish completed sections from failures.
 - Raw agent reasoning remains internal and is not included in user-facing output.
 
-### EvidenceObject
+### Citation
 
-Grounding unit connecting claims and artifacts to source material.
+User-visible source-level reference derived directly from collected canonical
+records. There is no separate `EvidenceObject` layer; grounding is enforced by a
+post-skill `GroundingCheck` over citations.
 
-- `evidence_id`: unique identifier
-- `claim_ref`: output section or claim supported
-- `source_refs`: market records, source documents, or artifacts
-- `observed_at`: timestamp for the evidence
-- `freshness_status`: fresh, stale, missing, failed
-- `summary`: concise evidence summary
+- `citation_id`: unique identifier
+- `source_id`: source connector or demo source identity
+- `dataset_id`: dataset the claim draws from
+- `label`: user-facing citation label
+- `timestamp`: source or market timestamp (conveys data age)
 
 Rules:
 
-- Material user-facing claims require at least one evidence object and citation, or explicit unsupported/unavailable marking.
-
-### Citation
-
-User-visible source reference.
-
-- `citation_id`: unique identifier
-- `evidence_id`: linked evidence object
-- `label`: user-facing citation label
-- `source_type`: market_data, document, artifact
-- `source_reference`: URL, document id, dataset key, or artifact id
-- `timestamp`: source or collection timestamp
+- Material user-facing claims require at least one citation or explicit unsupported/unavailable marking.
+- Cited sources must be a subset of sources returned by collection; otherwise the claim is an `uncited_claim` and grounding is `blocked`.
 
 ### Artifact
 
@@ -170,7 +160,7 @@ Generated chart, table, computed output, or inline visualization.
 - `title`: user-facing title
 - `inputs`: linked data and run inputs
 - `payload`: renderable artifact data
-- `evidence_refs`: linked evidence objects
+- `source_refs`: linked citation ids
 
 Rules:
 

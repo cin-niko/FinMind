@@ -18,7 +18,7 @@ adr_refs:
 `contracts/api-contract.md`, `quickstart.md`
 
 **Tests**: Required for backend/API behavior, workflow runtime safety,
-dataflows retrieval, and frontend contract changes per
+dataflows collection, and frontend contract changes per
 `.specify/memory/constitution.md`.
 
 **Organization**: Tasks are grouped by independently testable user story and
@@ -62,7 +62,7 @@ that all workflow stories depend on.
 - [X] T009 Create shared runtime models and policy types in `src/finmind_agents/runtime/models.py`
 - [X] T010 [P] Create LiteLLM-backed model bootstrap and runtime settings loader in `src/finmind_agents/runtime/bootstrap.py`
 - [X] T011 [P] Create runtime validators for citations, safety, and no-raw-reasoning rules in `src/finmind_agents/runtime/validators.py`
-- [X] T012 [P] Create runtime tool registry for `retrieve_dataflow`, skill loading, and output validation in `src/finmind_agents/runtime/tools.py`
+- [X] T012 [P] Create runtime tool registry for `collect_dataflow`, skill loading, and output validation in `src/finmind_agents/runtime/tools.py`
 - [X] T013 Create `FinMindAgentRuntime` orchestration entrypoint in `src/finmind_agents/runtime/service.py`
 - [X] T014 [P] Migrate canonical dataflow models and providers into `src/finmind_agents/dataflows/models.py` and `src/finmind_agents/dataflows/providers/base.py`
 - [X] T015 [P] Migrate workflow definitions, skill loading, and validation into `src/finmind_agents/workflows/definitions.py`, `src/finmind_agents/workflows/skills.py`, and `src/finmind_agents/workflows/specs.py`
@@ -81,8 +81,8 @@ workflow through the LangChain/LiteLLM-backed runtime and reviews grounded
 results in the UI.
 
 **Independent Test**: Log in, open `Workflows`, run one supported VN or US stock
-workflow, and verify agent metadata, citations, freshness, chart artifacts, and
-execution status.
+workflow, and verify agent metadata, citations, chart artifacts, and execution
+status.
 
 ### Tests for User Story 1
 
@@ -94,11 +94,11 @@ execution status.
 
 - [X] T021 [P] [US1] Migrate workflow collection and quality services into `src/finmind_agents/workflows/collector.py` and `src/finmind_agents/workflows/quality.py`
 - [X] T022 [US1] Implement runtime-driven workflow execution for atomic workflows in `src/finmind_agents/workflows/service.py`
-- [X] T023 [US1] Implement the `retrieve_dataflow` runtime tool against shared dataflows in `src/finmind_agents/runtime/tools.py`
+- [X] T023 [US1] Implement the `collect_dataflow` runtime tool against shared dataflows in `src/finmind_agents/runtime/tools.py`
 - [X] T024 [US1] Add workflow API routes that call the new runtime-backed service in `src/finmind_api/routes/workflows.py`
 - [X] T025 [US1] Align backend schemas with the `agent` and `collection` response envelopes in `src/finmind_api/schemas.py`
 - [X] T026 [US1] Migrate workflow page request handling and response typing into `src/finmind_ui/src/finmind_api/client.ts` and `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
-- [X] T027 [US1] Migrate result rendering for agent metadata, citations, freshness, and chart artifacts into `src/finmind_ui/src/features/results/ResultView.tsx`
+- [X] T027 [US1] Migrate result rendering for agent metadata, citations, and chart artifacts into `src/finmind_ui/src/features/results/ResultView.tsx`
 
 **Checkpoint**: User Story 1 is a working MVP on the new runtime boundary.
 
@@ -161,21 +161,21 @@ collection or safety logic.
 ## Phase 6: User Story 4 - Reject Unsupported Inputs (Priority: P1)
 
 **Goal**: An authenticated internal user cannot run unsupported markets,
-unsupported symbols, undeclared retrieval plans, or unsafe workflow states.
+unsupported symbols, undeclared collection plans, or unsafe workflow states.
 
 **Independent Test**: Attempt unsupported assets, missing inputs, invalid
-symbols, undeclared dataset retrieval, and missing model configuration.
+symbols, undeclared dataset collection, and missing model configuration.
 
 ### Tests for User Story 4
 
 - [ ] T042 [P] [US4] Add unsupported market, symbol, and missing input validation coverage on the migrated API in `tests/test_app.py`
-- [ ] T043 [P] [US4] Add retrieval-plan rejection tests for undeclared dataset requests in `tests/test_platform_services.py`
+- [ ] T043 [P] [US4] Add collection-plan rejection tests for undeclared dataset requests in `tests/test_platform_services.py`
 - [ ] T044 [P] [US4] Add no-fabrication assertions for failed quality or missing citations in `tests/test_platform_services.py`
 
 ### Implementation for User Story 4
 
 - [ ] T045 [US4] Migrate workflow input validation and market scoping into `src/finmind_agents/workflows/validation.py`
-- [ ] T046 [US4] Add retrieval-plan approval and rejection logic in `src/finmind_agents/dataflows/requirements.py`
+- [ ] T046 [US4] Add collection-plan approval and rejection logic in `src/finmind_agents/dataflows/requirements.py`
 - [ ] T047 [US4] Add API error mapping for validation, fail-closed runtime errors, and partial provider failures in `src/finmind_api/routes/workflows.py`
 - [ ] T048 [US4] Migrate field-level validation and unsupported-state UI handling into `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
 
@@ -307,7 +307,7 @@ Task: "Add API response coverage for visible stage statuses and blocked claim ca
 1. Deliver US1 to prove the runtime, dataflows, API, and UI path.
 2. Deliver US2 to complete workflow choice on the migrated UI.
 3. Deliver US3 to make `stock-brief` reusable and visible.
-4. Deliver US4 to lock down validation and retrieval-plan safety.
+4. Deliver US4 to lock down validation and collection-plan safety.
 5. Deliver US5 to preserve run history and result reinspection.
 6. Finish documentation, verification, and quickstart validation in Phase 8.
 
@@ -315,9 +315,9 @@ Task: "Add API response coverage for visible stage statuses and blocked claim ca
 
 - Keep workflow YAML as the executable contract and Markdown skills as governed
   analyst instructions.
-- Keep detailed retrieval requirements in `DATA_REQUIREMENTS.yaml`, not in
+- Keep detailed collection requirements in `DATA_REQUIREMENTS.yaml`, not in
   workflow YAML.
-- Keep provider access behind `retrieve_dataflow`; agent skills must not call
+- Keep provider access behind `collect_dataflow`; agent skills must not call
   provider clients directly.
 - Do not add chatflow, broker actions, gold, BTC, or autonomous financial
   actions in this feature.

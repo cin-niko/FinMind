@@ -15,7 +15,7 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
           <span className="badge">{run.status}</span>
         </div>
         <div className="freshness">
-          Data quality: {run.output.quality.quality_status} · {run.output.quality.freshness_summary}
+          Grounding: {run.output.grounding.grounding_status}
         </div>
         <div className="freshness">
           Collection: {run.output.collection.status} · {run.output.collection.requested_dataset_groups.join(", ")}
@@ -23,11 +23,12 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
         {run.output.collection.warnings.length ? (
           <div className="freshness">Collection warnings: {run.output.collection.warnings.join(", ")}</div>
         ) : null}
-        {run.output.freshness.map((freshness) => (
-          <div className="freshness" key={`${freshness.dataset}-${freshness.as_of}`}>
-            {freshness.dataset}: {freshness.status} as of {freshness.as_of}
-          </div>
-        ))}
+        {run.output.grounding.blocked_claims.length ? (
+          <div className="freshness">Blocked claims: {run.output.grounding.blocked_claims.join(", ")}</div>
+        ) : null}
+        {run.output.grounding.uncited_claims.length ? (
+          <div className="freshness">Uncited claims: {run.output.grounding.uncited_claims.join(", ")}</div>
+        ) : null}
         {run.output.sections.map((section) => (
           <article className="sectionBlock" key={section.title}>
             <h3>{section.title}</h3>
@@ -36,6 +37,12 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
             {section.warnings.length ? (
               <div className="freshness">Warnings: {section.warnings.join(", ")}</div>
             ) : null}
+            {section.allowed_claims.length ? (
+              <div className="freshness">Allowed: {section.allowed_claims.join(", ")}</div>
+            ) : null}
+            {section.blocked_claims.length ? (
+              <div className="freshness">Blocked: {section.blocked_claims.join(", ")}</div>
+            ) : null}
             <div className="citationRefs">Citations: {section.citations.join(", ")}</div>
           </article>
         ))}
@@ -43,13 +50,12 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
       <section className="panel">
         <h2>Execution</h2>
         <div className="stageList">
-          {run.output.visible_execution.stages.map((stage) => (
-            <span className="stageChip" key={stage.id}>
-              {stage.id}: {stage.status}
+          {run.output.steps.map((step) => (
+            <span className="stageChip" key={step.id}>
+              {step.id}: {step.status}
             </span>
           ))}
         </div>
-        <div className="meta">Tool status: {run.output.visible_execution.tool_status}</div>
         <div className="stageList">
           {run.output.collection.provider_results.map((provider) => (
             <span className="stageChip" key={`${provider.provider_id}-${provider.dataset_groups.join("-")}`}>
@@ -64,7 +70,7 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
           {run.output.citations.map((citation) => (
             <li key={citation.citation_id}>
               <strong>{citation.label}</strong>
-              <span>{citation.source_type}</span>
+              <span>{citation.dataset_id}</span>
               <span>{citation.timestamp}</span>
             </li>
           ))}

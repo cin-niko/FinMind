@@ -3,7 +3,7 @@ from typing import Protocol
 
 from finmind_agents.dataflows.models import (
     DataflowProviderResult,
-    DataflowRetrievalRequest,
+    DataflowCollectionRequest,
     DatasetGroup,
 )
 from finmind_agents.models import CanonicalMarketDataRecord, Market, SourceDocument
@@ -26,4 +26,4 @@ class DataflowProvider(Protocol):
     provider_id: str
     capabilities: tuple[ProviderCapability, ...]
 
-    def fetch(self, request: DataflowRetrievalRequest) -> ProviderFetchResult: ...
+    def fetch(self, request: DataflowCollectionRequest) -> ProviderFetchResult: ...

@@ -14,8 +14,8 @@ adr_refs: []
 ## Summary
 
 Deliver a future flexible Q&A chatflow for financial trading research advice.
-The chatflow will answer user questions using trusted source data, evidence,
-citations, freshness metadata, artifacts, and explicit safety guardrails.
+The chatflow will answer user questions using trusted source data, citations (with source id,
+dataset id, and timestamp), artifacts, and explicit safety guardrails.
 
 This feature is draft. The current deterministic mock chat UI remains owned by
 `../001-mvp-ui/`. Fixed workflow execution remains owned by `../002-workflow/`.
@@ -28,8 +28,8 @@ An authenticated internal user asks a finance research question and receives an
 answer grounded in trusted sources with citations.
 
 **Independent Test**: Ask a supported VN or US stock research question and verify
-that the answer includes cited claims, freshness metadata, and unsupported markers
-where evidence is missing.
+that the answer includes cited claims, provenance (source id, dataset id,
+timestamp), and unsupported markers where evidence is missing.
 
 Acceptance scenarios:
 
@@ -50,8 +50,8 @@ artifact detail, and verify the artifact links back to evidence and citations.
 
 Acceptance scenarios:
 
-1. Given the answer contains an artifact, when the user opens it, then evidence,
-   citations, freshness, and artifact status remain visible.
+1. Given the answer contains an artifact, when the user opens it, then
+   citations, grounding, and artifact status remain visible.
 2. Given an artifact cannot be generated safely, when the answer renders, then the
    artifact status is marked unavailable rather than fabricated.
 
@@ -82,8 +82,8 @@ Acceptance scenarios:
   reliance.
 - **FR-004**: Chatflow MUST cite material claims or explicitly mark them
   unsupported/unavailable.
-- **FR-005**: Chatflow MUST show freshness metadata for referenced datasets where
-  available.
+- **FR-005**: Chatflow MUST show citation provenance (source id, dataset id,
+  timestamp) for referenced datasets where available.
 - **FR-006**: Chatflow MUST produce inspectable artifacts only when they can be
   linked to evidence and execution context.
 - **FR-007**: Chatflow MUST NOT expose raw agent reasoning, hidden prompts,
@@ -93,7 +93,7 @@ Acceptance scenarios:
 - **FR-009**: Chatflow MUST distinguish advice support from decisions and must keep
   the user responsible for final judgment.
 - **FR-010**: Chatflow MUST record enough execution status for users to understand
-  tool, retrieval, citation, and artifact availability.
+  tool, collection, citation, and artifact availability.
 
 ## Key Entities
 
@@ -115,14 +115,15 @@ require new production chat entities during planning.
   assets: scope limitation is shown.
 - User asks for a decision or order: autonomous action is refused.
 - Trusted sources disagree: answer shows disagreement and cites both sides.
-- Source is stale or unavailable: answer marks freshness or unavailability.
+- Source is unavailable or uncited: answer marks the claim ungrounded or
+  unavailable.
 - Artifact generation fails: artifact is marked unavailable.
 
 ## Assumptions
 
 - The MVP UI shell exists from `../001-mvp-ui/`.
 - Fixed workflow contracts exist from `../002-workflow/`.
-- Trusted source access, retrieval policy, and data rights require planning before
+- Trusted source access, collection policy, and data rights require planning before
   implementation.
 
 ## Success Criteria
@@ -133,8 +134,8 @@ require new production chat entities during planning.
   before user reliance.
 - **SC-003**: 100% of trade execution/order placement requests do not trigger
   irreversible financial actions.
-- **SC-004**: Users can inspect evidence, citations, freshness, and artifact status
-  for generated answers without reading logs.
+- **SC-004**: Users can inspect citations, grounding, and artifact status for
+  generated answers without reading logs.
 - **SC-005**: Supported answers remain within the current VN stock and US stock
   market scope.
 

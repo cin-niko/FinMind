@@ -11,7 +11,7 @@ adr_refs: []
 
 # Tasks: Agentic Chatflow
 
-- [ ] T001 Run `/speckit-clarify` for trusted source scope, retrieval behavior,
+- [ ] T001 Run `/speckit-clarify` for trusted source scope, collection behavior,
   safety boundaries, and evaluation expectations.
 - [ ] T002 Run `/speckit-plan` after source access and citation policy are chosen.
 - [ ] T003 Define production chat entities and contracts.

@@ -39,19 +39,12 @@ export type WorkflowRun = {
       content: string;
       citations: string[];
       warnings: string[];
-    }>;
-    quality: {
-      quality_status: "pass" | "warn" | "partial" | "fail";
-      dataset_statuses: Record<string, string>;
-      blocking_issues: string[];
-      warnings: string[];
       allowed_claims: string[];
       blocked_claims: string[];
-      freshness_summary: string;
-      evidence_refs: string[];
-    };
+    }>;
+    steps: Array<{ id: string; kind: "collect_data" | "skill"; status: string; warnings: string[] }>;
     collection: {
-      retrieval_id: string;
+      collection_id: string;
       status: "success" | "partial" | "failed" | "fallback";
       providers: string[];
       requested_dataset_groups: string[];
@@ -73,13 +66,11 @@ export type WorkflowRun = {
     };
     citations: Array<{
       citation_id: string;
-      evidence_id: string;
+      source_id: string;
+      dataset_id: string;
       label: string;
-      source_type: string;
-      source_reference: string;
       timestamp: string;
     }>;
-    freshness: Array<{ dataset: string; status: string; as_of: string }>;
     artifacts: {
       chart?: {
         artifact_id: string;
@@ -89,12 +80,13 @@ export type WorkflowRun = {
           series: Array<{ time: string; value: number; change_percent?: number }>;
           table: Array<{ record_key: string; market_time: string; close: number }>;
         };
-        evidence_refs: string[];
+        source_refs: string[];
       };
     };
-    visible_execution: {
-      stages: Array<{ id: string; status: string; warnings: string[] }>;
-      tool_status: string;
+    grounding: {
+      grounding_status: "pass" | "blocked";
+      blocked_claims: string[];
+      uncited_claims: string[];
     };
   };
 };

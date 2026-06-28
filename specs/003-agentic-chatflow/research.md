@@ -13,7 +13,7 @@ adr_refs: []
 
 ## Decision: Keep production chatflow separate from mock chat UI
 
-Production chatflow needs retrieval, evidence, citation, safety, and evaluation
+Production chatflow needs collection, evidence, citation, safety, and evaluation
 contracts that are not required by the current deterministic mock chat UI.
 
 Alternatives considered: treating mock chat as the chatflow feature. Rejected
@@ -23,7 +23,7 @@ because it would overstate implemented behavior.
 
 - Trusted source inventory for VN and US stocks.
 - Data rights and licensing constraints.
-- Retrieval and citation strategy.
+- Collection and citation strategy.
 - Freshness and stale-data handling.
 - Evaluation set for hallucination, unsupported claims, and safety refusals.
 - Latency and cost targets.

@@ -29,4 +29,4 @@ Rationale: This validates shell, artifact, and layout behavior before production
 agentic chatflow is specified.
 
 Alternatives considered: early production chat orchestration. Rejected because
-source access, retrieval, citations, and safety contracts are not ready.
+source access, collection, citations, and safety contracts are not ready.

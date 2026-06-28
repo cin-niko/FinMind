@@ -48,7 +48,7 @@
   secret handling, and raw-reasoning exclusion are specified for user-facing
   outputs and tool/workflow execution.
 - **UX consistency**: User-facing surfaces reference `specs/system/ui-ux-guidelines.md`
-  and define status, evidence, citation, freshness, artifact, and error behavior.
+  and define status, evidence, citation, artifact, and error behavior.
 - **Performance requirements**: Goals and constraints are measurable, or marked
   `N/A` with rationale.
 - **Spec traceability**: Behavior/contracts map to `specs/system/` or

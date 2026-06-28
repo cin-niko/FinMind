@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
     ExecutionRun,
-    FreshnessStatus,
     Market,
     SourceDocument,
 )
@@ -28,7 +27,6 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                     "change_percent": 0.82,
                     "volume": 812000000,
                 },
-                freshness_status=FreshnessStatus.FRESH,
             ),
             CanonicalMarketDataRecord(
                 dataset_id="vn_prices",
@@ -42,7 +40,6 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                     "change_percent": 1.14,
                     "volume": 4920000,
                 },
-                freshness_status=FreshnessStatus.FRESH,
             ),
             CanonicalMarketDataRecord(
                 dataset_id="us_prices",
@@ -56,7 +53,6 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                     "change_percent": 0.42,
                     "volume": 52100000,
                 },
-                freshness_status=FreshnessStatus.FRESH,
             ),
             CanonicalMarketDataRecord(
                 dataset_id="vn_fundamentals",
@@ -71,7 +67,6 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                     "roe_percent": 20.3,
                     "period": "FY2025",
                 },
-                freshness_status=FreshnessStatus.FRESH,
             ),
             CanonicalMarketDataRecord(
                 dataset_id="us_fundamentals",
@@ -86,7 +81,6 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                     "roe_percent": 48.1,
                     "period": "FY2025",
                 },
-                freshness_status=FreshnessStatus.FRESH,
             ),
         ]
         self._source_documents = [

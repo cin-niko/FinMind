@@ -15,7 +15,7 @@ adr_refs: []
 
 Draft plan for a future evidence-backed Q&A chatflow over trusted finance sources.
 This plan is intentionally not implementation-ready until source access, data
-rights, retrieval strategy, citation policy, safety review, and performance goals
+rights, collection strategy, citation policy, safety review, and performance goals
 are finalized.
 
 ## Technical Context
@@ -23,9 +23,9 @@ are finalized.
 - Existing foundation: MVP UI shell, artifact detail UI, workflow evidence/citation
   concepts, and LangChain-backed workflow agent runtime in
   `src/finmind_agents/runtime`.
-- Unknowns to resolve before implementation: trusted source list, retrieval
-  strategy, provider/data rights, freshness rules, model/tool policy, evaluation
-  set, and latency targets.
+- Unknowns to resolve before implementation: trusted source list, collection
+  strategy, provider/data rights, model/tool policy, evaluation set, and latency
+  targets.
 - Current market scope: VN stocks and US stocks only.
 
 ## Constitution Check

@@ -19,11 +19,11 @@ class AgentValidationError(ValueError):
 
 def validate_agent_result(
     result: AgentRunResult,
-    evidence_ids: tuple[str, ...],
+    citation_ids: tuple[str, ...],
 ) -> None:
-    known_evidence = set(evidence_ids)
+    known_citations = set(citation_ids)
     unknown_citations = [
-        citation for citation in result.citations if citation not in known_evidence
+        citation for citation in result.citations if citation not in known_citations
     ]
     if unknown_citations:
         raise AgentValidationError(

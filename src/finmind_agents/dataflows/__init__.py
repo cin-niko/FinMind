@@ -1,17 +1,17 @@
 from finmind_agents.dataflows.models import (
     DataflowProviderResult,
-    DataflowRetrievalRequest,
-    DataflowRetrievalResult,
+    DataflowCollectionRequest,
+    DataflowCollectionResult,
     DatasetGroup,
-    RetrievalStatus,
+    CollectionStatus,
 )
 from finmind_agents.dataflows.service import DataflowService
 
 __all__ = [
     "DataflowProviderResult",
-    "DataflowRetrievalRequest",
-    "DataflowRetrievalResult",
+    "DataflowCollectionRequest",
+    "DataflowCollectionResult",
     "DataflowService",
     "DatasetGroup",
-    "RetrievalStatus",
+    "CollectionStatus",
 ]

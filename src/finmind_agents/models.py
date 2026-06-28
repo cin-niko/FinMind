@@ -9,13 +9,6 @@ class Market(StrEnum):
     US_STOCK = "US_STOCK"
 
 
-class FreshnessStatus(StrEnum):
-    FRESH = "fresh"
-    STALE = "stale"
-    MISSING = "missing"
-    FAILED = "failed"
-
-
 class RunStatus(StrEnum):
     SUCCESS = "success"
     PARTIAL = "partial"
@@ -35,21 +28,6 @@ class WorkflowStepStatus(StrEnum):
     PARTIAL = "partial"
     FAILED = "failed"
     UNAVAILABLE = "unavailable"
-
-
-class DatasetStatus(StrEnum):
-    FRESH = "fresh"
-    STALE = "stale"
-    MISSING = "missing"
-    FAILED = "failed"
-    PARTIAL = "partial"
-
-
-class QualityStatus(StrEnum):
-    PASS = "pass"
-    WARN = "warn"
-    PARTIAL = "partial"
-    FAIL = "fail"
 
 
 @dataclass(frozen=True)
@@ -86,7 +64,6 @@ class CanonicalMarketDataRecord:
     collected_at: datetime
     source_id: str
     payload: dict[str, Any]
-    freshness_status: FreshnessStatus = FreshnessStatus.FRESH
 
 
 @dataclass(frozen=True)
@@ -147,34 +124,11 @@ class WorkflowStep:
 
 
 @dataclass(frozen=True)
-class DatasetQualityReport:
-    quality_status: QualityStatus
-    dataset_statuses: dict[str, DatasetStatus]
-    blocking_issues: tuple[str, ...]
-    warnings: tuple[str, ...]
-    allowed_claims: tuple[str, ...]
-    blocked_claims: tuple[str, ...]
-    freshness_summary: str
-    evidence_refs: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class EvidenceObject:
-    evidence_id: str
-    claim_ref: str
-    source_refs: tuple[str, ...]
-    observed_at: datetime
-    freshness_status: FreshnessStatus
-    summary: str
-
-
-@dataclass(frozen=True)
 class Citation:
     citation_id: str
-    evidence_id: str
+    source_id: str
+    dataset_id: str
     label: str
-    source_type: str
-    source_reference: str
     timestamp: datetime
 
 
@@ -185,7 +139,7 @@ class Artifact:
     title: str
     inputs: dict[str, Any]
     payload: dict[str, Any]
-    evidence_refs: tuple[str, ...]
+    source_refs: tuple[str, ...]
 
 
 @dataclass

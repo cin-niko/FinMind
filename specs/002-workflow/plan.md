@@ -36,7 +36,7 @@ path, with broader workflow catalog contracts retained for Phase 02.
 - Language/version: Python 3.12 backend, TypeScript React/Vite frontend.
 - Backend dependencies: FastAPI, Pydantic, LangChain, Deep Agents
   (`deepagents`), `langchain-litellm` as the default multi-provider model
-  adapter, `httpx`, retrieval-first dataflow adapters, in-memory fallback
+  adapter, `httpx`, collection-first dataflow adapters, in-memory fallback
   repositories, pytest. LangGraph is intentionally deferred for the current MVP.
 - Market-data providers: `vnstock` adapter for VN stock latest price and
   fundamentals; US provider adapter using Alpha Vantage for current/daily
@@ -53,7 +53,7 @@ path, with broader workflow catalog contracts retained for Phase 02.
 - Performance goals: supported offline workflow runs complete under 3 seconds in
   automated tests. Live provider collection should target a 15-second per-run
   timeout budget, with per-provider timeout/failure surfaced to
-  `data-quality-check`. Agent skill execution should have a bounded iteration
+  the `collect_data` step. Agent skill execution should have a bounded iteration
   and timeout budget per workflow stage.
 - Constraints: VN stocks and US stocks only; gold/BTC/other assets blocked or
   roadmap-marked; no broker/order/trade execution; no raw reasoning exposure;
@@ -77,11 +77,11 @@ path, with broader workflow catalog contracts retained for Phase 02.
   is excluded, LLM/tool failures fail closed or produce partial/unavailable
   output, and outputs remain advice support only.
 - UX consistency: workflow catalog, forms, run result, stage status, data-quality
-  warnings, citations, freshness, and artifacts follow
+  warnings, citations, and artifacts follow
   `../system/ui-ux-guidelines.md`.
 - Performance requirements: offline workflow execution target is under 3 seconds
   in automated tests; live provider collection has a 15-second per-run timeout
-  budget and must surface timeout/failure state through `data-quality-check`.
+  budget and must surface timeout/failure state through the `collect_data` step.
 - Spec traceability: feature behavior lives in this folder; shared state,
   contracts, runtime/security, and UI rules remain in `../system/`.
 
@@ -101,7 +101,7 @@ Gate result: pass. No constitution violations require exception.
 - `src/finmind_agents/skills/`: own skill loading and skill assets in
   `<skill-name>/SKILL.md` and `DATA_REQUIREMENTS.yaml`.
 - `src/finmind_agents/dataflows/`: own provider selection, latest data fetch,
-  normalization, fallback policy, provider status, and canonical retrieval
+  normalization, fallback policy, provider status, and canonical collection
   results. It remains shared by workflows now and chatflow later.
 - `src/finmind_agents/domain/`: own shared finance domain models and canonical
   workflow/dataflow entities.
@@ -120,17 +120,19 @@ Atomic user-facing workflows:
 - `news-digest`
 - `risk-review`
 
-Internal steps:
+Deterministic step:
 
-- `data-collector`
-- `data-quality-check`
+- `collect_data`
+
+The data audit is the `vn-financial-data-auditor` skill step; the post-skill
+`GroundingCheck` audits cited sources and blocks claims missing required data.
 
 Composite workflow:
 
 ```text
 stock-brief
-  -> data-collector
-  -> data-quality-check
+  -> collect_data
+  -> vn-financial-data-auditor
   -> fundamental-analysis
   -> technical-analysis
   -> news-digest
@@ -144,8 +146,7 @@ Execution rules:
   refs, stages, output sections, citations, chart requirements, runtime policy,
   and safety gates. It must not duplicate detailed skill data requirements.
 - Markdown agent skills are governed analysis instructions and cannot bypass
-  runtime validation, data-quality gates, citation/freshness enforcement, or
-  advice-only safety rules.
+  runtime validation, citation enforcement, or advice-only safety rules.
 - Workflow mode is a constrained agent run: fixed skill selection from YAML,
   skill-owned data requirements, strict output schema, low iteration budget,
   dataflows-only tool access, no provider-direct access, and fail-closed
@@ -158,26 +159,31 @@ Execution rules:
   technical data, news/source documents, and risk review. Their outputs remain
   intermediate and must pass FinMind grounding/citation validators before being
   shown.
-- Every claim-generating workflow records `data-collector` and
-  `data-quality-check` stages before claim-generating synthesis, even if the UI
-  selected an atomic workflow. `data-collector` is implemented as agent-planned,
-  FinMind-validated retrieval through the dataflows tool boundary.
-- The agent runtime reads the skill before retrieval planning. Required data
+- Every claim-generating workflow runs `collect_data` then the data-audit skill
+  before claim-generating synthesis, even if the UI selected an atomic workflow.
+  `collect_data` is a deterministic, FinMind-validated collection through the
+  dataflows tool boundary driven by each raw-data skill's `DATA_REQUIREMENTS.yaml`.
+- The agent runtime reads the skill before collection planning. Required data
   declared by the skill must be attempted; optional data may be attempted when
   allowed by policy and timeout budget.
-- Agent-planned retrieval is only a request. FinMind validates market, symbol,
+- Agent-planned collection is only a request. FinMind validates market, symbol,
   dataset ids, required/optional status, fallback permission, and tool policy
-  before executing the retrieval.
-- `data-quality-check` may return `pass`, `warn`, `partial`, or `fail`.
-- `warn` allows affected sections to run with visible caveats.
-- `partial` runs unaffected sections and marks blocked sections unavailable.
-- `fail` blocks claim-generating sections and stores a failed or partial run.
+  before executing the collection.
+- There is no pre-skill fail-fast. A skill step runs on whatever `collect_data`
+  returned and resolves which claims it can support, reporting `blocked_claims`
+  for categories it cannot ground. Run status is `failed` if any skill step
+  failed, else `partial` if any skill step is `partial`, else `success`.
+- The post-skill `GroundingCheck` is `pass` or `blocked`. It is `blocked` only
+  when claims cite sources not in the returned citations (`uncited_claims`);
+  blocked claims are surfaced for transparency and affected sections are
+  caveated. Data age is conveyed by citation `timestamp`; there is no separate
+  freshness concept.
 - Composite workflows preserve completed sections even when later stages are
-  unavailable.
+  partial.
 
-## Dataflows Retrieval Design
+## Dataflows Collection Design
 
-`src/finmind_agents/dataflows/` is a retrieval module, not an admin ingestion or
+`src/finmind_agents/dataflows/` is a collection module, not an admin ingestion or
 backfill platform. It serves Phase 02 workflows and is intentionally reusable by
 the Phase 03 chatflow.
 
@@ -201,9 +207,9 @@ src/finmind_agents/dataflows/
 
 Responsibilities:
 
-- `models.py`: retrieval requests, retrieval results, provider results,
+- `models.py`: collection requests, collection results, provider results,
   provider status, and dataset ids.
-- `service.py`: one `DataflowService.retrieve(...)` entry point for workflows
+- `service.py`: one `DataflowService.collect(...)` entry point for workflows
   and future chatflow.
 - `registry.py`: provider selection by market and dataset group.
 - `fallback.py`: deterministic offline fallback policy and fallback labeling.
@@ -224,11 +230,12 @@ finmind_api route
   -> workflow validation
   -> finmind_agents.workflows loads workflow YAML and allowed skill ref
   -> FinMindAgentRuntime loads SKILL.md and DATA_REQUIREMENTS.yaml
-  -> Deep Agents runtime derives required/optional retrieval plan inside policy
-  -> FinMind validates retrieval plan
-  -> retrieve_dataflow tool calls DataflowService.retrieve(...)
-  -> FinMind runs data-quality-check on retrieved data
+  -> Deep Agents runtime derives required/optional collection plan inside policy
+  -> FinMind validates collection plan
+  -> collect_dataflow tool calls DataflowService.collect(...)
+  -> FinMind runs the data-audit / analysis skill steps on collected data
   -> Deep Agents runtime synthesizes governed draft output
+  -> post-skill GroundingCheck (cited sources subset only; no pre-skill gate)
   -> grounding/citation/output validators
   -> finmind_api serializes result output
 ```
@@ -254,7 +261,7 @@ Resolved in `research.md`:
   different policy envelopes.
 - Treat Agent Skill `DATA_REQUIREMENTS.yaml` as the canonical source for detailed
   data needs; workflow YAML references skills and constrains runtime policy
-  instead of duplicating retrieval requirements.
+  instead of duplicating collection requirements.
 - Use Deep Agents (`deepagents.create_deep_agent`) for the shared workflow
   runtime core and `langchain-litellm` as the default model adapter so multiple
   providers can run behind one LangChain-facing integration point.

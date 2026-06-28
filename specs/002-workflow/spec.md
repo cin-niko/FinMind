@@ -19,13 +19,13 @@ adr_refs:
 
 Define phase 02 fixed, system-defined financial trading support workflows for the
 current market scope: VN stocks and US stocks only. The workflow suite uses
-internal data collection and data-quality gate steps, fetching the latest
+internal data collection and grounding steps, fetching the latest
 available provider data before falling back to deterministic demo data in local
 or offline test mode. It then exposes repeatable analysis paths such as
 fundamental analysis, technical analysis, news digest, risk review, and combined
 stock briefs. Workflows provide bounded analysis, validated inputs, evidence
-objects, citations, freshness metadata, chart artifacts, execution status, and
-result reinspection from the UI.
+objects, citations, chart artifacts, execution status, and result
+reinspection from the UI.
 
 This draft feature will own workflow execution and result inspection. It does not own the
 overall app shell (`../001-mvp-ui/`) or flexible agentic Q&A chatflow
@@ -39,8 +39,8 @@ An authenticated internal user selects a fixed workflow from the UI, chooses a
 supported VN or US stock input, runs bounded analysis, and reviews cited results.
 
 **Independent Test**: Log in, open `Workflows`, run one supported VN stock or US
-stock workflow, and verify output sections, citations, freshness, chart artifacts,
-and execution status.
+stock workflow, and verify output sections, citations, chart artifacts, and
+execution status.
 
 Acceptance scenarios:
 
@@ -75,9 +75,9 @@ Acceptance scenarios:
    result emphasizes price trend, momentum, support/resistance, indicators, chart
    artifacts, and cited market records.
 4. Given the user selects news digest, when trusted source material is available,
-   then the result summarizes relevant recent items with citations, timestamps,
-   sentiment/impact framing, and source freshness; when source material is
-   unavailable, the limitation is clearly marked.
+   then the result summarizes relevant recent items with citations (source id,
+   timestamp, dataset id), sentiment/impact framing, and provenance; when source
+   material is unavailable, the limitation is clearly marked.
 5. Given the user selects risk review or combined stock brief, when the workflow
    runs, then the result combines relevant evidence sections without presenting an
    autonomous trading decision.
@@ -94,13 +94,12 @@ review as visible stages, with partial/unavailable stages clearly marked.
 Acceptance scenarios:
 
 1. Given the user runs `stock-brief`, when the workflow starts, then it first
-   collects required data and runs data-quality checks before claim-generating
-   analysis steps.
-2. Given `data-quality-check` returns warnings, when downstream analysis runs,
-   then affected claims include visible caveats.
-3. Given `data-quality-check` blocks a claim category, when downstream analysis
-   reaches that category, then the affected section is omitted or marked
-   unavailable instead of fabricated.
+   collects required data before claim-generating analysis steps run.
+2. Given the grounding check blocks a claim category, when downstream analysis
+   runs, then affected claims include visible caveats or are marked unavailable.
+3. Given a required dataset returned no records, when downstream analysis reaches
+   that category, then the affected section is omitted or marked unavailable
+   instead of fabricated.
 4. Given one downstream step fails or is unavailable, when the composite workflow
    completes, then successful sections remain inspectable and the failed section
    shows a clear status.
@@ -125,7 +124,7 @@ Acceptance scenarios:
 ### User Story 5 - Reopen Workflow Results (Priority: P2)
 
 An authenticated internal user can reopen completed workflow runs from history and
-inspect output, citations, freshness, artifacts, and execution status.
+inspect output, citations, artifacts, and execution status.
 
 **Independent Test**: Complete a workflow run, refresh with the same valid session,
 select the run from `History` -> `Workflow Runs`, and verify the result is restored.
@@ -135,7 +134,7 @@ Acceptance scenarios:
 1. Given a workflow run completed, when the page reloads with a valid session, then
    the run remains visible under `Workflow Runs`.
 2. Given a completed run is selected, when the result opens, then citations,
-   freshness, artifacts, and execution status remain inspectable.
+   artifacts, and execution status remain inspectable.
 3. Given a run ID does not exist, when requested, then the system returns a
    not-found state rather than fabricating a result.
 
@@ -157,14 +156,16 @@ Acceptance scenarios:
 - **FR-007**: `data-collector` MUST be an internal step that gathers the latest
   available datasets required by the selected workflow, including market records,
   fundamentals, source documents or news, and peer data when available.
-- **FR-008**: `data-quality-check` MUST be an internal gate step that evaluates
-  collected records before claim-generating analysis steps run.
-- **FR-009**: `data-quality-check` MUST output quality status, dataset statuses,
-  blocking issues, warnings, allowed claim categories, blocked claim categories,
-  freshness summary, and evidence references.
-- **FR-010**: `stock-brief` MUST be a composite workflow that runs
-  `data-collector`, `data-quality-check`, `fundamental-analysis`,
-  `technical-analysis`, `news-digest`, and `risk-review` as ordered stages.
+ - **FR-008**: `collect_data` MUST be a deterministic step that reads the raw
+  `DATA_REQUIREMENTS.yaml` declared by the workflow's skill steps and collects
+  canonical records before any skill step runs.
+ - **FR-009**: A grounding check MUST run after each skill step, verifying that
+  cited sources are a subset of sources returned by `collect_data` and blocking
+  claim categories whose required dataset returned no records.
+ - **FR-010**: `stock-brief` MUST be a composite workflow that runs
+  `data-collector`, `fundamental-analysis`, `technical-analysis`,
+  `news-digest`, and `risk-review` as ordered stages, with the grounding check
+  auditing each skill step.
 - **FR-011**: Gold, BTC, and other assets MUST NOT be enabled runnable workflow
   choices unless a later spec changes scope.
 - **FR-012**: Workflow forms MUST render every required input and submit those
@@ -174,8 +175,7 @@ Acceptance scenarios:
   execution.
 - **FR-014**: System MUST maintain deterministic seeded/offline canonical records
   for VN and US stock examples with source identity, market time, collection
-  time, freshness, and unique record keys for tests and provider-failure
-  fallback.
+  time, and unique record keys for tests and provider-failure fallback.
 - **FR-015**: News digest workflows MUST use trusted source material with source
   identity and publication or collection timestamps when available; if trusted
   source material is unavailable, the workflow MUST clearly mark the news section
@@ -189,14 +189,14 @@ Acceptance scenarios:
 - **FR-018**: Risk review workflows MUST highlight material downside, data quality,
   market, bull/bear framing, and evidence limitations without issuing autonomous
   decisions.
-- **FR-019**: System MUST construct evidence objects linking workflow claims to
-  source records, citations, timestamps, and generated artifacts.
-- **FR-020**: Workflow outputs MUST include data-quality checks relevant to the
-  market and evidence type, including stale records, inconsistent periods,
-  split-adjusted price comparisons, changed share counts, and unavailable source
-  fields when applicable.
-- **FR-021**: Every user-facing material workflow claim MUST expose citations and
-  freshness metadata or be marked unsupported/unavailable.
+ - **FR-019**: System MUST derive source-level citations from collected records,
+  linking workflow claims to source identity, timestamps, and dataset ids.
+ - **FR-020**: Workflow outputs MUST include grounding checks relevant to the
+  market and evidence type, including inconsistent periods, split-adjusted price
+  comparisons, changed share counts, and unavailable source fields when
+  applicable. Cited sources must be a subset of collected sources.
+- **FR-021**: Every user-facing material workflow claim MUST expose citations
+  (source id, dataset id, timestamp) or be marked unsupported/unavailable.
 - **FR-022**: System MUST generate chart artifacts for workflow outputs requiring
   visual price, indicator, or trend analysis.
 - **FR-023**: System MUST record execution runs for workflow submissions,
@@ -212,10 +212,10 @@ Acceptance scenarios:
 - **FR-028**: US stock collection MUST use provider adapters backed by a
   documented US market data source for prices/news and SEC EDGAR company facts
   for public-company fundamentals where available.
-- **FR-029**: The system MUST provide a retrieval-first `dataflows` module that
-  serves workflows now and future chatflow retrieval without implementing admin
+- **FR-029**: The system MUST provide a collection-first `dataflows` module that
+  serves workflows now and future chatflow collection without implementing admin
   ingestion, scheduled backfill, or broad realtime data operations.
-- **FR-030**: `dataflows` MUST expose a single retrieval boundary that accepts
+- **FR-030**: `dataflows` MUST expose a single collection boundary that accepts
   market, symbol, and required dataset groups, then returns canonical market
   records, source documents, provider statuses, collection timestamps, warnings,
   and failure reasons.
@@ -223,7 +223,7 @@ Acceptance scenarios:
   call concrete provider adapters directly.
 - **FR-032**: Provider adapters MUST record `source_id`, provider timestamp or
   market timestamp, `collected_at`, dataset coverage, and any provider failure
-  reason used by `data-quality-check`.
+  reason used by the grounding check.
 - **FR-033**: Provider failures, missing API keys, rate limits, license
   restrictions, unavailable symbols, or stale latest data MUST produce a
   warning/partial/unavailable result instead of fabricated claims.
@@ -236,8 +236,7 @@ Acceptance scenarios:
 - Workflow Step
 - Workflow Composition
 - Execution Run
-- Dataset Quality Report
-- Evidence Object
+ - Grounding Check
 - Citation
 - Chart Artifact
 - Source Document
@@ -246,9 +245,11 @@ See `../system/state-model.md` for canonical entity definitions.
 
 ## Edge Cases
 
-- Supported data exists but is stale: result displays freshness warnings.
+- Cited source not returned by collection: grounding is marked blocked and the
+  claim is omitted or qualified.
 - Data collection returns partial coverage: quality check marks unavailable
-  datasets and downstream steps run only unaffected sections.
+  coverage and downstream skill steps run on available data, reporting
+  `blocked_claims` for unsupported categories.
 - A workflow partially completes: completed sections, failed sections, and
   unavailable artifacts are distinguishable.
 - Unsupported market or instrument request: execution is blocked or clearly marked
@@ -281,21 +282,21 @@ See `../system/state-model.md` for canonical entity definitions.
 ## Success Criteria
 
 - **SC-001**: A user can complete a supported VN stock workflow and inspect cited
-  output, freshness, chart artifact, and execution status in under 5 minutes.
+  output, chart artifact, and execution status in under 5 minutes.
 - **SC-002**: A user can complete a supported US stock workflow and inspect cited
-  output, freshness, chart artifact, and execution status in under 5 minutes.
+  output, chart artifact, and execution status in under 5 minutes.
 - **SC-003**: A user can choose fundamental analysis, technical analysis, and news
   digest workflows from the UI and understand each workflow's purpose before
   running it.
-- **SC-004**: A user can run `stock-brief` and see collection, data-quality,
+ - **SC-004**: A user can run `stock-brief` and see collection, grounding,
   fundamental, technical, news, and risk stages with clear completion, partial,
   failed, or unavailable status.
 - **SC-005**: 100% of user-facing material workflow claims include at least one
   citation or are explicitly marked unsupported/unavailable.
-- **SC-006**: At least 95% of supported workflow result views show freshness
-  metadata for every referenced dataset.
-- **SC-007**: Users can identify stale, missing, failed, or out-of-scope data
-  conditions without reading logs.
+- **SC-006**: At least 95% of supported workflow result views show a citation
+  (source id, dataset id, timestamp) for every referenced dataset.
+- **SC-007**: Users can identify missing, failed, or out-of-scope data
+  conditions (via blocked_claims and unavailable sections) without reading logs.
 - **SC-008**: Completed workflow runs remain visible under `History` ->
   `Workflow Runs` after refresh with a valid session.
 - **SC-009**: 100% of workflow outputs avoid autonomous buy/sell/order language

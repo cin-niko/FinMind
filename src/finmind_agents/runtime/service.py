@@ -90,7 +90,7 @@ class AgentOrchestrator:
                 }
             )
             result = _agent_result_from_content(_content_from_agent_response(response))
-            validate_agent_result(result, request.evidence_ids)
+            validate_agent_result(result, request.citation_ids)
         except AgentValidationError as error:
             raise AgentOrchestratorError(str(error)) from error
         except Exception as error:

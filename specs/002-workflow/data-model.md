@@ -46,11 +46,10 @@ Fields:
 - `market_time`: effective market timestamp.
 - `collected_at`: collection timestamp.
 - `source_id`: source connector or demo source identity.
-- `retrieval_id`: optional id linking records fetched during the same dataflow
-  retrieval attempt.
+- `collection_id`: optional id linking records fetched during the same dataflow
+  collection attempt.
 - `payload`: normalized values such as close, change percent, volume, EPS, BVPS,
   revenue, profit, valuation ratios, or peer metrics.
-- `freshness_status`: fresh, stale, missing, failed.
 
 Validation:
 
@@ -64,7 +63,7 @@ Validation:
 - Deterministic fallback records must use source ids that make fallback status
   visible, not pretend to be live provider data.
 
-## DataflowRetrievalRequest
+## DataflowCollectionRequest
 
 Input contract for retrieving evidence-ready finance data.
 
@@ -80,18 +79,18 @@ Fields:
 
 Validation:
 
-- Dataset groups must be requested through an agent retrieval plan derived from
-  skill-owned `DATA_REQUIREMENTS.yaml` or future chatflow retrieval needs.
+- Dataset groups must be requested through an agent collection plan derived from
+  skill-owned `DATA_REQUIREMENTS.yaml` or future chatflow collection needs.
 - Unsupported markets or symbols are rejected before provider calls.
-- Fallback use must be explicit and visible in the retrieval result.
+- Fallback use must be explicit and visible in the collection result.
 
-## DataflowRetrievalResult
+## DataflowCollectionResult
 
-Output contract returned by `DataflowService.retrieve(...)`.
+Output contract returned by `DataflowService.collect(...)`.
 
 Fields:
 
-- `retrieval_id`
+- `collection_id`
 - `market`: `VN_STOCK` or `US_STOCK`.
 - `symbol`
 - `requested_dataset_groups`: `market_price`, `fundamental`, `news`.
@@ -115,7 +114,7 @@ Validation:
 
 ## DataflowProviderResult
 
-Status for one provider attempt within a retrieval.
+Status for one provider attempt within a collection.
 
 Fields:
 
@@ -218,7 +217,7 @@ Fields:
 - `allowed_skills`: skill ids the agent may load.
 - `allowed_markets`: `VN_STOCK` and `US_STOCK` for Phase 02.
 - `allowed_dataset_groups`: dataset groups the policy permits.
-- `allow_optional_retrieval`: whether optional skill data may be requested.
+- `allow_optional_collection`: whether optional skill data may be requested.
 - `max_iterations`
 - `timeout_seconds`
 - `output_schema`
@@ -241,7 +240,7 @@ Tool made available to the shared agent runtime.
 
 Fields:
 
-- `tool_id`: stable id such as `retrieve_dataflow`, `load_skill`,
+- `tool_id`: stable id such as `collect_dataflow`, `load_skill`,
   `validate_finmind_output`, or future approved tools.
 - `description`
 - `input_schema`
@@ -252,9 +251,9 @@ Fields:
 
 Validation:
 
-- Provider access must go through `retrieve_dataflow`; tools must not expose raw
+- Provider access must go through `collect_dataflow`; tools must not expose raw
   provider clients directly.
-- `retrieve_dataflow` must validate requests against the workflow policy,
+- `collect_dataflow` must validate requests against the workflow policy,
   workflow inputs, and skill-owned data requirements before execution.
 - Tool outputs must be safe to include in the agent context after redaction.
 - Tool status may be visible; raw payloads, secrets, and unsafe diagnostics may
@@ -280,10 +279,7 @@ Fields:
 - `fields`
 - `lookback`
 - `periods`
-- `freshness_policy`
 - `fallback_policy`
-- `claim_categories_supported`
-- `claim_categories_blocked_when_missing`
 
 Validation:
 
@@ -294,9 +290,9 @@ Validation:
 - Provider names are implementation hints only when needed; skills must request
   data through dataset contracts, not direct provider APIs.
 
-## AgentRetrievalPlan
+## AgentCollectionPlan
 
-Concrete retrieval plan derived by the agent/runtime after reading an Agent Skill
+Concrete collection plan derived by the agent/runtime after reading an Agent Skill
 and its `DATA_REQUIREMENTS.yaml`.
 
 Fields:
@@ -353,10 +349,10 @@ Fields:
 - `market`
 - `symbol`
 - `data_requirements`
-- `retrieval_plan`: proposed or approved `AgentRetrievalPlan`.
-- `retrieval_results`: populated after validated `retrieve_dataflow` calls.
-- `quality_report`: populated after FinMind quality checks.
-- `evidence_refs`: populated from retrieved canonical records/documents.
+- `collection_plan`: proposed or approved `AgentCollectionPlan`.
+- `collection_results`: populated after validated `collect_dataflow` calls.
+- `citation_ids`: citation ids returned by the preceding `collect_data` step.
+- `prior_outputs`: outputs of earlier steps in the `step_sequence`.
 - `output_schema`
 - `policy_id`
 
@@ -366,8 +362,9 @@ Validation:
   definition.
 - `data_requirements` must be loaded from the referenced skill, not duplicated
   from workflow YAML.
-- Workflow agent runs may start before retrieval, but claim-generating synthesis
-  must wait until validated retrieval and data-quality context are available.
+- Workflow skill steps run after the `collect_data` step; an upstream-dependent
+  skill step runs after the skill it depends on. Claim-generating synthesis must
+  wait until the required collected records or upstream skill output are available.
 - Missing required LLM configuration blocks execution instead of producing
   deterministic prose disguised as analysis.
 
@@ -384,8 +381,7 @@ Fields:
 - `citations`
 - `warnings`
 - `blocked_claims`
-- `tool_status`
-- `validation_errors`
+- `allowed_claims`
 - `safe_execution_events`
 
 Validation:
@@ -435,27 +431,38 @@ Governed Markdown instruction document for one analysis capability.
 
 Fields:
 
-- `skill_id`: stable id such as `fundamental-analysis`.
+- `skill_id`: stable id such as `vn-financial-data-auditor`,
+  `vn-fundamental-analysis`, `vn-technical-analysis`.
 - `skill_path`: project-relative Markdown path using
-  `src/finmind_agents/skills/<skill-name>/SKILL.md`.
+  `src/finmind_agents/workflows/skills/<skill-name>/SKILL.md`.
 - `version`
 - `purpose`
 - `required_context`
-- `data_requirements_path`
+- `data_requirements_path`: present only for skills that consume raw collected
+  records.
 - `allowed_claims`
 - `blocked_behavior`
 - `output_contract`
 - `citation_policy`
 - `safety_rules`
 
+Input kinds:
+
+- Raw-data skills include `DATA_REQUIREMENTS.yaml` and consume collected records
+  directly (e.g. `vn-financial-data-auditor`, `vn-technical-analysis`).
+- Upstream-dependent skills consume a prior skill's output instead of raw
+  records; they state the required upstream skill and expected output schema in
+  `SKILL.md` prose (e.g. `vn-fundamental-analysis` requires the
+  `vn-financial-data-auditor` data package). They do not declare
+  `DATA_REQUIREMENTS.yaml` and do not add to `collect_data`'s fetch list.
+
 Validation:
 
+- Skills never fetch data directly; `collect_data` owns collection.
 - Skills must not declare supported markets or permissions broader than the
   workflow definition and runtime allow.
-- Skills with provider-backed data needs must include a valid
-  `DATA_REQUIREMENTS.yaml`.
-- Skills must instruct unavailable or unsupported output when evidence is stale,
-  missing, failed, or blocked by `data-quality-check`.
+- Skills must instruct unavailable or blocked output when required data is
+  missing, stale, or blocked by the grounding check.
 - Skills are not directly executable by external clients; the guarded runtime
   invokes them through workflow definitions.
 
@@ -480,26 +487,36 @@ Validation:
 - Failed/unavailable steps must not silently produce claims.
 - Partial composite workflows preserve successful step outputs.
 
-## DatasetQualityReport
+## GroundingCheck
 
-Output of `data-quality-check`.
+Deterministic post-skill audit. The skill is the judge of completeness: it runs
+on the data `collect_data` returned and resolves which claims it can support,
+reporting `blocked_claims` for categories it cannot ground. This check audits
+the skill's output, it does not pre-block the skill.
 
-Fields:
+Checks:
 
-- `quality_status`: pass, warn, partial, fail.
-- `dataset_statuses`: mapping from dataset id to fresh, stale, missing, failed,
-  or partial.
-- `blocking_issues`: issues preventing claim categories.
-- `warnings`: issues requiring caveats.
-- `allowed_claims`: claim categories safe to generate.
-- `blocked_claims`: claim categories omitted or marked unavailable.
-- `freshness_summary`: user-visible freshness note.
-- `evidence_refs`: evidence or record references checked.
+- Cited sources must be a subset of sources returned by `collect_data`.
+- Any agent-cited citation id not in the returned citation set is an
+  `uncited_claim` (a hallucinated or unavailable source).
+
+Output:
+
+- `grounding_status`: `pass` or `blocked`. `blocked` when `uncited_claims` is
+  non-empty.
+- `blocked_claims`: claim categories the skill reported as blocked (surfaced for
+  transparency; the skill responsibly withheld them).
+- `uncited_claims`: claims referencing sources not returned by `collect_data`
+  (a grounding violation).
 
 Validation:
 
-- Claim-generating steps must inspect `allowed_claims` and `blocked_claims`.
-- Quality warnings must be visible in result output.
+- There is no pre-agent fail-fast gate and no competing quality gate. Run status
+  is derived from skill step statuses (`failed` -> FAILED; `partial` ->
+  PARTIAL; else SUCCESS); the skill decides `partial` vs `success`.
+- `collect_data` is the only hard floor: if it returns no records and no source
+  documents, the run fails before any skill step.
+- Grounding outcomes must be visible in result output.
 
 ## ExecutionRun
 
@@ -507,13 +524,15 @@ Workflow run record.
 
 Additional Phase 02 output expectations:
 
-- `sections`: generated result sections with citation ids and status.
-- `quality`: dataset quality report.
-- `citations`: visible citations.
-- `freshness`: per-dataset freshness.
-- `artifacts`: charts/tables/computed outputs.
-- `visible_execution`: stage statuses, tool/artifact status, warnings, and
-  unavailable sections.
+- `sections`: generated result sections with citation ids, status, allowed
+  claims, and blocked claims.
+- `steps`: ordered `step_sequence` execution trace (`collect_data` and skill
+  steps with status and warnings).
+- `collection`: `DataflowCollectionResult` output from the `collect_data` step.
+- `citations`: visible source-level citations (source id, dataset id, timestamp).
+- `artifacts`: charts/tables/computed outputs with `source_refs`.
+- `grounding`: post-skill grounding check (`grounding_status`, `blocked_claims`,
+  `uncited_claims`).
 - `logs`: internal event summaries without raw reasoning.
 
 State transitions:
@@ -524,11 +543,58 @@ queued -> running -> partial
 queued -> running -> failed
 ```
 
-## EvidenceObject / Citation / Artifact
+## Citation / Artifact
 
-Reuse shared contracts:
+- `Citation`: visible source reference for a material claim — `source_id`,
+  timestamp, and `dataset_id`. Citations derive directly from collected records;
+  there is no separate `EvidenceObject` layer.
+- `Artifact`: traceable chart/table/computed output with accessible fallback data
+  and source references.
 
-- Evidence links claims to source records/documents/artifacts.
-- Citations are visible source references for material claims.
-- Artifacts are traceable chart/table/computed outputs with accessible fallback
-  data.
+## Run Model
+
+A workflow run executes its `step_sequence` in order. Each step is either
+deterministic or an agent skill step, and each step's output threads forward as
+context for later steps.
+
+Step kinds:
+
+- `collect_data`: deterministic collection phase. Reads the raw
+  `DATA_REQUIREMENTS.yaml` declared by the skill steps in the same workflow
+  (union, not duplicated at the workflow level) and fulfills each requirement
+  with one or more concrete collect tools selected by market, provider, and
+  dataset type (for example `collect_vnstock_fundamental_data`,
+  `collect_alpha_vantage_balance_sheet`). Skills stay provider-agnostic: they
+  declare dataset contracts, never tool or provider names. Each tool returns
+  canonical records carrying `dataset_id`, `source_id`, and `market_time`.
+  Collection is the only source of ground truth; skill steps never fetch
+  directly. In workflow mode, tool selection is config-driven: a
+  mapping from market and dataset type to a concrete tool. Provider fallback
+  (switching tools on failure) is not implemented yet; a failed tool yields a
+  missing dataset. Agent-driven tool selection in chatflow mode is owned by
+  `../003-agentic-chatflow/`.
+- `skill`: agent. Receives collected records plus prior step outputs, reasons,
+  writes its output section, cites sources, and declares
+  `allowed_claims`/`blocked_claims`.
+
+Guardrails:
+
+- There is no pre-skill fail-fast gate. A skill step runs on whatever
+  `collect_data` returned and resolves which claims it can support, reporting
+  `blocked_claims` for categories it cannot ground on the available data.
+- After each skill step, a deterministic grounding check verifies cited sources
+  are a subset of sources returned by `collect_data`; agent-cited ids not in the
+  returned set become `uncited_claims` and force `grounding_status` to `blocked`.
+- `collect_data` is the only hard floor: zero records and zero source documents
+  fails the run before any skill step.
+- Citations are source-level: a citation references a source (`source_id`,
+  timestamp, `dataset_id`), not a tool-call graph or a separate evidence object.
+  Data age is conveyed by the citation `timestamp`; there is no separate
+  freshness-status concept.
+
+Example step sequences:
+
+- `vn-financial-data-collector`: `collect_data` -> `vn-financial-data-auditor`.
+- `vn-fundamental-analysis`: `collect_data` -> `vn-financial-data-auditor` ->
+  `vn-fundamental-analysis`.
+- `vn-technical-analysis`: `collect_data` -> `vn-technical-analysis`.

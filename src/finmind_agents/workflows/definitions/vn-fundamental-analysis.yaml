@@ -1,0 +1,21 @@
+{
+  "workflow_id": "vn-fundamental-analysis",
+  "version": "1.0.0",
+  "title": "VN Fundamental Analysis",
+  "description": "Collects and audits VN stock financial data, then analyzes fundamental health, earnings quality, DuPont decomposition, and growth trends.",
+  "workflow_type": "composite",
+  "market_scope": ["VN_STOCK"],
+  "required_inputs": [
+    {"name": "market", "type": "string", "required": true},
+    {"name": "symbol", "type": "string", "required": true}
+  ],
+  "stages": ["collect_data", "data-audit", "fundamental-analysis"],
+  "skill_refs": [
+    "src/finmind_agents/workflows/skills/vn-financial-data-auditor/SKILL.md",
+    "src/finmind_agents/workflows/skills/vn-fundamental-analysis/SKILL.md"
+  ],
+  "output_sections": ["Collected Data", "Fundamental Analysis"],
+  "citation_policy": "material_claims_require_citations",
+  "chart_requirements": ["price_series"],
+  "step_sequence": ["collect_data", "vn-financial-data-auditor", "vn-fundamental-analysis"]
+}

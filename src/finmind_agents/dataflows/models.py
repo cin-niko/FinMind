@@ -11,7 +11,7 @@ class DatasetGroup(StrEnum):
     NEWS = "news"
 
 
-class RetrievalStatus(StrEnum):
+class CollectionStatus(StrEnum):
     SUCCESS = "success"
     PARTIAL = "partial"
     FAILED = "failed"
@@ -19,7 +19,7 @@ class RetrievalStatus(StrEnum):
     SKIPPED = "skipped"
 
 
-class RetrievalPlanStatus(StrEnum):
+class CollectionPlanStatus(StrEnum):
     PROPOSED = "proposed"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -57,21 +57,21 @@ class DataRequirement:
 
 
 @dataclass(frozen=True)
-class AgentRetrievalPlan:
+class AgentCollectionPlan:
     skill_id: str
     market: Market
     symbol: str
     required_requests: tuple[DataRequirement, ...]
     optional_requests: tuple[DataRequirement, ...] = ()
     policy_id: str = "workflow_strict"
-    status: RetrievalPlanStatus = RetrievalPlanStatus.PROPOSED
+    status: CollectionPlanStatus = CollectionPlanStatus.PROPOSED
 
     def all_requests(self) -> tuple[DataRequirement, ...]:
         return (*self.required_requests, *self.optional_requests)
 
 
 @dataclass(frozen=True)
-class DataflowRetrievalRequest:
+class DataflowCollectionRequest:
     market: Market
     symbol: str
     requested_by: str
@@ -96,7 +96,7 @@ class DataflowRetrievalRequest:
 class DataflowProviderResult:
     provider_id: str
     dataset_groups: tuple[DatasetGroup, ...]
-    status: RetrievalStatus
+    status: CollectionStatus
     source_ids: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
     failure_reason: str | None = None
@@ -120,15 +120,15 @@ class DataflowProviderResult:
 
 
 @dataclass(frozen=True)
-class DataflowRetrievalResult:
-    retrieval_id: str
+class DataflowCollectionResult:
+    collection_id: str
     market: Market
     symbol: str
     requested_dataset_groups: tuple[DatasetGroup, ...]
     provider_results: tuple[DataflowProviderResult, ...]
     records: tuple[CanonicalMarketDataRecord, ...]
     source_documents: tuple[SourceDocument, ...]
-    status: RetrievalStatus
+    status: CollectionStatus
     warnings: tuple[str, ...]
     failure_reasons: tuple[str, ...]
     started_at: datetime = field(default_factory=dataflow_now)
@@ -136,7 +136,7 @@ class DataflowRetrievalResult:
 
     def to_output(self) -> dict[str, object]:
         return {
-            "retrieval_id": self.retrieval_id,
+            "collection_id": self.collection_id,
             "status": self.status.value,
             "providers": sorted(
                 {provider.provider_id for provider in self.provider_results}

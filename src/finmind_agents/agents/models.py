@@ -11,7 +11,7 @@ class AgentRunRequest(BaseModel):
     skill_markdown: str
     data_requirements: tuple[DataRequirement, ...]
     context: dict[str, object] = Field(default_factory=dict)
-    evidence_ids: tuple[str, ...]
+    citation_ids: tuple[str, ...]
 
 
 class AgentRunResult(BaseModel):

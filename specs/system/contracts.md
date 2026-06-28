@@ -13,7 +13,7 @@ adr_refs: []
 
 # System Contracts
 
-This spec defines stable contract rules for API responses, generated artifacts, evidence, citations, execution visibility, and provider abstraction.
+This spec defines stable contract rules for API responses, generated artifacts, citations, grounding, execution visibility, and provider abstraction.
 
 ## API Surface
 
@@ -25,21 +25,21 @@ The authenticated app shell consumes JSON APIs for:
 
 All protected APIs require an active cookie-backed session. Raw agent reasoning is never returned.
 
-## Evidence And Citation Contract
+## Citation And Grounding Contract
 
 Material user-facing claims must be backed by at least one citation or be explicitly marked unsupported or unavailable. A citation must include:
 
+- `citation_id`: unique identifier
+- `source_id`: source connector or demo source identity
+- `dataset_id`: dataset the claim draws from
 - User-facing label
-- Source type
-- Source reference
-- Source or collection timestamp where available
-- Link to an evidence object or generated artifact when applicable
+- Source or market timestamp (conveys data age)
 
-Freshness metadata must be visible for referenced datasets. Freshness states are: fresh, stale, missing, failed.
+Cited sources must be a subset of sources returned by collection. Claims citing sources not in the returned set are `uncited_claims` and force grounding to `blocked`. Data age is conveyed by citation timestamps; there is no separate freshness-status concept.
 
 ## Artifact Contract
 
-Artifacts are reusable outputs linked to inputs, evidence, and execution context.
+Artifacts are reusable outputs linked to inputs, source refs, and execution context.
 
 Supported artifact types:
 

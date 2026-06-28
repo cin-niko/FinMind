@@ -90,6 +90,29 @@ def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
     assert missing_symbol.json()["detail"] == "symbol is required"
 
 
+def test_workflow_agent_runtime_error_returns_service_unavailable(
+    admin_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
+    monkeypatch.delenv("LITELLM_CHAT_MODEL", raising=False)
+    app = create_app()
+    with TestClient(app) as test_client:
+        login_response = test_client.post(
+            "/api/login",
+            json={"username": "analyst", "password": "secret-pass"},
+        )
+        assert login_response.status_code == 200
+
+        response = test_client.post(
+            "/api/workflows/vn-financial-data-collector/run",
+            json={"market": "VN_STOCK", "symbol": "VCB"},
+        )
+
+    assert response.status_code == 503
+    assert "LITELLM_CHAT_MODEL is required" in response.json()["detail"]
+
+
 def test_workflow_run_exposes_safe_agent_metadata(client: TestClient) -> None:
     login_response = client.post(
         "/api/login",
@@ -103,12 +126,12 @@ def test_workflow_run_exposes_safe_agent_metadata(client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    agent = response.json()["output"]["agent"]
-    assert agent["runtime_adapter"] == "langchain_litellm"
-    assert agent["policy_id"] == "workflow_strict"
-    assert agent["retrieval_plan_status"] in {"executed", "partial"}
-    assert "reasoning" not in str(agent).lower()
-    assert "secret" not in str(agent).lower()
+    output = response.json()["output"]
+    assert output["steps"]
+    assert any(step["id"] == "collect_data" for step in output["steps"])
+    assert any(step["kind"] == "skill" for step in output["steps"])
+    assert "reasoning" not in str(output).lower()
+    assert "secret" not in str(output).lower()
 
 
 def test_admin_can_login_check_session_and_logout(client: TestClient) -> None:

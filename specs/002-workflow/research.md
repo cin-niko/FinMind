@@ -27,10 +27,10 @@ because the current scope is VN stocks and US stocks only.
 ## Decision: Use fixed workflow execution before flexible chatflow
 
 Fixed workflows provide predictable, testable analysis paths and make evidence,
-citations, freshness, chart artifacts, and run inspection easier to verify.
+citations, chart artifacts, and run inspection easier to verify.
 
 Alternatives considered: production flexible agentic Q&A first. Rejected because
-trusted-source retrieval and chatflow safety need a separate bounded spec.
+trusted-source collection and chatflow safety need a separate bounded spec.
 
 ## Decision: Use one shared agent runtime
 
@@ -56,7 +56,7 @@ unguarded framework would bypass FinMind authority boundaries.
 
 Phase 02 should rely on LangChain Deep Agents (`deepagents.create_deep_agent`)
 for the bounded workflow agent core, with normal Python service/runtime code
-retaining FinMind validation, retrieval approval, persistence, and output
+retaining FinMind validation, collection approval, persistence, and output
 guardrails. LangGraph should not be a direct MVP dependency yet; it should be
 introduced only when workflow or chatflow needs explicit graph state,
 checkpointing, human pause/resume, or multi-agent branching beyond what Deep
@@ -90,7 +90,7 @@ surface and make future provider switching harder.
 ## Decision: Prototype with Deep Agents orchestration instead of rebuilding it
 
 Phase 02 should prototype directly with `deepagents.create_deep_agent`, wire
-existing Agent Skills and dataflows retrieval as tools, and use sub-agents per
+existing Agent Skills and dataflows collection as tools, and use sub-agents per
 data domain only when they improve clarity. FinMind should spend engineering
 effort on the grounding/citation layer, data-quality gates, safe output schemas,
 and synthesis prompts rather than rebuilding generic planning and delegation.
@@ -114,7 +114,7 @@ multi-skill chatflow.
 Deep Agents, future direct LangGraph, `langchain-litellm`, or any provider-specific model
 adapter is an execution substrate only. FinMind code remains responsible for market scope,
 allowed tools, provider access through `dataflows`, citation enforcement,
-freshness labeling, no-trade/no-order safety, output schemas, persistence,
+citation provenance, no-trade/no-order safety, output schemas, persistence,
 visible execution status, and audit-safe logs.
 
 Rationale: Financial research output must be auditable and bounded even when the
@@ -144,14 +144,14 @@ duplicating implementation.
 Alternatives considered: one global agent policy. Rejected because workflow and
 chatflow have materially different user expectations and failure behavior.
 
-## Decision: Skill-owned data requirements drive retrieval planning
+## Decision: Skill-owned data requirements drive collection planning
 
 Detailed data requirements belong beside the Agent Skill in
 `DATA_REQUIREMENTS.yaml`. Workflow YAML references the skill and constrains
 runtime behavior; it does not duplicate detailed dataset requirements. During a
 workflow run, the Deep Agents-backed runtime reads the skill and data
-requirements, derives required and optional dataflow retrieval calls, and sends
-those calls through FinMind's `retrieve_dataflow` tool. FinMind validates and
+requirements, derives required and optional dataflow collection calls, and sends
+those calls through FinMind's `collect_dataflow` tool. FinMind validates and
 executes the calls; the agent never reaches provider clients directly.
 
 Rationale: Duplicating requirements in workflow YAML and skill files creates two
@@ -162,20 +162,20 @@ explain why workflow output is strict/repeatable and chatflow output can be
 question-specific.
 
 Alternatives considered: workflow-owned data requirements, duplicated
-workflow-and-skill requirements, or fully free agent retrieval. Workflow-owned
+workflow-and-skill requirements, or fully free agent collection. Workflow-owned
 requirements make skills less reusable by chatflow. Duplicated requirements
-drift. Fully free retrieval gives the agent too much authority over evidence in
+drift. Fully free collection gives the agent too much authority over evidence in
 a financial setting.
 
 ## Decision: Make workflows composable
 
 Phase 02 workflows should be reusable steps that can be run alone or as part of a
 larger composite workflow. `stock-brief` is the first composite workflow and runs
-`data-collector`, `data-quality-check`, `fundamental-analysis`,
-`technical-analysis`, `news-digest`, and `risk-review` as ordered stages.
+`collect_data`, `vn-financial-data-auditor`, `fundamental-analysis`,
+`technical-analysis`, `news-digest`, and `risk-review` as ordered `step_sequence`.
 
 Rationale: Composition avoids duplicating collection, quality checks, citations,
-freshness handling, and stage status across each user-facing workflow.
+citation handling, and step status across each user-facing workflow.
 
 Alternatives considered: independent monolithic workflow implementations.
 Rejected because they make evidence, quality gating, partial failure, and future
@@ -185,8 +185,7 @@ workflow reuse harder to keep consistent.
 
 Workflow structure should be machine-readable YAML, while per-analysis behavior
 should live in governed Markdown agent skills. Fixed runtime code enforces
-validation, data-quality gates, citations, freshness, safety, and output
-contracts.
+validation, citations, safety, and output contracts.
 
 Rationale: YAML definitions keep workflows portable for UI/API tests and future
 Claude or MCP-style integrations. Markdown skills keep analysis behavior readable
@@ -196,16 +195,19 @@ Alternatives considered: fixed code only, Markdown skills only, and YAML
 definitions only. Rejected because each misses either portability, deterministic
 validation, or analyst guidance.
 
-## Decision: Keep data collection and quality checks internal
+## Decision: Keep data collection and grounding internal
 
-`data-collector` and `data-quality-check` are internal workflow steps, not primary
-user-facing workflows in Phase 02. Users see source coverage, freshness,
-warnings, blocking issues, and unavailable sections when relevant.
+`collect_data` is a deterministic internal step and the data audit is the
+`vn-financial-data-auditor` skill step, not primary user-facing workflows in
+Phase 02. Users see source coverage, citations (with timestamps), warnings, and
+blocked claims when relevant. A post-skill `GroundingCheck` audits that cited
+sources are a subset of collected sources; there is no pre-skill fail-fast.
 
-Rationale: Users need trustworthy results, not operational noise. Internal gates
-can protect claims while keeping the UI focused on research output.
+Rationale: Users need trustworthy results, not operational noise. Internal
+collection and grounding can protect claims while keeping the UI focused on
+research output.
 
-Alternatives considered: exposing data-quality-check as a standalone workflow.
+Alternatives considered: exposing the data audit as a standalone workflow.
 Deferred until there is enough operational need for a diagnostics-focused view.
 
 ## Decision: Fetch latest provider data with deterministic fallback
@@ -216,21 +218,21 @@ only for tests, local offline development, and explicit degraded fallback paths.
 
 Rationale: User-facing workflows need current evidence to be useful as trading
 research support. Keeping provider output normalized behind canonical records
-preserves testability, citation/freshness enforcement, and future provider
+preserves testability, citation enforcement, and future provider
 replacement.
 
 Alternatives considered: demo-only repositories. Rejected because demo-only data
 cannot satisfy the phase 02 workflow goal once users run live stock research.
 
-## Decision: Build `dataflows` as the shared retrieval layer
+## Decision: Build `dataflows` as the shared collection layer
 
-Provider retrieval should live in `src/finmind_agents/dataflows/`, not inside
-workflow execution or the API layer. The module is retrieval-first for workflows
+Provider collection should live in `src/finmind_agents/dataflows/`, not inside
+workflow execution or the API layer. The module is collection-first for workflows
 and future chatflow; it does not implement admin ingestion, scheduled backfill,
 warehouse storage, or a broad realtime data platform in Phase 02.
 
 Rationale: Workflows and chatflow both need current, evidence-ready finance data,
-but neither should know provider APIs or fallback rules. A dedicated retrieval
+but neither should know provider APIs or fallback rules. A dedicated collection
 boundary keeps provider selection, normalization, failure handling, and fallback
 labeling in one place while preserving the existing workflow runtime as the
 analysis/orchestration layer.
@@ -251,9 +253,9 @@ cross-checking against CafeF, exchange disclosures, or company/audited reports i
 possible.
 
 Rationale: The referenced `equity-research-vn` collector flow uses `vnstock` as
-the primary VN collection path and treats source freshness/period quality as a
+the primary VN collection path and treats source provenance/period quality as a
 first-class workflow concern. This matches FinMind's VN stock scope and
-data-quality gate design.
+citation-grounding design.
 
 Alternatives considered: scraping individual VN websites first, manual CSVs, or
 demo-only VN data. Rejected because they are less reusable, harder to normalize,

@@ -1,8 +1,8 @@
 from finmind_agents.dataflows.models import (
     DataflowProviderResult,
-    DataflowRetrievalRequest,
+    DataflowCollectionRequest,
     DatasetGroup,
-    RetrievalStatus,
+    CollectionStatus,
 )
 from finmind_agents.dataflows.providers.base import ProviderCapability, ProviderFetchResult
 from finmind_agents.models import Market
@@ -20,13 +20,13 @@ class AlphaVantageProvider:
     def __init__(self, api_key: str = "") -> None:
         self._api_key = api_key
 
-    def fetch(self, request: DataflowRetrievalRequest) -> ProviderFetchResult:
+    def fetch(self, request: DataflowCollectionRequest) -> ProviderFetchResult:
         if not self._api_key:
             return ProviderFetchResult(
                 provider_result=DataflowProviderResult(
                     provider_id=self.provider_id,
                     dataset_groups=_supported_groups(request.dataset_groups),
-                    status=RetrievalStatus.SKIPPED,
+                    status=CollectionStatus.SKIPPED,
                     warnings=("alpha_vantage_api_key_missing",),
                     failure_reason="Alpha Vantage API key is not configured",
                 )
@@ -35,9 +35,9 @@ class AlphaVantageProvider:
             provider_result=DataflowProviderResult(
                 provider_id=self.provider_id,
                 dataset_groups=_supported_groups(request.dataset_groups),
-                status=RetrievalStatus.SKIPPED,
+                status=CollectionStatus.SKIPPED,
                 warnings=("alpha_vantage_live_fetch_not_enabled",),
-                failure_reason="Alpha Vantage live retrieval is not enabled in this harness",
+                failure_reason="Alpha Vantage live collection is not enabled in this harness",
             )
         )
 

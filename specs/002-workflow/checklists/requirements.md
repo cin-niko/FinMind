@@ -38,7 +38,7 @@ adr_refs: []
 - [x] Current market scope is VN stocks and US stocks only
 - [x] Workflow suite includes fundamental analysis, technical analysis, and news
   digest as required phase 02 capabilities
-- [x] Internal `data-collector` and `data-quality-check` steps are specified
+- [x] Internal `collect_data` step and `vn-financial-data-auditor` skill + post-skill `GroundingCheck` are specified
 - [x] `stock-brief` composite workflow and step reuse are specified
 - [x] UI run support is specified without moving app shell ownership out of
   `001-mvp-ui`
