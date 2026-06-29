@@ -8,6 +8,7 @@ from finmind_agents.models import CanonicalMarketDataRecord, Market, SourceDocum
 class DatasetGroup(StrEnum):
     MARKET_PRICE = "market_price"
     FUNDAMENTAL = "fundamental"
+    COMPANY_PROFILE = "company_profile"
     NEWS = "news"
 
 
@@ -45,7 +46,7 @@ class DataRequirement:
             "financial_statement": DatasetGroup.FUNDAMENTAL,
             "valuation_ratios": DatasetGroup.FUNDAMENTAL,
             "corporate_events": DatasetGroup.FUNDAMENTAL,
-            "company_profile": DatasetGroup.FUNDAMENTAL,
+            "company_profile": DatasetGroup.COMPANY_PROFILE,
             "fundamental": DatasetGroup.FUNDAMENTAL,
             "source_documents": DatasetGroup.NEWS,
             "news": DatasetGroup.NEWS,

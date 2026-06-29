@@ -22,7 +22,11 @@ class VnstockProvider:
     capabilities = (
         ProviderCapability(
             market=Market.VN_STOCK,
-            dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
+            dataset_groups=(
+                DatasetGroup.MARKET_PRICE,
+                DatasetGroup.FUNDAMENTAL,
+                DatasetGroup.COMPANY_PROFILE,
+            ),
         ),
     )
 
@@ -57,11 +61,12 @@ class VnstockProvider:
                             failure_reason="vnstock API key registration failed",
                         )
                     )
-        records = []
+        groups = request.dataset_groups
+        records: list[Any] = []
         warnings: list[str] = []
         price_failure = None
         fundamental_failure = None
-        if DatasetGroup.MARKET_PRICE in request.dataset_groups:
+        if DatasetGroup.MARKET_PRICE in groups:
             try:
                 records.extend(_fetch_price_records(vnstock, request))
             except Exception as error:
@@ -69,14 +74,20 @@ class VnstockProvider:
                 price_failure = str(error)
             else:
                 price_failure = None
-        if DatasetGroup.FUNDAMENTAL in request.dataset_groups:
+        overview_row = None
+        if (
+            DatasetGroup.FUNDAMENTAL in groups
+            or DatasetGroup.COMPANY_PROFILE in groups
+        ):
+            overview_row = _first_overview_row(vnstock, request)
+        latest_eps: float | int | None = None
+        latest_bvps: float | int | None = None
+        if DatasetGroup.FUNDAMENTAL in groups:
             try:
-                fundamental_records, company_profile = _fetch_fundamental_records(
-                    vnstock, request
+                fundamental_records, latest_eps, latest_bvps = _fetch_fundamental_records(
+                    vnstock, request, overview_row
                 )
                 records.extend(fundamental_records)
-                if company_profile is not None:
-                    records.append(company_profile)
                 if any(
                     record.source_id == "vnstock_company_overview"
                     for record in fundamental_records
@@ -85,8 +96,10 @@ class VnstockProvider:
             except Exception as error:
                 warnings.append("vnstock_fundamental_fetch_failed")
                 fundamental_failure = str(error)
-            else:
-                fundamental_failure = None
+        if DatasetGroup.COMPANY_PROFILE in groups and overview_row is not None:
+            profile = _company_profile_record(request, overview_row, latest_eps, latest_bvps)
+            if profile is not None:
+                records.append(profile)
         if not records:
             failure_reason = "; ".join(
                 reason
@@ -118,9 +131,9 @@ class VnstockProvider:
 def _supported_groups(groups: tuple[DatasetGroup, ...]) -> tuple[DatasetGroup, ...]:
     return tuple(
         group
-        for group in groups
-        if group in {DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL}
-    )
+       for group in groups
+        if group in {DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL, DatasetGroup.COMPANY_PROFILE}
+   )
 
 
 PRICE_HISTORY_COUNT = 1500
@@ -189,32 +202,32 @@ def _fetch_price_records(
 def _fetch_fundamental_records(
     vnstock: Any,
     request: DataflowCollectionRequest,
-) -> tuple[list[Any], Any | None]:
-    """Return (fundamental_records, company_profile_record).
+    overview_row: dict[str, Any] | None,
+) -> tuple[list[Any], float | int | None, float | int | None]:
+    """Return (fundamental_records, latest_eps, latest_bvps).
 
     Fundamental records are one per available annual period with eps, revenue,
-    net income, equity, total assets, CFO and ROE. The company profile record is
-    the current snapshot (name, sector, market cap, shares, PE/PB). Falls back to
-    a single overview-based record when the statements are unavailable.
+    net income, equity, total assets, CFO and ROE. The company profile is produced
+    separately in the COMPANY_PROFILE branch. Falls back to a single overview-based
+    record when the statements are unavailable.
     """
     equity = _call_or_value(vnstock.Fundamental().equity, request.symbol)
     income_rows = _safe_statement_rows(equity, "income_statement")
     balance_rows = _safe_statement_rows(equity, "balance_sheet")
     cash_flow_rows = _safe_statement_rows(equity, "cash_flow")
-    overview_row = _first_overview_row(vnstock, request)
     if income_rows and balance_rows:
-        records, profile = _records_from_statements(
+        records, latest_eps, latest_bvps = _records_from_statements(
             request, income_rows, balance_rows, cash_flow_rows, overview_row
         )
         if records:
-            return records, profile
+            return records, latest_eps, latest_bvps
     if overview_row:
         return (
             [_fundamental_record_from_company_overview(request, overview_row)],
-            _company_profile_record(request, overview_row, None, None),
+            None,
+            None,
         )
-    return [], None
-
+    return [], None, None
 
 def _safe_statement_rows(equity: Any, method: str) -> list[dict[str, Any]]:
     try:
@@ -241,10 +254,10 @@ def _records_from_statements(
     balance_rows: list[dict[str, Any]],
     cash_flow_rows: list[dict[str, Any]],
     overview_row: dict[str, Any] | None,
-) -> tuple[list[Any], Any | None]:
+) -> tuple[list[Any], float | int | None, float | int | None]:
     periods = _period_columns(income_rows)
     if not periods:
-        return [], None
+        return [], None, None
     shares = _number(overview_row.get("issue_share")) if overview_row else None
     latest_period = periods[0]
     latest_eps = _number(_metric_value(income_rows, "eps_basic_vnd", latest_period))
@@ -288,9 +301,7 @@ def _records_from_statements(
                 },
             )
         )
-    profile = _company_profile_record(request, overview_row, latest_eps, latest_bvps)
-    return records, profile
-
+    return records, latest_eps, latest_bvps
 
 def _fetch_company_overview_rows(
     vnstock: Any,

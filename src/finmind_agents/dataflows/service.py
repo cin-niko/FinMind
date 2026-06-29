@@ -113,6 +113,12 @@ def _missing_groups(
             record.dataset_id.endswith("_fundamentals") for record in records
         ):
             missing.append(group)
+        if group.value == "company_profile" and not any(
+            record.dataset_id == "vn_company_profile" for record in records
+        ):
+            missing.append(group)
         if group.value == "news" and source_document_count == 0:
             missing.append(group)
     return tuple(missing)
+
+

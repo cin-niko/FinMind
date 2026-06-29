@@ -311,6 +311,7 @@ def test_collector_workflow_uses_skill_data_requirements(
     assert result["output"]["collection"]["requested_dataset_groups"] == [
         "market_price",
         "fundamental",
+        "company_profile",
         "news",
     ]
 
@@ -362,6 +363,7 @@ def test_fundamental_analysis_workflow_runs_collector_audit_and_analysis_steps(
     assert result["output"]["collection"]["requested_dataset_groups"] == [
         "market_price",
         "fundamental",
+        "company_profile",
         "news",
     ]
 
@@ -768,10 +770,10 @@ def test_vnstock_provider_fetches_live_price_and_fundamental_records(
         DataflowCollectionRequest(
             market=Market.VN_STOCK,
             symbol="VCB",
-            dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
-            requested_by="vn-financial-data-collector",
-        )
-    )
+           dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
+           requested_by="vn-financial-data-collector",
+       )
+   )
 
     assert result.provider_result.status == "success"
     assert {record.dataset_id for record in result.records} == {
@@ -839,7 +841,7 @@ def test_vnstock_provider_falls_back_to_overview_when_statements_unavailable(
         DataflowCollectionRequest(
             market=Market.VN_STOCK,
             symbol="DXG",
-            dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
+            dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL, DatasetGroup.COMPANY_PROFILE),
             requested_by="vn-financial-data-collector",
         )
     )
