@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from finmind_agents.models import Market
 from finmind_agents.workflows.catalog import build_workflow_catalog
 from finmind_api.app import create_app
+from finmind_api.platform import build_run_store as _real_build_run_store
 
 
 def test_target_packages_are_importable() -> None:
@@ -736,27 +737,21 @@ def test_vnstock_provider_fetches_live_price_and_fundamental_records(
             ]
 
     class FakeEquityFundamental:
-        def ratios(self, **kwargs: object) -> list[dict[str, object]]:
-            assert kwargs["orient"] == "report"
+        def income_statement(self, **kwargs: object) -> list[dict[str, object]]:
+            assert kwargs["source"] == "vci"
+            assert kwargs["period"] == "year"
             return [
-                {
-                    "item": "EPS",
-                    "item_id": "trailing_eps",
-                    "2026-Q1": 5400,
-                    "2025-Q4": 5100,
-                },
-                {
-                    "item": "BVPS",
-                    "item_id": "book_value_per_share_bvps",
-                    "2026-Q1": 36200,
-                    "2025-Q4": 35100,
-                },
-                {
-                    "item": "ROE",
-                    "item_id": "roe",
-                    "2026-Q1": 0.214,
-                    "2025-Q4": 0.2,
-                }
+                {"item": "EPS", "item_id": "eps_basic_vnd", "2025": 5400, "2024": 5100},
+                {"item": "Net profit", "item_id": "net_profit_loss_after_tax",
+                 "2025": 54000, "2024": 48000},
+            ]
+
+        def balance_sheet(self, **kwargs: object) -> list[dict[str, object]]:
+            assert kwargs["source"] == "vci"
+            assert kwargs["period"] == "year"
+            return [
+                {"item": "Equity", "item_id": "owners_equity", "2025": 270000, "2024": 240000},
+                {"item": "Assets", "item_id": "total_assets", "2025": 3000000, "2024": 2800000},
             ]
 
     fake_vnstock = SimpleNamespace(
@@ -789,40 +784,34 @@ def test_vnstock_provider_fetches_live_price_and_fundamental_records(
     )
     assert price.payload["close"] == 61200
     assert fundamentals.payload["eps"] == 5400
+    assert fundamentals.payload["roe_percent"] == 20.0
     assert result.provider_result.source_ids == (
         "vnstock_fundamentals",
         "vnstock_prices",
     )
 
 
-def test_vnstock_provider_supports_top_level_vnstock_api(
+def test_vnstock_provider_falls_back_to_overview_when_statements_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
     from finmind_agents.dataflows.providers.vnstock import VnstockProvider
 
-    class FakeQuote:
-        def __init__(self, **kwargs: object) -> None:
-            assert kwargs["source"] == "VCI"
-            assert kwargs["symbol"] == "DXG"
+    class FakeEquityMarket:
+        def ohlcv(self, **kwargs: object) -> list[dict[str, object]]:
+            assert kwargs["source"] == "vci"
+            return [{"time": "2026-06-27", "close": 14.2, "volume": 1200000}]
 
-        def history(self, **kwargs: object) -> list[dict[str, object]]:
-            assert kwargs["interval"] == "1D"
-            return [
-                {
-                    "time": "2026-06-27",
-                    "close": 14.2,
-                    "volume": 1200000,
-                }
-            ]
+    class FakeEquityFundamental:
+        def income_statement(self, **kwargs: object) -> list[dict[str, object]]:
+            return []
 
-    class FakeFinance:
-        def __init__(self, **kwargs: object) -> None:
-            raise ConnectionError("finance unavailable")
+        def balance_sheet(self, **kwargs: object) -> list[dict[str, object]]:
+            return []
 
     class FakeCompany:
         def __init__(self, **kwargs: object) -> None:
-            assert kwargs["source"] == "KBS"
+            assert kwargs["source"] == "vci"
             assert kwargs["symbol"] == "DXG"
 
         def overview(self) -> list[dict[str, object]]:
@@ -830,15 +819,18 @@ def test_vnstock_provider_supports_top_level_vnstock_api(
                 {
                     "symbol": "DXG",
                     "exchange": "HOSE",
-                    "outstanding_shares": 1268104965,
-                    "charter_capital": 12699,
+                    "issue_share": 1268104965,
+                    "market_cap": 18000000000000,
+                    "free_float": 0.35,
+                    "free_float_percentage": 35.0,
+                    "sector": "Real Estate",
                     "as_of_date": "2025-12-31T00:00:00",
                 }
             ]
 
     fake_vnstock = SimpleNamespace(
-        Quote=FakeQuote,
-        Finance=FakeFinance,
+        Market=lambda: SimpleNamespace(equity=lambda symbol: FakeEquityMarket()),
+        Fundamental=lambda: SimpleNamespace(equity=lambda symbol: FakeEquityFundamental()),
         Company=FakeCompany,
     )
     monkeypatch.setitem(sys.modules, "vnstock", fake_vnstock)
@@ -860,7 +852,9 @@ def test_vnstock_provider_supports_top_level_vnstock_api(
     fundamentals = next(
         record for record in result.records if record.dataset_id == "vn_fundamentals"
     )
+    assert fundamentals.source_id == "vnstock_company_overview"
     assert fundamentals.payload["outstanding_shares"] == 1268104965
+    assert fundamentals.payload["sector"] == "Real Estate"
     assert "vnstock_finance_fetch_failed" in result.provider_result.warnings
 
 
@@ -1106,3 +1100,21 @@ def test_completed_workflow_run_can_be_reopened_from_history(
     assert list_response.json()[0] == result
     assert detail_response.status_code == 200
     assert detail_response.json() == result
+
+
+
+def test_build_run_store_fails_closed_without_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The product run store is PostgreSQL; the app must fail closed when the
+    DSN is missing instead of silently falling back to a non-durable store."""
+    from finmind_api.settings import Settings, SettingsError
+
+    monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
+    monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
+    monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
+    monkeypatch.delenv("FINMIND_DATABASE_URL", raising=False)
+    settings = Settings.from_env()
+
+    with pytest.raises(SettingsError, match="FINMIND_DATABASE_URL"):
+        _real_build_run_store(settings)

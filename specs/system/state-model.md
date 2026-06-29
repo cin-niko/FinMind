@@ -133,6 +133,11 @@ Rules:
 
 - Partial runs distinguish completed sections from failures.
 - Raw agent reasoning remains internal and is not included in user-facing output.
+- Completed runs persist to the PostgreSQL run store so they remain inspectable
+  from `History` -> `Workflow Runs` (and later chat history) after an app
+  restart. One `runs` table serves both `workflow` and `chat` runs via the
+  `kind` discriminator. The DSN is configured via `FINMIND_DATABASE_URL`; the app
+  fails closed when it is missing or unreachable.
 
 ### Citation
 

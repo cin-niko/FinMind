@@ -38,15 +38,20 @@ path, with broader workflow catalog contracts retained for Phase 02.
   (`deepagents`), `langchain-litellm` as the default multi-provider model
   adapter, `httpx`, collection-first dataflow adapters, in-memory fallback
   repositories, pytest. LangGraph is intentionally deferred for the current MVP.
-- Market-data providers: `vnstock` adapter for VN stock latest price and
-  fundamentals; US provider adapter using Alpha Vantage for current/daily
+- Market-data providers: `vnstock` (4.x unified API) adapter for VN stock
+  latest price and fundamentals, using the `vci` source (the legacy `kbs`
+  endpoints reset connections); US provider adapter using Alpha Vantage for current/daily
   prices and market news when an API key is configured; SEC EDGAR company facts
   adapter for public-company fundamentals; deterministic offline fallback for
   tests and provider outage paths.
 - Frontend dependencies: React/Vite, existing app shell, existing workflow/result
   pages, Lightweight Charts.
-- Storage: in-memory canonical record cache/repository for Phase 02 provider
-  results plus deterministic offline fallback records; no database migration.
+- Storage: in-memory canonical record cache for Phase 02 provider results
+  plus deterministic offline fallback records; workflow and chat runs persist to
+  PostgreSQL via `psycopg` (one `runs` table, `kind` discriminator), bootstrapped
+  with idempotent DDL. Development uses the `postgres` service in
+  `docker-compose.yaml`; tests inject an in-memory run repository via the
+  `build_run_store` seam.
 - Testing: `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest`
   and `npm run build` in `src/finmind_ui`.
 - Target platform: internal browser app backed by FastAPI JSON APIs.

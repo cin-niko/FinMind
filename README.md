@@ -39,6 +39,15 @@ export FINMIND_ADMIN_PASSWORD=secret-pass
 export FINMIND_SESSION_SECRET=session-secret-with-length
 ```
 
+Run the PostgreSQL run store for local development (the API fails closed
+without `FINMIND_DATABASE_URL`):
+
+```bash
+docker compose up postgres
+```
+
+`.env` already sets `FINMIND_DATABASE_URL=postgresql://finmind:finmind@localhost:5432/finmind`.
+
 Run the backend tests:
 
 ```bash

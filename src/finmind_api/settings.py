@@ -19,6 +19,7 @@ class Settings:
     vnstock_api_key: str = ""
     dataflow_provider_timeout_seconds: float = 15.0
     dataflow_allow_fallback: bool = True
+    database_url: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -61,4 +62,5 @@ class Settings:
                 "true",
             ).lower()
             not in {"0", "false", "no"},
+            database_url=os.getenv("FINMIND_DATABASE_URL", "").strip(),
         )

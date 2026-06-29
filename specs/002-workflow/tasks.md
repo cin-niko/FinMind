@@ -150,7 +150,7 @@ behavior, partial/unavailable sections, and preserved completed sections.
 - [ ] T037 [P] [US3] Migrate composite workflow definitions and skill refs into `src/finmind_agents/workflows/definitions.py` and `src/finmind_agents/skills/`
 - [ ] T038 [US3] Implement composite sequencing and section assembly in `src/finmind_agents/workflows/executor.py`
 - [ ] T039 [US3] Implement runtime policy handling for reusable internal steps in `src/finmind_agents/runtime/service.py`
-- [ ] T040 [US3] Persist composite run output, stage status, and tool status in `src/finmind_agents/repositories.py`
+- [ ] T040 [US3] Persist composite run output, stage status, and tool status via the API-layer run store (`src/finmind_api/run_store.py`)
 - [ ] T041 [US3] Render composite stage states and unavailable sections in `src/finmind_ui/src/features/results/ResultView.tsx`
 
 **Checkpoint**: `stock-brief` works as a composed workflow without duplicating
@@ -196,12 +196,12 @@ artifacts are restored.
 ### Tests for User Story 5
 
 - [ ] T049 [P] [US5] Add migrated run history API coverage for completed and partial workflow runs in `tests/test_app.py`
-- [ ] T050 [P] [US5] Add run reinspection persistence coverage for `collection` and `agent` envelopes in `tests/test_platform_services.py`
+- [x] T050 [P] [US5] Add run reinspection persistence coverage for `collection` and `agent` envelopes in `tests/test_platform_services.py`
 
 ### Implementation for User Story 5
 
-- [ ] T051 [US5] Migrate run repository persistence into `src/finmind_agents/repositories.py`
-- [ ] T052 [US5] Add run list and detail routes in `src/finmind_api/routes/runs.py`
+- [x] T051 [US5] Migrate run repository persistence into PostgreSQL via `PostgresRunRepository` in the API layer (`src/finmind_api/run_store.py`), configured by `FINMIND_DATABASE_URL`; the agentic layer keeps only the `RunRepository` contract
+- [x] T052 [US5] Add run list and detail routes in `src/finmind_api/routes/runs.py`
 - [ ] T053 [US5] Migrate history selection and run reinspection flow into `src/finmind_ui/src/App.tsx` and `src/finmind_ui/src/features/shell/AppShell.tsx`
 
 **Checkpoint**: Stored workflow runs remain inspectable after the architecture
