@@ -1,6 +1,6 @@
 ---
 name: vn-technical-analysis
-description: Technical analysis of Vietnam-listed stocks from real OHLCV data collected by the collect_data step, in two modes. Mode ACTIVE computes MA/RSI/MACD/Bollinger/Beta/Correlation, detects candlestick and chart patterns, performs honest divergence checks, and maps a Tech Score to a BUY/SELL verdict. Mode PROFILE builds a quantitative price-volume profile (volatility, drawdown, VPCI/OBV/CMF, Wyckoff effort-result, volume-at-price, tail risk VaR/ES, pattern scoring, archetype) in neutral descriptive non-advice language. Use when the user asks for technical analysis, timing, a stock profile/personality, beta/correlation, or candlestick/chart patterns. Core rule: never fabricate or simulate price data. Outputs a native Markdown report; the candlestick + volume chart is rendered separately as a workflow chart artifact.
+description: Technical analysis of Vietnam-listed stocks from real OHLCV data collected by the collect_data step, in two modes. Mode ACTIVE computes MA/RSI/MACD/Bollinger/Beta/Correlation, detects candlestick and chart patterns, performs honest divergence checks, and maps a Tech Score to a BUY/SELL verdict. Mode PROFILE builds a quantitative price-volume profile (volatility, drawdown, VPCI/OBV/CMF, Wyckoff effort-result, volume-at-price, tail risk VaR/ES, pattern scoring, archetype) in neutral descriptive non-advice language. Use when the user asks for technical analysis, timing, a stock profile/personality, beta/correlation, or candlestick/chart patterns. Core rule: never fabricate or simulate price data. Outputs a Markdown report; the candlestick + volume chart is rendered separately as a workflow chart artifact.
 ---
 
 # VN Technical Analysis
@@ -8,7 +8,7 @@ description: Technical analysis of Vietnam-listed stocks from real OHLCV data co
 Version: 1.0.0
 Purpose: Technical analysis from real OHLCV data collected by the collect_data step, answering timing (ACTIVE) or price-volume profile (PROFILE) questions that fundamental and news analysis cannot.
 Blocked Behavior: Do not fabricate, simulate, or model price data. If the collected OHLCV records are missing or insufficient, say "no data" and block the claim. Do not mix ACTIVE verdict language into PROFILE output or vice versa.
-Output Contract: ACTIVE — Markdown technical report (indicator values, detected patterns, Tech Score, BUY/SELL/NEUTRAL verdict). PROFILE — Markdown narrative profile in neutral descriptive non-advice language with the four mandatory non-conclusion points. Every indicator and pattern must be computed from collected records, with citations. The candlestick + volume chart is rendered separately by the workflow runtime; the skill does not render HTML or charts.
+Output Contract: ACTIVE — Markdown technical report (indicator values, detected patterns, Tech Score, BUY/SELL/NEUTRAL verdict). PROFILE — Markdown narrative profile in neutral descriptive non-advice language with the four mandatory non-conclusion points. Every indicator and pattern must be computed from collected records, with citations. The candlestick + volume chart is rendered separately by the workflow runtime as a chart artifact.
 Citation Policy: Every indicator value and pattern must trace to collected OHLCV records; never present model-memory or simulated prices as analysis.
 
 ## Role
@@ -16,7 +16,7 @@ Citation Policy: Every indicator value and pattern must trace to collected OHLCV
 Perform technical analysis on Vietnam-listed stocks from real price data that the
 `collect_data` step has already gathered. The skill has two modes and never
 fetches data itself. It consumes collected OHLCV records and company-overview
-context, and produces a native Markdown report.
+context, and produces a Markdown report.
 
 ## When To Use
 
@@ -40,9 +40,8 @@ or model a price series — if the collected records are missing or insufficient
 say "no data" and block the claim. Do not mix the two modes' language: PROFILE
 never outputs BUY/SELL/bullish/signal; ACTIVE never outputs long non-advice
 guardrails. Do not provide order or irreversible financial action instructions.
-Produce a native Markdown report — do not render HTML, dashboards, or charts.
-The candlestick + volume chart is rendered separately by the workflow runtime as
-a chart artifact.
+Produce a Markdown report. The candlestick + volume chart is rendered
+separately by the workflow runtime as a chart artifact.
 
 ## Required Context
 
@@ -80,8 +79,8 @@ Compute from collected records:
 
 Then write a Markdown technical report with the indicator values, the detected
 patterns (with evidence), the Tech Score, and the verdict. Prices are in
-thousand VND (e.g. 19.38 = 19,380 VND). Do not render HTML or charts — the
-candlestick + volume chart is rendered separately by the workflow runtime.
+thousand VND (e.g. 19.38 = 19,380 VND). The candlestick + volume chart is
+rendered separately by the workflow runtime as a chart artifact.
 
 ### Step 4: PROFILE Mode — Quantitative Price-Volume Profile
 
@@ -95,8 +94,7 @@ recommend. See `references/stock_profile_blocks.md`,
 Then write a Markdown narrative profile following the render-narrative procedure
 in `references/metric_guardrails.md` (look up metric labels + guardrails, apply
 `CONSUMER_LABELS`, scrub copy, avoid forbidden words, use standard terminology,
-and append the four non-conclusion points). Do not render HTML, dashboards, or
-charts.
+and append the four non-conclusion points).
 
 ### Step 5: Output
 
@@ -109,7 +107,7 @@ collected records it was computed from.
 ## Output Contract
 
 - Output must be computed from collected OHLCV records only.
-- Output is native Markdown — no HTML, no dashboards, no chart rendering.
+- Output is a Markdown report.
 - ACTIVE output includes a Tech Score and a BUY/SELL/NEUTRAL verdict.
 - PROFILE output uses neutral descriptive language with the four mandatory
   non-conclusion points and never includes a verdict.
