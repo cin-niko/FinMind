@@ -121,7 +121,7 @@ class WorkflowService:
                     context={
                         "inputs": run_inputs,
                         "collection": prior_outputs.get(COLLECT_STEP, {}),
-                        "records": [_record_payload(record) for record in records],
+                        "records": _skill_record_payloads(skill_id, records),
                         "prior_outputs": prior_outputs,
                     },
                     citation_ids=tuple(citation.citation_id for citation in citations),
@@ -271,6 +271,49 @@ def _record_payload(record: CanonicalMarketDataRecord) -> dict[str, object]:
         "source_id": record.source_id,
         "payload": record.payload,
     }
+
+
+def _skill_record_payloads(
+    skill_id: str,
+    records: tuple[CanonicalMarketDataRecord, ...],
+) -> list[dict[str, object]]:
+    """Build the record context for a skill step.
+
+    The technical-analysis skill needs the full OHLCV series. Other skills
+    (auditor, fundamental analysis) only need year-end prices, so daily price
+    rows are summarized to one per year plus the latest to keep the LLM context
+    small. The chart artifact still uses the full series.
+    """
+    price_records = [r for r in records if r.dataset_id.endswith("_prices")]
+    other_records = [r for r in records if not r.dataset_id.endswith("_prices")]
+    if skill_id == "vn-technical-analysis":
+        return [_record_payload(record) for record in records]
+    summary = _price_year_end_summary(price_records)
+    return [_record_payload(record) for record in other_records] + [
+        _record_payload(record) for record in summary
+    ]
+
+
+def _price_year_end_summary(
+    records: list[CanonicalMarketDataRecord],
+) -> list[CanonicalMarketDataRecord]:
+    """One price record per calendar year (latest in that year) plus the latest."""
+    if not records:
+        return []
+    by_year: dict[int, CanonicalMarketDataRecord] = {}
+    latest = records[0]
+    for record in records:
+        year = record.market_time.year
+        existing = by_year.get(year)
+        if existing is None or record.market_time > existing.market_time:
+            by_year[year] = record
+        if record.market_time > latest.market_time:
+            latest = record
+    summary = list(by_year.values())
+    if latest not in summary:
+        summary.append(latest)
+    summary.sort(key=lambda r: r.market_time)
+    return summary
 
 
 def _citation_payload(citation: Citation) -> dict[str, object]:

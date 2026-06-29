@@ -848,6 +848,7 @@ def test_vnstock_provider_falls_back_to_overview_when_statements_unavailable(
     assert {record.dataset_id for record in result.records} == {
         "vn_prices",
         "vn_fundamentals",
+        "vn_company_profile",
     }
     fundamentals = next(
         record for record in result.records if record.dataset_id == "vn_fundamentals"
@@ -855,6 +856,13 @@ def test_vnstock_provider_falls_back_to_overview_when_statements_unavailable(
     assert fundamentals.source_id == "vnstock_company_overview"
     assert fundamentals.payload["outstanding_shares"] == 1268104965
     assert fundamentals.payload["sector"] == "Real Estate"
+    profile = next(
+        record for record in result.records if record.dataset_id == "vn_company_profile"
+    )
+    assert profile.payload["company_name"] is None  # fake overview has no organ_name
+    assert profile.payload["outstanding_shares"] == 1268104965
+    assert profile.payload["market_cap"] == 18000000000000
+    assert profile.payload["pe"] is None  # statements unavailable -> no eps
     assert "vnstock_finance_fetch_failed" in result.provider_result.warnings
 
 

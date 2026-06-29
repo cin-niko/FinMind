@@ -71,8 +71,12 @@ class VnstockProvider:
                 price_failure = None
         if DatasetGroup.FUNDAMENTAL in request.dataset_groups:
             try:
-                fundamental_records = _fetch_fundamental_records(vnstock, request)
+                fundamental_records, company_profile = _fetch_fundamental_records(
+                    vnstock, request
+                )
                 records.extend(fundamental_records)
+                if company_profile is not None:
+                    records.append(company_profile)
                 if any(
                     record.source_id == "vnstock_company_overview"
                     for record in fundamental_records
@@ -119,10 +123,20 @@ def _supported_groups(groups: tuple[DatasetGroup, ...]) -> tuple[DatasetGroup, .
     )
 
 
+PRICE_HISTORY_COUNT = 1500
+REVENUE_ITEM_IDS = ("net_sales", "total_operating_income", "total_revenue", "revenue", "sales")
+
+
 def _fetch_price_records(
     vnstock: Any,
     request: DataflowCollectionRequest,
 ) -> list[Any]:
+    """Return one price record per OHLCV row (full daily series).
+
+    Prices are in thousand VND per vnstock convention. ``count`` pulls enough
+    history (~6 years) to cover the fundamental 5-year window's year-end prices
+    and the technical-analysis lookback.
+    """
     end = dataflow_now().date()
     start = end - timedelta(days=45)
     if hasattr(vnstock, "Market"):
@@ -132,6 +146,7 @@ def _fetch_price_records(
             end=end.isoformat(),
             resolution="1D",
             source="vci",
+            count=PRICE_HISTORY_COUNT,
         )
     else:
         quote = vnstock.Quote(source="VCI", symbol=request.symbol)
@@ -141,59 +156,64 @@ def _fetch_price_records(
             interval="1D",
         )
     rows = _rows_from_provider_payload(raw_rows)
-    if not rows:
-        return []
-    row = rows[-1]
-    market_time = _parse_datetime(row.get("time") or row.get("date") or row.get("tradingDate"))
-    close = _number(row.get("close") or row.get("closePrice") or row.get("matchPrice"))
-    if close is None:
-        raise ValueError("vnstock price row is missing close")
-    return [
-        normalize_price_record(
-            dataset_id="vn_prices",
-            record_key=f"{request.symbol}-{market_time.date().isoformat()}",
-            instrument_id=request.symbol,
-            market_time=market_time,
-            collected_at=dataflow_now(),
-            source_id="vnstock_prices",
-            payload={
-                "close": close,
-                "change_percent": _number(
-                    row.get("change_percent")
-                    or row.get("pct_change")
-                    or row.get("changePercent")
-                ),
-                "volume": _number(row.get("volume") or row.get("matchingVolume")),
-            },
+    records: list[Any] = []
+    for row in rows:
+        market_time = _parse_datetime(
+            row.get("time") or row.get("date") or row.get("tradingDate")
         )
-    ]
+        close = _number(row.get("close") or row.get("closePrice") or row.get("matchPrice"))
+        if market_time is None or close is None:
+            continue
+        records.append(
+            normalize_price_record(
+                dataset_id="vn_prices",
+                record_key=f"{request.symbol}-{market_time.date().isoformat()}",
+                instrument_id=request.symbol,
+                market_time=market_time,
+                collected_at=dataflow_now(),
+                source_id="vnstock_prices",
+                payload={
+                    "close": close,
+                    "change_percent": _number(
+                        row.get("change_percent")
+                        or row.get("pct_change")
+                        or row.get("changePercent")
+                    ),
+                    "volume": _number(row.get("volume") or row.get("matchingVolume")),
+                },
+            )
+        )
+    return records
 
 
 def _fetch_fundamental_records(
     vnstock: Any,
     request: DataflowCollectionRequest,
-) -> list[Any]:
-    """Fetch fundamental records from the vnstock 4.x unified API.
+) -> tuple[list[Any], Any | None]:
+    """Return (fundamental_records, company_profile_record).
 
-    Primary source is the annual income statement + balance sheet (source
-    ``vci``), which give current per-year EPS, net income and equity. If the
-    statements are unavailable, fall back to the company overview snapshot.
+    Fundamental records are one per available annual period with eps, revenue,
+    net income, equity, total assets, CFO and ROE. The company profile record is
+    the current snapshot (name, sector, market cap, shares, PE/PB). Falls back to
+    a single overview-based record when the statements are unavailable.
     """
     equity = _call_or_value(vnstock.Fundamental().equity, request.symbol)
     income_rows = _safe_statement_rows(equity, "income_statement")
     balance_rows = _safe_statement_rows(equity, "balance_sheet")
+    cash_flow_rows = _safe_statement_rows(equity, "cash_flow")
     overview_row = _first_overview_row(vnstock, request)
-
     if income_rows and balance_rows:
-        record = _fundamental_record_from_statements(
-            request, income_rows, balance_rows, overview_row
+        records, profile = _records_from_statements(
+            request, income_rows, balance_rows, cash_flow_rows, overview_row
         )
-        if record is not None:
-            return [record]
-
+        if records:
+            return records, profile
     if overview_row:
-        return [_fundamental_record_from_company_overview(request, overview_row)]
-    return []
+        return (
+            [_fundamental_record_from_company_overview(request, overview_row)],
+            _company_profile_record(request, overview_row, None, None),
+        )
+    return [], None
 
 
 def _safe_statement_rows(equity: Any, method: str) -> list[dict[str, Any]]:
@@ -215,46 +235,61 @@ def _first_overview_row(
     return rows[-1] if rows else None
 
 
-def _fundamental_record_from_statements(
+def _records_from_statements(
     request: DataflowCollectionRequest,
     income_rows: list[dict[str, Any]],
     balance_rows: list[dict[str, Any]],
+    cash_flow_rows: list[dict[str, Any]],
     overview_row: dict[str, Any] | None,
-) -> Any | None:
-    period = _latest_period_column(income_rows)
-    if period is None:
-        return None
-    eps = _metric_value(income_rows, "eps_basic_vnd", period)
-    net_income = _metric_value(income_rows, "net_profit_loss_after_tax", period)
-    owners_equity = _metric_value(balance_rows, "owners_equity", period)
-    total_assets = _metric_value(balance_rows, "total_assets", period)
+) -> tuple[list[Any], Any | None]:
+    periods = _period_columns(income_rows)
+    if not periods:
+        return [], None
     shares = _number(overview_row.get("issue_share")) if overview_row else None
-    bvps = _ratio(owners_equity, shares)
-    market_time = (
-        datetime(int(period[:4]), 12, 31, tzinfo=UTC)
-        if period[:4].isdigit()
-        else dataflow_now()
-    )
-    return normalize_fundamental_record(
-        dataset_id="vn_fundamentals",
-        record_key=f"{request.symbol}-{period}",
-        instrument_id=request.symbol,
-        market_time=market_time,
-        collected_at=dataflow_now(),
-        source_id="vnstock_fundamentals",
-        payload={
-            "eps": _number(eps),
-            "bvps": _number(bvps) if bvps is not None else None,
-            "roe_percent": _roe_percent(_ratio(net_income, owners_equity)),
-            "net_income": _number(net_income),
-            "owners_equity": _number(owners_equity),
-            "total_assets": _number(total_assets),
-            "outstanding_shares": shares,
-            "market_cap": _number(overview_row.get("market_cap")) if overview_row else None,
-            "sector": overview_row.get("sector") if overview_row else None,
-            "period": period,
-        },
-    )
+    latest_period = periods[0]
+    latest_eps = _number(_metric_value(income_rows, "eps_basic_vnd", latest_period))
+    latest_equity = _number(_metric_value(balance_rows, "owners_equity", latest_period))
+    latest_bvps = _ratio(latest_equity, shares)
+    records: list[Any] = []
+    for period in periods:
+        eps = _number(_metric_value(income_rows, "eps_basic_vnd", period))
+        revenue = _number(_first_metric(income_rows, REVENUE_ITEM_IDS, period))
+        net_income = _number(_metric_value(income_rows, "net_profit_loss_after_tax", period))
+        owners_equity = _number(_metric_value(balance_rows, "owners_equity", period))
+        total_assets = _number(_metric_value(balance_rows, "total_assets", period))
+        cfo = (
+            _number(_metric_value(cash_flow_rows, "net_cash_from_operating_activities", period))
+            if cash_flow_rows
+            else None
+        )
+        market_time = (
+            datetime(int(period[:4]), 12, 31, tzinfo=UTC)
+            if period[:4].isdigit()
+            else dataflow_now()
+        )
+        records.append(
+            normalize_fundamental_record(
+                dataset_id="vn_fundamentals",
+                record_key=f"{request.symbol}-{period}",
+                instrument_id=request.symbol,
+                market_time=market_time,
+                collected_at=dataflow_now(),
+                source_id="vnstock_fundamentals",
+                payload={
+                    "eps": eps,
+                    "revenue": revenue,
+                    "net_income": net_income,
+                    "owners_equity": owners_equity,
+                    "total_assets": total_assets,
+                    "cfo": cfo,
+                    "roe_percent": _roe_percent(_ratio(net_income, owners_equity)),
+                    "outstanding_shares": shares if period == latest_period else None,
+                    "period": period,
+                },
+            )
+        )
+    profile = _company_profile_record(request, overview_row, latest_eps, latest_bvps)
+    return records, profile
 
 
 def _fetch_company_overview_rows(
@@ -289,16 +324,53 @@ def _fundamental_record_from_company_overview(
     )
 
 
-def _latest_period_column(rows: list[dict[str, Any]]) -> str | None:
-    periods: list[int] = []
+def _company_profile_record(
+    request: DataflowCollectionRequest,
+    overview_row: dict[str, Any] | None,
+    latest_eps: float | int | None,
+    latest_bvps: float | int | None,
+) -> Any | None:
+    if overview_row is None:
+        return None
+    current_price = _number(overview_row.get("current_price"))
+    return normalize_fundamental_record(
+        dataset_id="vn_company_profile",
+        record_key=f"{request.symbol}-profile",
+        instrument_id=request.symbol,
+        market_time=dataflow_now(),
+        collected_at=dataflow_now(),
+        source_id="vnstock_company_overview",
+        payload={
+            "company_name": overview_row.get("organ_name"),
+            "short_name": overview_row.get("organ_short_name"),
+            "sector": overview_row.get("sector"),
+            "current_price": current_price,
+            "market_cap": _number(overview_row.get("market_cap")),
+            "outstanding_shares": _number(overview_row.get("issue_share")),
+            "highest_price_1y": _number(overview_row.get("highest_price1_year")),
+            "lowest_price_1y": _number(overview_row.get("lowest_price1_year")),
+            "foreigner_percentage": _number(overview_row.get("foreigner_percentage")),
+            "target_price": _number(overview_row.get("target_price")),
+            "rating": overview_row.get("rating"),
+            "pe": _ratio(current_price, latest_eps) if latest_eps else None,
+            "pb": _ratio(current_price, latest_bvps) if latest_bvps else None,
+            "period": "profile",
+        },
+    )
+
+
+def _period_columns(rows: list[dict[str, Any]]) -> list[str]:
+    periods: set[str] = set()
     for row in rows:
         for key in row:
             if isinstance(key, str) and key[:4].isdigit():
-                try:
-                    periods.append(int(key[:4]))
-                except ValueError:
-                    continue
-    return str(max(periods)) if periods else None
+                periods.add(key)
+    return sorted(periods, reverse=True)
+
+
+def _latest_period_column(rows: list[dict[str, Any]]) -> str | None:
+    cols = _period_columns(rows)
+    return cols[0] if cols else None
 
 
 def _metric_value(
@@ -309,6 +381,18 @@ def _metric_value(
     for row in rows:
         if str(row.get("item_id", "")).lower() == item_id:
             return row.get(period)
+    return None
+
+
+def _first_metric(
+    rows: list[dict[str, Any]],
+    item_ids: tuple[str, ...],
+    period: str,
+) -> Any:
+    for item_id in item_ids:
+        value = _metric_value(rows, item_id, period)
+        if value is not None:
+            return value
     return None
 
 
@@ -324,42 +408,6 @@ def _call_or_value(value: Any, symbol: str) -> Any:
     if callable(value):
         return value(symbol=symbol)
     return value
-
-
-def _fundamental_row_from_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    direct_rows = [
-        row
-        for row in rows
-        if row.get("eps")
-        or row.get("EPS")
-        or row.get("bvps")
-        or row.get("BVPS")
-    ]
-    if direct_rows:
-        return direct_rows[-1]
-
-    period = _latest_report_period(rows)
-    metrics = {
-        str(row.get("item_id", "")).lower(): row
-        for row in rows
-    }
-    eps_row = metrics.get("trailing_eps") or metrics.get("eps")
-    bvps_row = metrics.get("book_value_per_share_bvps") or metrics.get("bvps")
-    roe_row = metrics.get("roe") or metrics.get("roe_trailling")
-    return {
-        "period": period,
-        "eps": eps_row.get(period) if eps_row else None,
-        "bvps": bvps_row.get(period) if bvps_row else None,
-        "roe": roe_row.get(period) if roe_row else None,
-    }
-
-
-def _latest_report_period(rows: list[dict[str, Any]]) -> str:
-    for row in rows:
-        for key in row:
-            if key not in {"item", "item_id"}:
-                return key
-    return str(dataflow_now().year)
 
 
 def _rows_from_provider_payload(payload: Any) -> list[dict[str, Any]]:
