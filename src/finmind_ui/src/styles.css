@@ -689,22 +689,6 @@ button:focus-visible {
   font-size: 12px;
 }
 
-
-.composerNewChat {
-  width: 42px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  color: var(--accent-teal);
-}
-
-.composerNewChat:hover {
-  background: var(--surface-selected);
-}
 .chatComposer {
   width: min(820px, 100%);
   display: grid;
@@ -1188,108 +1172,6 @@ th {
   font-weight: 600;
 }
 
-
-/* === Workflow chat UI === */
-
-.promptCard.selected {
-  border-color: var(--accent-teal);
-  background: var(--surface-2);
-}
-
-.promptCard {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 10px;
-  align-items: center;
-  min-height: 72px;
-  padding: 14px;
-}
-
-.promptCard svg {
-  grid-row: span 2;
-  color: var(--accent-teal);
-}
-
-.promptCard strong {
-  font-size: 14px;
-}
-
-.promptCard small {
-  color: var(--text-secondary);
-  font-size: 12px;
-  grid-column: 2;
-}
-
-.symbolBar {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  width: min(760px, 100%);
-  margin: 0 auto;
-}
-
-.symbolBar label {
-  flex: 1;
-}
-
-.symbolBar .primaryButton {
-  min-height: 38px;
-}
-
-.composerBar {
-  width: min(820px, 100%);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin: 18px auto 0;
-  padding: 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  background: var(--surface-1);
-}
-
-.workflowSelect {
-  min-width: 200px;
-  padding: 7px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-1);
-  font-size: 13px;
-}
-
-.symbolInput {
-  flex: 1;
-  min-height: 38px;
-  padding: 7px 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.composerBar .sendButton {
-  flex-shrink: 0;
-}
-
-.workflowReport {
-  display: grid;
-  gap: 12px;
-}
-
-.reportHeader {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.reportSection {
-  display: grid;
-  gap: 6px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.reportSection:last-child {
-  border-bottom: 0;
-}
 
 .evidencePanel {
   display: grid;

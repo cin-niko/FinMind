@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
-import { MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus, Workflow } from "lucide-react";
 
-export type PrimaryView = "chat";
+export type PrimaryView = "chat" | "workflows";
 
 export type PrimaryNavItem = {
   view: PrimaryView;
@@ -11,5 +11,11 @@ export type PrimaryNavItem = {
 };
 
 export const PRIMARY_NAV_ITEMS: PrimaryNavItem[] = [
-  { view: "chat", label: "New Chat", iconName: "MessageSquarePlus", Icon: MessageSquarePlus }
+  { view: "chat", label: "New Chat", iconName: "MessageSquarePlus", Icon: MessageSquarePlus },
+  { view: "workflows", label: "Workflows", iconName: "Workflow", Icon: Workflow }
 ];
+
+export const HISTORY_SECTIONS = [
+  { id: "chat", label: "Chat" },
+  { id: "workflowRuns", label: "Workflow Runs" }
+] as const;

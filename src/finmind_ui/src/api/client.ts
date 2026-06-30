@@ -32,6 +32,7 @@ export type WorkflowRun = {
   id: string;
   kind: "workflow";
   status: "success" | "partial" | "failed";
+  inputs: Record<string, string>;
   output: {
     sections: Array<{
       title: string;

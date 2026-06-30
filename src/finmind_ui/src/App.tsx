@@ -12,6 +12,7 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { ArtifactPanel } from "./features/chat/ArtifactPanel";
 import { ChatPage } from "./features/chat/ChatPage";
 import {
+  createMockResponse,
   createNewConversation,
   createWorkflowAssistantMessage,
   createUserMessage,
@@ -20,11 +21,17 @@ import {
   type ChatConversation
 } from "./features/chat/mockChat";
 import { AppShell } from "./features/shell/AppShell";
+import { WorkflowPage } from "./features/workflows/WorkflowPage";
+import { workflowPromptTemplate } from "./features/workflows/workflowTemplates";
+
+type View = "chat" | "workflows" | "results";
 
 export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
+  const [view, setView] = useState<View>("chat");
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<ChatArtifact | null>(null);
   const [selectedArtifactRun, setSelectedArtifactRun] = useState<WorkflowRun | null>(null);
 
@@ -34,15 +41,15 @@ export function App() {
 
   const handleSessionExpired = useCallback(() => {
     setSession({ authenticated: false });
+    setWorkflowRuns([]);
     setSelectedArtifact(null);
+    setView("chat");
   }, []);
 
   useEffect(() => {
     if (!session?.authenticated) return;
     listRuns()
-      .then((runs) => {
-        setConversations(runs.map(runToConversation));
-      })
+      .then(setWorkflowRuns)
       .catch((caught) => {
         if (isUnauthorizedError(caught)) handleSessionExpired();
       });
@@ -54,42 +61,56 @@ export function App() {
   async function handleLogout() {
     const next = await logout().catch(() => ({ authenticated: false }) as const);
     setSession(next);
+    setWorkflowRuns([]);
     setSelectedArtifact(null);
+    setView("chat");
   }
 
-  function handleRunComplete(run: WorkflowRun, userMessage: string) {
+  function runToConversation(run: WorkflowRun, workflowId: string, symbol: string): ChatConversation {
+    const userMessage = workflowPromptTemplate(workflowId)(symbol || (run.inputs?.market ?? ""));
     const conversation = createNewConversation(userMessage);
     const assistantMessage = createWorkflowAssistantMessage(run, 1);
-    const nextConversation = {
-      ...conversation,
-      messages: [...conversation.messages, assistantMessage]
-    };
-    setConversations((items) => [nextConversation, ...items]);
-    setCurrentConversationId(nextConversation.id);
+    return { ...conversation, messages: [...conversation.messages, assistantMessage] };
+  }
+
+  function handleRunComplete(run: WorkflowRun, workflowId: string) {
+    setWorkflowRuns((runs) => [run, ...runs.filter((existing) => existing.id !== run.id)]);
+    const symbol = (run.inputs?.symbol ?? "").toUpperCase();
+    const conversation = runToConversation(run, workflowId, symbol);
+    setConversations((items) => [conversation, ...items]);
+    setCurrentConversationId(conversation.id);
+    setSelectedArtifact(null);
+    setView("chat");
+  }
+
+  function handleNavigate(nextView: View) {
+    setSelectedArtifact(null);
+    if (nextView === "chat") {
+      setCurrentConversationId(null);
+    }
+    setView(nextView);
   }
 
   function handleChatSubmit(message: string) {
-    if (!currentConversationId) return;
+    setSelectedArtifact(null);
+    if (!currentConversationId) {
+      const conversation = createNewConversation(message);
+      const response = createMockResponse(message);
+      const nextConversation = { ...conversation, messages: [...conversation.messages, response] };
+      setConversations((items) => [nextConversation, ...items]);
+      setCurrentConversationId(nextConversation.id);
+      return;
+    }
     setConversations((items) =>
       items.map((conversation) => {
         if (conversation.id !== currentConversationId) return conversation;
-        const userCount = conversation.messages.filter((m) => m.role === "user").length + 1;
-        const userMsg = createUserMessage(message, userCount);
-        const assistantMsg = {
-          id: `assistant-${userCount}`,
-          role: "assistant" as const,
-          content: "Follow-up chat is powered by the agentic chatflow (phase 003). This placeholder will connect to the chatflow API when available.",
-          blocks: [{ kind: "text" as const, content: "Follow-up chat is powered by the agentic chatflow (phase 003). This placeholder will connect to the chatflow API when available." }],
-          artifacts: []
+        const nextIndex = conversation.messages.filter((item) => item.role === "user").length + 1;
+        return {
+          ...conversation,
+          messages: [...conversation.messages, createUserMessage(message, nextIndex), createMockResponse(message)]
         };
-        return { ...conversation, messages: [...conversation.messages, userMsg, assistantMsg] };
       })
     );
-  }
-
-  function handleNewChat() {
-    setCurrentConversationId(null);
-    setSelectedArtifact(null);
   }
 
   function handleSelectArtifact(artifact: ChatArtifact, run?: WorkflowRun) {
@@ -97,37 +118,67 @@ export function App() {
     setSelectedArtifactRun(run ?? null);
   }
 
+  function handleSelectRun(run: WorkflowRun) {
+    const workflowId = inferWorkflowId(run);
+    const symbol = (run.inputs?.symbol ?? "").toUpperCase();
+    const existing = conversations.find((c) => c.id === run.id);
+    if (existing) {
+      setCurrentConversationId(existing.id);
+    } else {
+      const conversation = runToConversation(run, workflowId, symbol);
+      setConversations((items) => [conversation, ...items]);
+      setCurrentConversationId(conversation.id);
+    }
+    setSelectedArtifact(null);
+    setView("chat");
+  }
+
   const currentConversation =
     conversations.find((conversation) => conversation.id === currentConversationId) ?? null;
-  const title = currentConversation ? getConversationTitle(currentConversation) : "New Chat";
+
+  const titleByView: Record<View, string> = {
+    chat: currentConversation ? getConversationTitle(currentConversation) : "New Chat",
+    workflows: "Workflows",
+    results: "Workflow Result"
+  };
 
   return (
     <AppShell
-      active="chat"
-      role={session.role}
-      conversations={conversations}
-      selectedChatId={currentConversationId}
+      active={view}
+      chatHistory={conversations}
+      selectedChatId={view === "chat" ? currentConversationId : null}
+      selectedRunId={null}
+      workflowRuns={workflowRuns}
       onLogout={handleLogout}
-      onNavigate={handleNewChat}
+      onNavigate={handleNavigate}
       onSelectChat={(conversationId) => {
         setCurrentConversationId(conversationId);
         setSelectedArtifact(null);
+        setView("chat");
       }}
+      onSelectRun={handleSelectRun}
+      role={session.role}
     >
       <div className={selectedArtifact ? "contentWithArtifact" : "contentWithArtifact noArtifact"}>
         <div className="primaryPane">
           <header className="topBar">
-            <h1>{title}</h1>
+            <h1>{titleByView[view]}</h1>
             <span className="headerActionSlot" aria-hidden="true" />
           </header>
-          <div className="primaryContent chatSurface">
-            <ChatPage
-              conversation={currentConversation}
-              onRunComplete={handleRunComplete}
-              onChatSubmit={handleChatSubmit}
-              onNewChat={handleNewChat}
-              onSelectArtifact={handleSelectArtifact}
-            />
+          <div className={view === "chat" ? "primaryContent chatSurface" : "primaryContent"}>
+            {view === "chat" ? (
+              <ChatPage
+                conversation={currentConversation}
+                onSelectArtifact={handleSelectArtifact}
+                onSubmit={handleChatSubmit}
+              />
+            ) : null}
+            {view === "workflows" ? (
+              <WorkflowPage
+                onRunComplete={handleRunComplete}
+                onSessionExpired={handleSessionExpired}
+              />
+            ) : null}
           </div>
         </div>
         <ArtifactPanel
@@ -140,13 +191,10 @@ export function App() {
   );
 }
 
-function runToConversation(run: WorkflowRun): ChatConversation {
-  const firstSection = run.output.sections[0];
-  const title = firstSection?.title ?? run.id;
-  const userMessage = createUserMessage(`Workflow: ${title} (${run.id})`, 1);
-  const assistantMessage = createWorkflowAssistantMessage(run, 1);
-  return {
-    id: run.id,
-    messages: [userMessage, assistantMessage]
-  };
+function inferWorkflowId(run: WorkflowRun): string {
+  const skillSteps = run.output.steps.filter((s) => s.kind === "skill");
+  if (skillSteps.some((s) => s.id.includes("fundamental-analysis"))) return "vn-fundamental-analysis";
+  if (skillSteps.some((s) => s.id.includes("technical-analysis"))) return "vn-technical-analysis";
+  if (skillSteps.some((s) => s.id.includes("data-auditor"))) return "vn-financial-data-collector";
+  return "vn-financial-data-collector";
 }

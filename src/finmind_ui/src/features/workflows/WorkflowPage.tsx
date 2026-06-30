@@ -11,7 +11,7 @@ import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
 import { summarizeWorkflow } from "./workflowCatalog";
 
 type Props = {
-  onRunComplete: (run: WorkflowRun) => void;
+  onRunComplete: (run: WorkflowRun, workflowId: string) => void;
   onSessionExpired: () => void;
 };
 
@@ -57,7 +57,7 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
         market: selectedMarket,
         ...(symbolInput && symbolValue ? { symbol: symbolValue } : {})
       });
-      onRunComplete(run);
+      onRunComplete(run, selected.id);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         onSessionExpired();

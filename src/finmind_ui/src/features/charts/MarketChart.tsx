@@ -37,7 +37,7 @@ export function MarketChart({ artifact }: { artifact: ChartArtifact }) {
       <h2>{artifact.title}</h2>
       <div className="chartBox" ref={containerRef} />
       <details>
-        <summary>Data Table ({artifact.payload.table.length} rows)</summary>
+        <summary>Data table ({artifact.payload.table.length} rows)</summary>
         <table className="mdTable">
           <thead>
             <tr>

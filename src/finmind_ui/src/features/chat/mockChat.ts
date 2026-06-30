@@ -68,7 +68,7 @@ export function getLatestUserMessageId(conversation: ChatConversation): string |
 
 export function createNewConversation(firstMessage: string): ChatConversation {
   return {
-    id: `chat-${slugify(firstMessage)}-${Date.now()}`,
+    id: `chat-${slugify(firstMessage)}`,
     messages: [createUserMessage(firstMessage, 1)]
   };
 }
@@ -82,6 +82,53 @@ export function createUserMessage(content: string, index: number): ChatMessage {
     artifacts: []
   };
 }
+
+export function createMockResponse(prompt: string): ChatMessage {
+  const normalized = prompt.toLowerCase();
+  const subject = normalized.includes("gold") ? "SJC Gold" : "VCB";
+
+  return {
+    id: `assistant-${slugify(prompt)}`,
+    role: "assistant",
+    content: `Mock response for ${subject}. This is a deterministic V1 chat answer; it does not call the production orchestrator.`,
+    blocks: [
+      {
+        kind: "text",
+        content: `Here is a mock research view for ${subject}. Inline visuals are rendered from trusted local templates only.`
+      },
+      {
+        kind: "inlineVisual",
+        title: `${subject} quick view`,
+        metrics: [
+          { label: "Direction", value: normalized.includes("risk") ? "Mixed" : "Constructive", tone: "up" },
+          { label: "Freshness", value: "Demo", tone: "warn" },
+          { label: "Evidence", value: "Mock citations", tone: "neutral" }
+        ]
+      }
+    ],
+    artifacts: [
+      {
+        id: "artifact-report",
+        kind: "report",
+        title: `${subject} mock report`,
+        summary: "Open the full deterministic report in the right-side panel."
+      },
+      {
+        id: "artifact-citations",
+        kind: "citationBundle",
+        title: "Mock citation bundle",
+        summary: "Shows the citation UX pattern without real chat evidence plumbing."
+      },
+      {
+        id: "artifact-evidence",
+        kind: "evidenceList",
+        title: "Mock evidence list",
+        summary: "Demonstrates how detailed evidence lists will open later."
+      }
+    ]
+  };
+}
+
 
 export function createWorkflowAssistantMessage(run: WorkflowRun, index: number): ChatMessage {
   const sections = run.output.sections;

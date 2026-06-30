@@ -43,9 +43,6 @@ export function ArtifactPanel({ artifact, run, onClose }: Props) {
             {run.output.grounding.blocked_claims.length ? (
               <div className="freshness">Blocked: {run.output.grounding.blocked_claims.join(", ")}</div>
             ) : null}
-            {run.output.grounding.uncited_claims.length ? (
-              <div className="freshness">Uncited: {run.output.grounding.uncited_claims.join(", ")}</div>
-            ) : null}
             <h3>Collection</h3>
             <div className="freshness">Status: {run.output.collection.status}</div>
             <div className="freshness">Groups: {run.output.collection.requested_dataset_groups.join(", ")}</div>
