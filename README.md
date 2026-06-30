@@ -31,11 +31,19 @@ This repo follows Spec-Driven Development. Each artifact has a single purpose:
 
 ## Quick Start
 
-Set required admin environment variables before starting the API:
+For local development, the repository `.env` file provides the default admin
+login:
+
+```text
+username: admin
+password: admin
+```
+
+You can override it by exporting environment variables before starting the API:
 
 ```bash
-export FINMIND_ADMIN_USERNAME=analyst
-export FINMIND_ADMIN_PASSWORD=secret-pass
+export FINMIND_ADMIN_USERNAME=admin
+export FINMIND_ADMIN_PASSWORD=admin
 export FINMIND_SESSION_SECRET=session-secret-with-length
 ```
 

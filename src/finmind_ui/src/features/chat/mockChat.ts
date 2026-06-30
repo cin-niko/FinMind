@@ -48,10 +48,10 @@ function slugify(value: string): string {
 
 function truncateTitle(value: string): string {
   const trimmed = value.trim();
-  if (trimmed.length <= 56) {
+  if (trimmed.length <= 30) {
     return trimmed || "Untitled chat";
   }
-  return `${trimmed.slice(0, 53)}...`;
+  return `${trimmed.slice(0, 27)}...`;
 }
 
 export function getConversationTitle(conversation: ChatConversation): string {
@@ -74,7 +74,7 @@ export function getLatestUserMessageId(conversation: ChatConversation): string |
 
 export function createNewConversation(firstMessage: string): ChatConversation {
   return {
-    id: `chat-${slugify(firstMessage)}`,
+    id: `chat-${crypto.randomUUID()}`,
     messages: [createUserMessage(firstMessage, 1)]
   };
 }

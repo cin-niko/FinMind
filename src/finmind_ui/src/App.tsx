@@ -117,6 +117,9 @@ export function App() {
   function handleNavigate(nextView: View) {
     setSelectedArtifact(null);
     if (nextView === "chat") {
+      if (view === "chat" && currentConversationId === null) {
+        return;
+      }
       setCurrentConversationId(null);
     }
     setView(nextView);
@@ -198,7 +201,7 @@ export function App() {
     conversations.find((conversation) => conversation.id === currentConversationId) ?? null;
 
   const titleByView: Record<View, string> = {
-    chat: currentConversation ? getConversationTitle(currentConversation) : "New Chat",
+    chat: getChatHeaderTitle(currentConversation),
     workflows: "Workflows"
   };
 
@@ -248,6 +251,10 @@ export function App() {
       </div>
     </AppShell>
   );
+}
+
+export function getChatHeaderTitle(conversation: ChatConversation | null): string {
+  return conversation ? getConversationTitle(conversation) : "Chat";
 }
 
 function runToConversation(run: WorkflowRun): ChatConversation {

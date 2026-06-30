@@ -345,12 +345,14 @@ button:focus-visible {
 }
 
 .historySection {
+  flex: 1 1 auto;
   display: grid;
-  grid-auto-rows: max-content;
-  gap: 14px;
+  grid-template-rows: max-content minmax(0, 1fr);
+  gap: 10px;
   margin-top: 18px;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-bottom: 8px;
 }
 
@@ -371,7 +373,10 @@ button:focus-visible {
 
 .historyGroup {
   display: grid;
-  gap: 4px;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .historySubhead,
@@ -380,17 +385,19 @@ button:focus-visible {
 }
 
 .historyItem {
+  width: 100%;
   min-height: 28px;
   border: 0;
   border-radius: 7px;
   background: transparent;
   color: #4b463e;
   overflow: hidden;
-  padding: 5px 10px;
+  padding: 5px 34px 5px 10px;
   font-size: 12px;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .historyItem.active {
@@ -403,6 +410,7 @@ button:focus-visible {
   align-items: center;
   gap: 2px;
   border-radius: 7px;
+  min-width: 0;
   position: relative;
 }
 
@@ -412,15 +420,20 @@ button:focus-visible {
 }
 
 .historyActions {
-  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 4px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
   flex: 0 0 auto;
-  gap: 1px;
-  padding-right: 4px;
 }
 
-.historyRow:hover .historyActions,
-.historyRow.active .historyActions {
-  display: flex;
+.historyRow:hover .historyAction.menu,
+.historyRow:focus-within .historyAction.menu,
+.historyRow.active .historyAction.menu {
+  opacity: 1;
 }
 
 .historyAction {
@@ -437,6 +450,19 @@ button:focus-visible {
   transition:
     background 150ms ease,
     color 150ms ease;
+}
+
+.historyAction.menu {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  opacity: 0;
+}
+
+.historyAction.menu.active {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  opacity: 1;
 }
 
 .historyAction:hover {
@@ -458,11 +484,72 @@ button:focus-visible {
   color: var(--accent-teal-strong);
 }
 
+.historyMenu {
+  position: fixed;
+  z-index: 80;
+  width: min(150px, calc(100vw - 24px));
+  padding: 5px;
+  border: 1px solid rgba(28, 25, 23, 0.12);
+  border-radius: 9px;
+  background: #fff;
+  box-shadow:
+    0 14px 32px rgba(41, 37, 31, 0.16),
+    0 2px 6px rgba(41, 37, 31, 0.08);
+}
+
+.historyMenuItem {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 560;
+  text-align: left;
+  cursor: pointer;
+  padding: 5px 7px;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.historyMenuItem span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyMenuItem:hover,
+.historyMenuItem:focus-visible {
+  background: var(--surface-selected);
+  outline: none;
+}
+
+.historyMenuItem.danger {
+  color: var(--danger);
+}
+
+.historyMenuItem.danger:hover,
+.historyMenuItem.danger:focus-visible {
+  background: rgba(185, 67, 58, 0.12);
+}
+
+.historyMenuDivider {
+  height: 1px;
+  margin: 4px 3px;
+  background: var(--border-subtle);
+}
+
 .historyEdit {
   display: flex;
   align-items: center;
-  gap: 2px;
   padding: 0 4px 0 8px;
+  width: 100%;
 }
 
 .historyEditInput {

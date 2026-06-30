@@ -1189,6 +1189,7 @@ def test_delete_run_returns_404_for_unknown_run(client: TestClient) -> None:
 
 
 def test_build_run_store_fails_closed_without_database_url(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The product run store is PostgreSQL; the app must fail closed when the
@@ -1198,6 +1199,7 @@ def test_build_run_store_fails_closed_without_database_url(
     monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
     monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
     monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("FINMIND_DATABASE_URL", raising=False)
     settings = Settings.from_env()
 

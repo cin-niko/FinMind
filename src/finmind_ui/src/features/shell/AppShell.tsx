@@ -1,5 +1,5 @@
-import { History, LogOut, Pencil, Trash2, Check, X } from "lucide-react";
-import { useState } from "react";
+import { History, LogOut, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { ChatConversation } from "../chat/mockChat";
 import { getConversationTitle } from "../chat/mockChat";
@@ -18,6 +18,8 @@ type ShellProps = {
   children: ReactNode;
 };
 
+const MENU_WIDTH = 150;
+
 export function AppShell({
   active,
   role,
@@ -32,8 +34,57 @@ export function AppShell({
 }: ShellProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const menuRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (menuRootRef.current?.contains(event.target as Node)) return;
+      setOpenMenuId(null);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpenMenuId(null);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+
+    function closeMenu() {
+      setOpenMenuId(null);
+    }
+  }, [openMenuId]);
+
+  function toggleMenu(conversationId: string, trigger: HTMLButtonElement) {
+    setOpenMenuId((current) => {
+      if (current === conversationId) {
+        return null;
+      }
+
+      const rect = trigger.getBoundingClientRect();
+      setMenuPosition({
+        left: Math.min(window.innerWidth - MENU_WIDTH - 12, Math.max(12, rect.right - 54)),
+        top: Math.min(window.innerHeight - 128, rect.bottom + 6)
+      });
+      return conversationId;
+    });
+  }
 
   function startRename(conversation: ChatConversation) {
+    setOpenMenuId(null);
     setEditingId(conversation.id);
     setDraftTitle(getConversationTitle(conversation));
   }
@@ -46,17 +97,16 @@ export function AppShell({
     setDraftTitle("");
   }
 
-  function cancelRename() {
-    setEditingId(null);
-    setDraftTitle("");
-  }
-
   function confirmDelete(conversation: ChatConversation) {
+    setOpenMenuId(null);
     const title = getConversationTitle(conversation);
     if (window.confirm(`Delete this conversation?\n\n${title}`)) {
       onDeleteConversation(conversation.id);
     }
   }
+
+  const openMenuConversation =
+    conversations.find((conversation) => conversation.id === openMenuId) ?? null;
 
   return (
     <div className="shell">
@@ -95,28 +145,15 @@ export function AppShell({
                           className="historyEditInput"
                           value={draftTitle}
                           onChange={(event) => setDraftTitle(event.target.value)}
+                          onBlur={commitRename}
                           onKeyDown={(event) => {
-                            if (event.key === "Enter") commitRename();
-                            if (event.key === "Escape") cancelRename();
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              event.currentTarget.blur();
+                            }
                           }}
                           aria-label="Rename conversation"
                         />
-                        <button
-                          className="historyAction confirm"
-                          onClick={commitRename}
-                          type="button"
-                          aria-label="Save name"
-                        >
-                          <Check size={14} />
-                        </button>
-                        <button
-                          className="historyAction"
-                          onClick={cancelRename}
-                          type="button"
-                          aria-label="Cancel rename"
-                        >
-                          <X size={14} />
-                        </button>
                       </div>
                     ) : (
                       <>
@@ -129,20 +166,17 @@ export function AppShell({
                         </button>
                         <div className="historyActions">
                           <button
-                            className="historyAction"
-                            onClick={() => startRename(conversation)}
+                            className={openMenuId === conversation.id ? "historyAction menu active" : "historyAction menu"}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleMenu(conversation.id, event.currentTarget);
+                            }}
                             type="button"
-                            aria-label="Rename conversation"
+                            aria-label="Conversation actions"
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuId === conversation.id}
                           >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            className="historyAction danger"
-                            onClick={() => confirmDelete(conversation)}
-                            type="button"
-                            aria-label="Delete conversation"
-                          >
-                            <Trash2 size={13} />
+                            <MoreVertical size={15} />
                           </button>
                         </div>
                       </>
@@ -165,6 +199,34 @@ export function AppShell({
           </button>
         </div>
       </aside>
+      {openMenuConversation ? (
+        <div
+          className="historyMenu"
+          role="menu"
+          aria-label="Conversation actions"
+          ref={menuRootRef}
+          style={{ left: menuPosition.left, top: menuPosition.top }}
+        >
+          <button
+            className="historyMenuItem"
+            onClick={() => startRename(openMenuConversation)}
+            role="menuitem"
+            type="button"
+          >
+            <Pencil size={14} />
+            <span>Rename</span>
+          </button>
+          <button
+            className="historyMenuItem danger"
+            onClick={() => confirmDelete(openMenuConversation)}
+            role="menuitem"
+            type="button"
+          >
+            <Trash2 size={14} />
+            <span>Delete</span>
+          </button>
+        </div>
+      ) : null}
       <main className="workArea">{children}</main>
     </div>
   );

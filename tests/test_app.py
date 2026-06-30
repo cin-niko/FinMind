@@ -1,10 +1,11 @@
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from finmind_api.app import create_app
-from finmind_api.settings import SettingsError
+from finmind_api.settings import Settings, SettingsError
 
 
 @pytest.fixture
@@ -42,14 +43,69 @@ def client(admin_env: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestCli
 
 
 def test_app_fails_closed_when_admin_config_missing(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("FINMIND_ADMIN_USERNAME", raising=False)
     monkeypatch.delenv("FINMIND_ADMIN_PASSWORD", raising=False)
     monkeypatch.delenv("FINMIND_SESSION_SECRET", raising=False)
 
     with pytest.raises(SettingsError, match="FINMIND_ADMIN_USERNAME"):
         create_app()
+
+
+def test_settings_loads_local_dotenv_fallback_for_admin_login(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text(
+        "\n".join(
+            [
+                "FINMIND_ADMIN_USERNAME=admin",
+                "FINMIND_ADMIN_PASSWORD=admin",
+                "FINMIND_SESSION_SECRET=session-secret-with-length",
+                "FINMIND_DATABASE_URL=postgresql://example",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("FINMIND_ADMIN_USERNAME", raising=False)
+    monkeypatch.delenv("FINMIND_ADMIN_PASSWORD", raising=False)
+    monkeypatch.delenv("FINMIND_SESSION_SECRET", raising=False)
+
+    settings = Settings.from_env()
+
+    assert settings.admin_username == "admin"
+    assert settings.admin_password == "admin"
+
+
+def test_process_env_overrides_local_dotenv(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text(
+        "\n".join(
+            [
+                "FINMIND_ADMIN_USERNAME=admin",
+                "FINMIND_ADMIN_PASSWORD=admin",
+                "FINMIND_SESSION_SECRET=session-secret-with-length",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
+    monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
+    monkeypatch.setenv("FINMIND_SESSION_SECRET", "process-secret-with-length")
+
+    settings = Settings.from_env()
+
+    assert settings.admin_username == "analyst"
+    assert settings.admin_password == "secret-pass"
 
 
 def test_protected_workflow_routes_require_login(client: TestClient) -> None:

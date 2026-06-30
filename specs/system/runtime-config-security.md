@@ -17,7 +17,7 @@ adr_refs: []
 
 ## Authentication
 
-All user-facing app and API surfaces require successful login before protected content is displayed. V1 uses one internal admin account bootstrapped from environment variables:
+All user-facing app and API surfaces require successful login before protected content is displayed. V1 uses one internal admin account bootstrapped from environment variables, with the repository-local `.env` file used as a local-development fallback when a variable is not present in the process environment:
 
 - `FINMIND_ADMIN_USERNAME`
 - `FINMIND_ADMIN_PASSWORD`
