@@ -26,14 +26,13 @@ import { AppShell } from "./features/shell/AppShell";
 import { WorkflowPage } from "./features/workflows/WorkflowPage";
 import { workflowPromptTemplate } from "./features/workflows/workflowTemplates";
 
-type View = "chat" | "workflows" | "results";
+type View = "chat" | "workflows";
 
 export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [view, setView] = useState<View>("chat");
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<ChatArtifact | null>(null);
   const [selectedArtifactRun, setSelectedArtifactRun] = useState<WorkflowRun | null>(null);
 
@@ -43,7 +42,6 @@ export function App() {
 
   const handleSessionExpired = useCallback(() => {
     setSession({ authenticated: false });
-    setWorkflowRuns([]);
     setSelectedArtifact(null);
     setView("chat");
   }, []);
@@ -51,7 +49,9 @@ export function App() {
   useEffect(() => {
     if (!session?.authenticated) return;
     listRuns()
-      .then(setWorkflowRuns)
+      .then((runs) => {
+        setConversations(runs.map(runToConversation).reverse());
+      })
       .catch((caught) => {
         if (isUnauthorizedError(caught)) handleSessionExpired();
       });
@@ -63,23 +63,15 @@ export function App() {
   async function handleLogout() {
     const next = await logout().catch(() => ({ authenticated: false }) as const);
     setSession(next);
-    setWorkflowRuns([]);
     setSelectedArtifact(null);
     setView("chat");
-  }
-
-  function runToConversation(run: WorkflowRun, workflowId: string, symbol: string): ChatConversation {
-    const userMessage = workflowPromptTemplate(workflowId)(symbol || (run.inputs?.market ?? ""));
-    const conversation = createNewConversation(userMessage);
-    const assistantMessage = createWorkflowAssistantMessage(run, 1);
-    return { ...conversation, messages: [...conversation.messages, assistantMessage] };
   }
 
   async function handleRunStart(workflowId: string, symbol: string, market: string) {
     const userMessage = workflowPromptTemplate(workflowId)(symbol || market);
     const conversation = createNewConversation(userMessage);
-    const pendingMessage = createPendingAssistantMessage(1);
     const conversationId = conversation.id;
+    const pendingMessage = createPendingAssistantMessage(1);
     const nextConversation = { ...conversation, messages: [...conversation.messages, pendingMessage] };
     setConversations((items) => [nextConversation, ...items]);
     setCurrentConversationId(conversationId);
@@ -90,14 +82,14 @@ export function App() {
         market,
         ...(symbol ? { symbol } : {})
       });
-      setWorkflowRuns((runs) => [run, ...runs.filter((existing) => existing.id !== run.id)]);
       setConversations((items) =>
         items.map((conv) => {
           if (conv.id !== conversationId) return conv;
           const assistantMessage = createWorkflowAssistantMessage(run, 1);
-          return { ...conv, messages: [...conv.messages.filter((m) => !m.pending), assistantMessage] };
+          return { ...conv, id: run.id, messages: [...conv.messages.filter((m) => !m.pending), assistantMessage] };
         })
       );
+      setCurrentConversationId(run.id);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         handleSessionExpired();
@@ -106,11 +98,12 @@ export function App() {
       setConversations((items) =>
         items.map((conv) => {
           if (conv.id !== conversationId) return conv;
+          const msg = caught instanceof Error ? caught.message : "Workflow failed";
           const errorMsg = {
-            id: `assistant-err-${1}`,
+            id: `assistant-err-1`,
             role: "assistant" as const,
-            content: caught instanceof Error ? caught.message : "Workflow failed",
-            blocks: [{ kind: "text" as const, content: caught instanceof Error ? caught.message : "Workflow failed" }],
+            content: msg,
+            blocks: [{ kind: "text" as const, content: msg }],
             artifacts: []
           };
           return { ...conv, messages: [...conv.messages.filter((m) => !m.pending), errorMsg] };
@@ -154,37 +147,20 @@ export function App() {
     setSelectedArtifactRun(run ?? null);
   }
 
-  function handleSelectRun(run: WorkflowRun) {
-    const workflowId = inferWorkflowId(run);
-    const symbol = (run.inputs?.symbol ?? "").toUpperCase();
-    const existing = conversations.find((c) => c.id === run.id);
-    if (existing) {
-      setCurrentConversationId(existing.id);
-    } else {
-      const conversation = runToConversation(run, workflowId, symbol);
-      setConversations((items) => [conversation, ...items]);
-      setCurrentConversationId(conversation.id);
-    }
-    setSelectedArtifact(null);
-    setView("chat");
-  }
-
   const currentConversation =
     conversations.find((conversation) => conversation.id === currentConversationId) ?? null;
 
   const titleByView: Record<View, string> = {
     chat: currentConversation ? getConversationTitle(currentConversation) : "New Chat",
-    workflows: "Workflows",
-    results: "Workflow Result"
+    workflows: "Workflows"
   };
 
   return (
     <AppShell
       active={view}
-      chatHistory={conversations}
+      role={session.role}
+      conversations={conversations}
       selectedChatId={view === "chat" ? currentConversationId : null}
-      selectedRunId={null}
-      workflowRuns={workflowRuns}
       onLogout={handleLogout}
       onNavigate={handleNavigate}
       onSelectChat={(conversationId) => {
@@ -192,8 +168,6 @@ export function App() {
         setSelectedArtifact(null);
         setView("chat");
       }}
-      onSelectRun={handleSelectRun}
-      role={session.role}
     >
       <div className={selectedArtifact ? "contentWithArtifact" : "contentWithArtifact noArtifact"}>
         <div className="primaryPane">
@@ -225,6 +199,17 @@ export function App() {
       </div>
     </AppShell>
   );
+}
+
+function runToConversation(run: WorkflowRun): ChatConversation {
+  const workflowId = inferWorkflowId(run);
+  const symbol = (run.inputs?.symbol ?? "").toUpperCase();
+  const userMessage = workflowPromptTemplate(workflowId)(symbol || (run.inputs?.market ?? ""));
+  const assistantMessage = createWorkflowAssistantMessage(run, 1);
+  return {
+    id: run.id,
+    messages: [createUserMessage(userMessage, 1), assistantMessage]
+  };
 }
 
 function inferWorkflowId(run: WorkflowRun): string {

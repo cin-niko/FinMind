@@ -14,8 +14,3 @@ export const PRIMARY_NAV_ITEMS: PrimaryNavItem[] = [
   { view: "chat", label: "New Chat", iconName: "MessageSquarePlus", Icon: MessageSquarePlus },
   { view: "workflows", label: "Workflows", iconName: "Workflow", Icon: Workflow }
 ];
-
-export const HISTORY_SECTIONS = [
-  { id: "chat", label: "Chat" },
-  { id: "workflowRuns", label: "Workflow Runs" }
-] as const;
