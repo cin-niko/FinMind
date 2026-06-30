@@ -136,7 +136,7 @@ def _supported_groups(groups: tuple[DatasetGroup, ...]) -> tuple[DatasetGroup, .
    )
 
 
-PRICE_HISTORY_COUNT = 1500
+PRICE_HISTORY_COUNT = 750
 REVENUE_ITEM_IDS = ("net_sales", "total_operating_income", "total_revenue", "revenue", "sales")
 
 
