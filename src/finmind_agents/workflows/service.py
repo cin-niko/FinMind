@@ -112,6 +112,12 @@ class WorkflowService:
             skill_ref = skill_ref_for_id(workflow, skill_id)
             skill_requirements = data_requirements_for_skill(workflow, skill_id)
 
+            skill_record_payloads = _skill_record_payloads(skill_id, records)
+            skill_citation_ids = tuple(
+                payload["citation_id"]
+                for payload in skill_record_payloads
+                if payload.get("citation_id")
+            )
             agent_result = self.agent_orchestrator.run_skill(
                 AgentRunRequest(
                     workflow_id=workflow.workflow_id,
@@ -121,10 +127,10 @@ class WorkflowService:
                     context={
                         "inputs": run_inputs,
                         "collection": prior_outputs.get(COLLECT_STEP, {}),
-                        "records": _skill_record_payloads(skill_id, records),
+                        "records": skill_record_payloads,
                         "prior_outputs": prior_outputs,
                     },
-                    citation_ids=tuple(citation.citation_id for citation in citations),
+                    citation_ids=skill_citation_ids,
                 )
             )
             uncited = uncited_citations(
@@ -264,6 +270,7 @@ def _skill_markdown(skill_ref: str | None) -> str:
 
 def _record_payload(record: CanonicalMarketDataRecord) -> dict[str, object]:
     return {
+        "citation_id": f"citation_{record.dataset_id}_{record.record_key}",
         "dataset_id": record.dataset_id,
         "record_key": record.record_key,
         "instrument_id": record.instrument_id,
