@@ -47,7 +47,7 @@ class FakeAgentOrchestrator:
             status="success",
             section_title="Collected Data",
             content="Agent-collected VCB data package with evidence.",
-            citations=("citation_vn_prices_VCB-2026-06-18",),
+            citations=("citation_vn_prices_VCB-prices",),
             allowed_claims=("data_availability",),
             blocked_claims=(),
             warnings=(),
@@ -333,7 +333,7 @@ def test_workflow_uses_agent_skill_output(
     )
 
     assert collected["content"] == "Agent-collected VCB data package with evidence."
-    assert collected["citations"] == ["citation_vn_prices_VCB-2026-06-18"]
+    assert collected["citations"] == ["citation_vn_prices_VCB-prices"]
     assert collected["status"] == "success"
     assert result["output"]["steps"][-1]["kind"] == "skill"
     assert result["output"]["steps"][-1]["status"] == "success"
@@ -784,7 +784,7 @@ def test_vnstock_provider_fetches_live_price_and_fundamental_records(
     fundamentals = next(
         record for record in result.records if record.dataset_id == "vn_fundamentals"
     )
-    assert price.payload["close"] == 61200
+    assert price.payload["series"][0]["close"] == 61200
     assert fundamentals.payload["eps"] == 5400
     assert fundamentals.payload["roe_percent"] == 20.0
     assert result.provider_result.source_ids == (
@@ -999,11 +999,7 @@ def test_single_symbol_workflow_targets_requested_symbol(
     assert "Agent-collected VCB data package" in section["content"]
     assert "VNINDEX" not in section["content"]
     assert chart["payload"]["table"] == [
-        {
-            "record_key": "VCB-2026-06-18",
-            "market_time": "2026-06-18T07:00:00+00:00",
-            "close": 58200,
-        }
+        {"date": "2026-06-18", "close": 58200, "volume": 4920000},
     ]
 
 

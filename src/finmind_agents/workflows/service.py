@@ -23,6 +23,7 @@ from finmind_agents.repositories import (
 )
 from finmind_agents.serialization import serialize_run
 from finmind_agents.workflows.citations import build_citations
+from finmind_agents.workflows.indicators import compute_indicators
 from finmind_agents.workflows.collector import (
     collect_workflow_data,
     data_requirements_for_skill,
@@ -95,6 +96,7 @@ class WorkflowService:
                     symbol=validated_inputs.symbol,
                 )
                 records = collected.records
+                records = _enrich_with_indicators(records, workflow)
                 citations = build_citations(records)
                 collection_output = collected.collection.to_output()
                 prior_outputs[COLLECT_STEP] = collection_output
@@ -280,47 +282,99 @@ def _record_payload(record: CanonicalMarketDataRecord) -> dict[str, object]:
     }
 
 
+def _enrich_with_indicators(
+    records: tuple[CanonicalMarketDataRecord, ...],
+    workflow: WorkflowSpecification,
+) -> tuple[CanonicalMarketDataRecord, ...]:
+    """Add a computed ``vn_indicators`` record when the workflow needs technical analysis."""
+    if not any("technical-analysis" in step for step in workflow.step_sequence):
+        return records
+    price_record = next(
+        (r for r in records if r.dataset_id.endswith("_prices")),
+        None,
+    )
+    if not price_record or not price_record.payload.get("series"):
+        return records
+    indicator_data = compute_indicators(price_record.payload["series"])
+    if not indicator_data:
+        return records
+    indicator_record = CanonicalMarketDataRecord(
+        dataset_id="vn_indicators",
+        record_key=f"{price_record.instrument_id}-indicators",
+        instrument_id=price_record.instrument_id,
+        market_time=price_record.market_time,
+        collected_at=price_record.collected_at,
+        source_id="computed_indicators",
+        payload=indicator_data,
+    )
+    return (*records, indicator_record)
+
+
 def _skill_record_payloads(
     skill_id: str,
     records: tuple[CanonicalMarketDataRecord, ...],
 ) -> list[dict[str, object]]:
     """Build the record context for a skill step.
 
-    The technical-analysis skill needs the full OHLCV series. Other skills
-    (auditor, fundamental analysis) only need year-end prices, so daily price
-    rows are summarized to one per year plus the latest to keep the LLM context
-    small. The chart artifact still uses the full series.
+    Technical-analysis receives computed indicators + company profile (no raw
+    price series). Other skills (auditor, fundamental) receive a year-end price
+    summary + fundamentals + company profile.
     """
-    price_records = [r for r in records if r.dataset_id.endswith("_prices")]
-    other_records = [r for r in records if not r.dataset_id.endswith("_prices")]
     if skill_id == "vn-technical-analysis":
-        return [_record_payload(record) for record in records]
-    summary = _price_year_end_summary(price_records)
-    return [_record_payload(record) for record in other_records] + [
-        _record_payload(record) for record in summary
+        return [
+            _record_payload(record)
+            for record in records
+            if record.dataset_id in ("vn_indicators", "vn_company_profile")
+        ]
+    price_record = next(
+        (r for r in records if r.dataset_id.endswith("_prices")),
+        None,
+    )
+    other_records = [
+        record
+        for record in records
+        if not record.dataset_id.endswith("_prices")
+        and record.dataset_id != "vn_indicators"
     ]
+    payloads = [_record_payload(record) for record in other_records]
+    if price_record and price_record.payload.get("series"):
+        summary = _year_end_price_summary_payload(price_record)
+        if summary:
+            payloads.append(summary)
+    return payloads
 
 
-def _price_year_end_summary(
-    records: list[CanonicalMarketDataRecord],
-) -> list[CanonicalMarketDataRecord]:
-    """One price record per calendar year (latest in that year) plus the latest."""
-    if not records:
-        return []
-    by_year: dict[int, CanonicalMarketDataRecord] = {}
-    latest = records[0]
-    for record in records:
-        year = record.market_time.year
+def _year_end_price_summary_payload(
+    price_record: CanonicalMarketDataRecord,
+) -> dict[str, object] | None:
+    """Extract one price bar per calendar year from the series."""
+    series = price_record.payload.get("series", [])
+    by_year: dict[int, dict[str, object]] = {}
+    for bar in series:
+        date_str = bar.get("date", "")
+        if len(date_str) < 4:
+            continue
+        year = int(date_str[:4])
         existing = by_year.get(year)
-        if existing is None or record.market_time > existing.market_time:
-            by_year[year] = record
-        if record.market_time > latest.market_time:
-            latest = record
-    summary = list(by_year.values())
-    if latest not in summary:
-        summary.append(latest)
-    summary.sort(key=lambda r: r.market_time)
-    return summary
+        if existing is None or date_str > existing["date"]:
+            by_year[year] = bar
+    year_end_bars = sorted(by_year.values(), key=lambda b: b["date"])
+    if not year_end_bars:
+        return None
+    return {
+        "citation_id": f"citation_{price_record.dataset_id}_{price_record.record_key}",
+        "dataset_id": price_record.dataset_id,
+        "record_key": f"{price_record.instrument_id}-year-end",
+        "instrument_id": price_record.instrument_id,
+        "market_time": price_record.market_time.isoformat(),
+        "source_id": price_record.source_id,
+        "payload": {
+            "year_end_prices": [
+                {"date": b["date"], "close": b["close"], "volume": b.get("volume")}
+                for b in year_end_bars
+            ],
+        },
+    }
 
 
 def _citation_payload(citation: Citation) -> dict[str, object]:

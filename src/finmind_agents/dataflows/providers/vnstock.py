@@ -144,11 +144,10 @@ def _fetch_price_records(
     vnstock: Any,
     request: DataflowCollectionRequest,
 ) -> list[Any]:
-    """Return one price record per OHLCV row (full daily series).
+    """Return a single price record containing the full OHLCV daily series.
 
-    Prices are in thousand VND per vnstock convention. ``count`` pulls enough
-    history (~6 years) to cover the fundamental 5-year window's year-end prices
-    and the technical-analysis lookback.
+    Prices are in thousand VND per vnstock convention. ``count`` limits the
+    history to ~3 years (750 trading days) for the technical-analysis lookback.
     """
     end = dataflow_now().date()
     start = end - timedelta(days=45)
@@ -169,7 +168,9 @@ def _fetch_price_records(
             interval="1D",
         )
     rows = _rows_from_provider_payload(raw_rows)
-    records: list[Any] = []
+    series: list[dict[str, Any]] = []
+    first_date = None
+    last_date = None
     for row in rows:
         market_time = _parse_datetime(
             row.get("time") or row.get("date") or row.get("tradingDate")
@@ -177,27 +178,45 @@ def _fetch_price_records(
         close = _number(row.get("close") or row.get("closePrice") or row.get("matchPrice"))
         if market_time is None or close is None:
             continue
-        records.append(
-            normalize_price_record(
-                dataset_id="vn_prices",
-                record_key=f"{request.symbol}-{market_time.date().isoformat()}",
-                instrument_id=request.symbol,
-                market_time=market_time,
-                collected_at=dataflow_now(),
-                source_id="vnstock_prices",
-                payload={
-                    "close": close,
-                    "change_percent": _number(
-                        row.get("change_percent")
-                        or row.get("pct_change")
-                        or row.get("changePercent")
-                    ),
-                    "volume": _number(row.get("volume") or row.get("matchingVolume")),
-                },
-            )
+        date_str = market_time.date().isoformat()
+        if first_date is None:
+            first_date = date_str
+        last_date = date_str
+        series.append(
+            {
+                "date": date_str,
+                "open": _number(row.get("open") or row.get("openPrice")),
+                "high": _number(row.get("high") or row.get("highPrice")),
+                "low": _number(row.get("low") or row.get("lowPrice")),
+                "close": close,
+                "change_percent": _number(
+                    row.get("change_percent")
+                    or row.get("pct_change")
+                    or row.get("changePercent")
+                ),
+                "volume": _number(row.get("volume") or row.get("matchingVolume")),
+            }
         )
-    return records
-
+    if not series:
+        return []
+    market_time = _parse_datetime(last_date)
+    return [
+        normalize_price_record(
+            dataset_id="vn_prices",
+            record_key=f"{request.symbol}-prices",
+            instrument_id=request.symbol,
+            market_time=market_time,
+            collected_at=dataflow_now(),
+            source_id="vnstock_prices",
+            payload={
+                "series": series,
+                "count": len(series),
+                "start_date": first_date,
+                "end_date": last_date,
+                "interval": "1D",
+            },
+        )
+    ]
 
 def _fetch_fundamental_records(
     vnstock: Any,

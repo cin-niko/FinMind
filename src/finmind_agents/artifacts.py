@@ -6,30 +6,44 @@ def build_chart_artifact(
     records: list[CanonicalMarketDataRecord],
     citations: list[Citation],
 ) -> Artifact:
+    price_record = next(
+        (r for r in records if r.dataset_id.endswith("_prices")),
+        None,
+    )
+    if price_record is None or not price_record.payload.get("series"):
+        return Artifact(
+            artifact_id=f"artifact_{workflow_id}_vn_prices",
+            artifact_type="chart",
+            title="Market price snapshot",
+            inputs={"dataset_id": "vn_prices"},
+            payload={"series": [], "table": []},
+            source_refs=tuple(citation.citation_id for citation in citations),
+        )
+    series = price_record.payload["series"]
     return Artifact(
-        artifact_id=f"artifact_{workflow_id}_{records[0].dataset_id}",
+        artifact_id=f"artifact_{workflow_id}_{price_record.dataset_id}",
         artifact_type="chart",
         title="Market price snapshot",
         inputs={
-            "dataset_id": records[0].dataset_id,
-            "records": [record.record_key for record in records],
+            "dataset_id": price_record.dataset_id,
+            "record_key": price_record.record_key,
         },
         payload={
             "series": [
                 {
-                    "time": record.market_time.isoformat(),
-                    "value": record.payload["close"],
-                    "change_percent": record.payload.get("change_percent"),
+                    "time": bar["date"],
+                    "value": bar["close"],
+                    "change_percent": bar.get("change_percent"),
                 }
-                for record in records
+                for bar in series
             ],
             "table": [
                 {
-                    "record_key": record.record_key,
-                    "market_time": record.market_time.isoformat(),
-                    "close": record.payload["close"],
+                    "date": bar["date"],
+                    "close": bar["close"],
+                    "volume": bar.get("volume"),
                 }
-                for record in records
+                for bar in series
             ],
         },
         source_refs=tuple(citation.citation_id for citation in citations),

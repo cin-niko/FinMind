@@ -22,7 +22,7 @@ class FakeAgentOrchestrator:
             status="success",
             section_title="Collected Data",
             content="Agent-collected VCB data package with evidence.",
-            citations=("citation_vn_prices_VCB-2026-06-18",),
+            citations=("citation_vn_prices_VCB-prices",),
             allowed_claims=("data_availability",),
             blocked_claims=(),
             warnings=(),
