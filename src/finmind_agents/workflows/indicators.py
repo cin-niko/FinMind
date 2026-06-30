@@ -161,7 +161,6 @@ def compute_indicators(series: list[dict[str, Any]]) -> dict[str, Any]:
     sma50 = _sma(closes, 50)
     sma200 = _sma(closes, 200)
     ema10_list = _ema(closes, 10)
-    ema20_list = _ema(closes, 20)
     ema12_list = _ema(closes, 12)
     ema26_list = _ema(closes, 26)
     vwma20 = _vwma(closes, volumes, 20)
@@ -209,7 +208,6 @@ def compute_indicators(series: list[dict[str, Any]]) -> dict[str, Any]:
         "sma50": round(sma50, 4) if sma50 else None,
         "sma200": round(sma200, 4) if sma200 else None,
         "ema10": round(ema10_list[-1], 4) if ema10_list else None,
-        "ema20": round(ema20_list[-1], 4) if ema20_list else None,
         "ema12": round(ema12_list[-1], 4) if ema12_list else None,
         "ema26": round(ema26_list[-1], 4) if ema26_list else None,
         "vwma20": round(vwma20, 4) if vwma20 else None,
