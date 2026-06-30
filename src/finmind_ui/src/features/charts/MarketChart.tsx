@@ -37,21 +37,21 @@ export function MarketChart({ artifact }: { artifact: ChartArtifact }) {
       <h2>{artifact.title}</h2>
       <div className="chartBox" ref={containerRef} />
       <details>
-        <summary>Table</summary>
-        <table>
+        <summary>Data Table ({artifact.payload.table.length} rows)</summary>
+        <table className="mdTable">
           <thead>
             <tr>
-              <th>Record</th>
-              <th>Market time</th>
+              <th>Date</th>
               <th>Close</th>
+              <th>Volume</th>
             </tr>
           </thead>
           <tbody>
-            {artifact.payload.table.map((row) => (
-              <tr key={row.record_key}>
-                <td>{row.record_key}</td>
-                <td>{row.market_time}</td>
+            {artifact.payload.table.slice(0, 50).map((row, index) => (
+              <tr key={`${row.date}-${index}`}>
+                <td>{row.date}</td>
                 <td>{row.close}</td>
+                <td>{row.volume}</td>
               </tr>
             ))}
           </tbody>

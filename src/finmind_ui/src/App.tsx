@@ -12,27 +12,21 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { ArtifactPanel } from "./features/chat/ArtifactPanel";
 import { ChatPage } from "./features/chat/ChatPage";
 import {
-  createMockResponse,
   createNewConversation,
+  createWorkflowAssistantMessage,
   createUserMessage,
   getConversationTitle,
   type ChatArtifact,
   type ChatConversation
 } from "./features/chat/mockChat";
-import { ResultView } from "./features/results/ResultView";
 import { AppShell } from "./features/shell/AppShell";
-import { WorkflowPage } from "./features/workflows/WorkflowPage";
-
-type View = "chat" | "workflows" | "results";
 
 export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
-  const [view, setView] = useState<View>("chat");
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [currentRun, setCurrentRun] = useState<WorkflowRun | null>(null);
-  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<ChatArtifact | null>(null);
+  const [selectedArtifactRun, setSelectedArtifactRun] = useState<WorkflowRun | null>(null);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession({ authenticated: false }));
@@ -40,143 +34,119 @@ export function App() {
 
   const handleSessionExpired = useCallback(() => {
     setSession({ authenticated: false });
-    setCurrentRun(null);
-    setWorkflowRuns([]);
     setSelectedArtifact(null);
-    setView("chat");
   }, []);
 
   useEffect(() => {
-    if (!session?.authenticated) {
-      return;
-    }
+    if (!session?.authenticated) return;
     listRuns()
-      .then(setWorkflowRuns)
+      .then((runs) => {
+        setConversations(runs.map(runToConversation));
+      })
       .catch((caught) => {
-        if (isUnauthorizedError(caught)) {
-          handleSessionExpired();
-        }
+        if (isUnauthorizedError(caught)) handleSessionExpired();
       });
   }, [handleSessionExpired, session]);
 
-  if (!session) {
-    return <LoadingState />;
-  }
-
-  if (!session.authenticated) {
-    return <LoginPage onAuthenticated={setSession} />;
-  }
+  if (!session) return <LoadingState />;
+  if (!session.authenticated) return <LoginPage onAuthenticated={setSession} />;
 
   async function handleLogout() {
     const next = await logout().catch(() => ({ authenticated: false }) as const);
     setSession(next);
-    setCurrentRun(null);
-    setWorkflowRuns([]);
     setSelectedArtifact(null);
-    setView("chat");
   }
 
-  function handleRunComplete(run: WorkflowRun) {
-    setCurrentRun(run);
-    setWorkflowRuns((runs) => [run, ...runs.filter((existing) => existing.id !== run.id)]);
-    setView("results");
-  }
-
-  function handleNavigate(nextView: View) {
-    setSelectedArtifact(null);
-    if (nextView === "chat") {
-      setCurrentConversationId(null);
-    }
-    setView(nextView);
+  function handleRunComplete(run: WorkflowRun, userMessage: string) {
+    const conversation = createNewConversation(userMessage);
+    const assistantMessage = createWorkflowAssistantMessage(run, 1);
+    const nextConversation = {
+      ...conversation,
+      messages: [...conversation.messages, assistantMessage]
+    };
+    setConversations((items) => [nextConversation, ...items]);
+    setCurrentConversationId(nextConversation.id);
   }
 
   function handleChatSubmit(message: string) {
-    setSelectedArtifact(null);
-    if (!currentConversationId) {
-      const conversation = createNewConversation(message);
-      const response = createMockResponse(message);
-      const nextConversation = {
-        ...conversation,
-        messages: [...conversation.messages, response]
-      };
-      setConversations((items) => [nextConversation, ...items]);
-      setCurrentConversationId(nextConversation.id);
-      return;
-    }
-
+    if (!currentConversationId) return;
     setConversations((items) =>
       items.map((conversation) => {
-        if (conversation.id !== currentConversationId) {
-          return conversation;
-        }
-        const nextIndex = conversation.messages.filter((item) => item.role === "user").length + 1;
-        return {
-          ...conversation,
-          messages: [
-            ...conversation.messages,
-            createUserMessage(message, nextIndex),
-            createMockResponse(message)
-          ]
+        if (conversation.id !== currentConversationId) return conversation;
+        const userCount = conversation.messages.filter((m) => m.role === "user").length + 1;
+        const userMsg = createUserMessage(message, userCount);
+        const assistantMsg = {
+          id: `assistant-${userCount}`,
+          role: "assistant" as const,
+          content: "Follow-up chat is powered by the agentic chatflow (phase 003). This placeholder will connect to the chatflow API when available.",
+          blocks: [{ kind: "text" as const, content: "Follow-up chat is powered by the agentic chatflow (phase 003). This placeholder will connect to the chatflow API when available." }],
+          artifacts: []
         };
+        return { ...conversation, messages: [...conversation.messages, userMsg, assistantMsg] };
       })
     );
   }
 
+  function handleNewChat() {
+    setCurrentConversationId(null);
+    setSelectedArtifact(null);
+  }
+
+  function handleSelectArtifact(artifact: ChatArtifact, run?: WorkflowRun) {
+    setSelectedArtifact(artifact);
+    setSelectedArtifactRun(run ?? null);
+  }
+
   const currentConversation =
     conversations.find((conversation) => conversation.id === currentConversationId) ?? null;
-
-  const titleByView: Record<View, string> = {
-    chat: currentConversation ? getConversationTitle(currentConversation) : "New Chat",
-    workflows: "Workflows",
-    results: "Workflow Result"
-  };
+  const title = currentConversation ? getConversationTitle(currentConversation) : "New Chat";
 
   return (
     <AppShell
-      active={view}
-      chatHistory={conversations}
-      selectedChatId={view === "chat" ? currentConversationId : null}
-      selectedRunId={view === "results" ? currentRun?.id ?? null : null}
-      workflowRuns={workflowRuns}
+      active="chat"
+      role={session.role}
+      conversations={conversations}
+      selectedChatId={currentConversationId}
       onLogout={handleLogout}
-      onNavigate={handleNavigate}
+      onNavigate={handleNewChat}
       onSelectChat={(conversationId) => {
         setCurrentConversationId(conversationId);
         setSelectedArtifact(null);
-        setView("chat");
       }}
-      onSelectRun={(run) => {
-        setCurrentRun(run);
-        setSelectedArtifact(null);
-        setView("results");
-      }}
-      role={session.role}
     >
       <div className={selectedArtifact ? "contentWithArtifact" : "contentWithArtifact noArtifact"}>
         <div className="primaryPane">
           <header className="topBar">
-            <h1>{titleByView[view]}</h1>
+            <h1>{title}</h1>
             <span className="headerActionSlot" aria-hidden="true" />
           </header>
-          <div className={view === "chat" ? "primaryContent chatSurface" : "primaryContent"}>
-            {view === "chat" ? (
-              <ChatPage
-                conversation={currentConversation}
-                onSelectArtifact={setSelectedArtifact}
-                onSubmit={handleChatSubmit}
-              />
-            ) : null}
-            {view === "workflows" ? (
-              <WorkflowPage
-                onRunComplete={handleRunComplete}
-                onSessionExpired={handleSessionExpired}
-              />
-            ) : null}
-            {view === "results" ? <ResultView run={currentRun} /> : null}
+          <div className="primaryContent chatSurface">
+            <ChatPage
+              conversation={currentConversation}
+              onRunComplete={handleRunComplete}
+              onChatSubmit={handleChatSubmit}
+              onNewChat={handleNewChat}
+              onSelectArtifact={handleSelectArtifact}
+            />
           </div>
         </div>
-        <ArtifactPanel artifact={selectedArtifact} onClose={() => setSelectedArtifact(null)} />
+        <ArtifactPanel
+          artifact={selectedArtifact}
+          run={selectedArtifactRun}
+          onClose={() => setSelectedArtifact(null)}
+        />
       </div>
     </AppShell>
   );
+}
+
+function runToConversation(run: WorkflowRun): ChatConversation {
+  const firstSection = run.output.sections[0];
+  const title = firstSection?.title ?? run.id;
+  const userMessage = createUserMessage(`Workflow: ${title} (${run.id})`, 1);
+  const assistantMessage = createWorkflowAssistantMessage(run, 1);
+  return {
+    id: run.id,
+    messages: [userMessage, assistantMessage]
+  };
 }

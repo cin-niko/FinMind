@@ -1,12 +1,15 @@
 import { X } from "lucide-react";
 import type { ChatArtifact } from "./mockChat";
+import type { WorkflowRun } from "../../api/client";
+import { MarketChart } from "../charts/MarketChart";
 
 type Props = {
   artifact: ChatArtifact | null;
+  run?: WorkflowRun | null;
   onClose: () => void;
 };
 
-export function ArtifactPanel({ artifact, onClose }: Props) {
+export function ArtifactPanel({ artifact, run, onClose }: Props) {
   if (!artifact) {
     return null;
   }
@@ -20,48 +23,52 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         </button>
       </header>
       <div className="artifactBody">
-        <span className="meta">{artifact.kind}</span>
-        <p>{artifact.summary}</p>
-        {artifact.kind === "report" ? (
-          <div className="reportPreview">
-            <h3>Mock Report</h3>
-            <p>
-              This trusted local template represents a larger report generated inside chat. V1 does
-              not execute arbitrary LLM HTML.
-            </p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Section</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Market context</td>
-                  <td>Mock complete</td>
-                </tr>
-                <tr>
-                  <td>Risk notes</td>
-                  <td>Mock complete</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        {artifact.kind === "chart" && run?.output.artifacts.chart ? (
+          <MarketChart artifact={run.output.artifacts.chart} />
         ) : null}
-        {artifact.kind === "citationBundle" || artifact.kind === "evidenceList" ? (
+        {artifact.kind === "citationBundle" && run ? (
           <ul className="citationList">
-            <li>
-              <strong>Mock Source A</strong>
-              <span>Demo citation pattern</span>
-              <span>2026-06-18 09:20</span>
-            </li>
-            <li>
-              <strong>Mock Source B</strong>
-              <span>Demo evidence pattern</span>
-              <span>2026-06-18 08:40</span>
-            </li>
+            {run.output.citations.map((citation) => (
+              <li key={citation.citation_id}>
+                <strong>{citation.label}</strong>
+                <span>{citation.dataset_id}</span>
+                <span>{citation.timestamp}</span>
+              </li>
+            ))}
           </ul>
+        ) : null}
+        {artifact.kind === "evidenceList" && run ? (
+          <div className="evidencePanel">
+            <div className="freshness">Grounding: {run.output.grounding.grounding_status}</div>
+            {run.output.grounding.blocked_claims.length ? (
+              <div className="freshness">Blocked: {run.output.grounding.blocked_claims.join(", ")}</div>
+            ) : null}
+            {run.output.grounding.uncited_claims.length ? (
+              <div className="freshness">Uncited: {run.output.grounding.uncited_claims.join(", ")}</div>
+            ) : null}
+            <h3>Collection</h3>
+            <div className="freshness">Status: {run.output.collection.status}</div>
+            <div className="freshness">Groups: {run.output.collection.requested_dataset_groups.join(", ")}</div>
+            {run.output.collection.warnings.length ? (
+              <div className="freshness">Warnings: {run.output.collection.warnings.join(", ")}</div>
+            ) : null}
+            <h3>Providers</h3>
+            <div className="stageList">
+              {run.output.collection.provider_results.map((provider) => (
+                <span className="stageChip" key={provider.provider_id}>
+                  {provider.provider_id}: {provider.status}
+                </span>
+              ))}
+            </div>
+            <h3>Steps</h3>
+            <div className="stageList">
+              {run.output.steps.map((step) => (
+                <span className="stageChip" key={step.id}>
+                  {step.id}: {step.status}
+                </span>
+              ))}
+            </div>
+          </div>
         ) : null}
       </div>
     </aside>

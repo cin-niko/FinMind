@@ -78,7 +78,7 @@ export type WorkflowRun = {
         title: string;
         payload: {
           series: Array<{ time: string; value: number; change_percent?: number }>;
-          table: Array<{ record_key: string; market_time: string; close: number }>;
+          table: Array<{ date: string; close: number; volume?: number }>;
         };
         source_refs: string[];
       };
