@@ -158,6 +158,21 @@ class InMemoryRunRepository(RunRepository):
             reverse=True,
         )
 
+    def delete(self, run_id: str) -> bool:
+        existed = run_id in self._runs
+        self._runs.pop(run_id, None)
+        return existed
+
+    def update_title(self, run_id: str, title: str) -> ExecutionRun | None:
+        run = self._runs.get(run_id)
+        if run is None:
+            return None
+        from dataclasses import replace
+
+        updated = replace(run, title=title)
+        self._runs[run_id] = updated
+        return updated
+
 
 def create_workflow_catalog() -> WorkflowCatalog:
     return WorkflowCatalog(build_workflow_catalog())

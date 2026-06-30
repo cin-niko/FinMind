@@ -223,6 +223,15 @@ class WorkflowService:
     def list_runs(self) -> list[dict[str, object]]:
         return [serialize_run(run) for run in self.runs.list()]
 
+    def delete_run(self, run_id: str) -> bool:
+        return self.runs.delete(run_id)
+
+    def rename_run(self, run_id: str, title: str) -> dict[str, object] | None:
+        run = self.runs.update_title(run_id, title)
+        if run is None:
+            return None
+        return serialize_run(run)
+
 
 def _ordered_steps(workflow: WorkflowSpecification) -> tuple[str, ...]:
     if workflow.step_sequence:

@@ -32,6 +32,8 @@ export type ChatMessage = {
 
 export type ChatConversation = {
   id: string;
+  title?: string;
+  isWorkflowRun?: boolean;
   messages: ChatMessage[];
 };
 
@@ -53,6 +55,9 @@ function truncateTitle(value: string): string {
 }
 
 export function getConversationTitle(conversation: ChatConversation): string {
+  if (conversation.title) {
+    return truncateTitle(conversation.title);
+  }
   const firstUserMessage = conversation.messages.find((message) => message.role === "user");
   return truncateTitle(firstUserMessage?.content ?? "");
 }

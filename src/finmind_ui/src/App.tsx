@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  deleteRun,
   getSession,
   isUnauthorizedError,
   listRuns,
   logout,
+  renameRun,
   runWorkflow,
   type SessionState,
   type WorkflowRun
@@ -72,7 +74,7 @@ export function App() {
     const conversation = createNewConversation(userMessage);
     const conversationId = conversation.id;
     const pendingMessage = createPendingAssistantMessage(1);
-    const nextConversation = { ...conversation, messages: [...conversation.messages, pendingMessage] };
+    const nextConversation = { ...conversation, isWorkflowRun: true, messages: [...conversation.messages, pendingMessage] };
     setConversations((items) => [nextConversation, ...items]);
     setCurrentConversationId(conversationId);
     setSelectedArtifact(null);
@@ -142,6 +144,51 @@ export function App() {
     );
   }
 
+  async function handleRenameConversation(conversationId: string, title: string) {
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    if (conversation.isWorkflowRun) {
+      try {
+        const updated = await renameRun(conversationId, trimmed);
+        setConversations((items) =>
+          items.map((item) =>
+            item.id === conversationId ? { ...item, title: updated.title ?? trimmed } : item
+          )
+        );
+      } catch (caught) {
+        if (isUnauthorizedError(caught)) handleSessionExpired();
+      }
+    } else {
+      setConversations((items) =>
+        items.map((item) =>
+          item.id === conversationId ? { ...item, title: trimmed } : item
+        )
+      );
+    }
+  }
+
+  async function handleDeleteConversation(conversationId: string) {
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+    if (conversation.isWorkflowRun) {
+      try {
+        await deleteRun(conversationId);
+      } catch (caught) {
+        if (isUnauthorizedError(caught)) {
+          handleSessionExpired();
+          return;
+        }
+      }
+    }
+    setConversations((items) => items.filter((item) => item.id !== conversationId));
+    if (currentConversationId === conversationId) {
+      setCurrentConversationId(null);
+      setSelectedArtifact(null);
+    }
+  }
+
   function handleSelectArtifact(artifact: ChatArtifact, run?: WorkflowRun) {
     setSelectedArtifact(artifact);
     setSelectedArtifactRun(run ?? null);
@@ -163,6 +210,8 @@ export function App() {
       selectedChatId={view === "chat" ? currentConversationId : null}
       onLogout={handleLogout}
       onNavigate={handleNavigate}
+      onRenameConversation={handleRenameConversation}
+      onDeleteConversation={handleDeleteConversation}
       onSelectChat={(conversationId) => {
         setCurrentConversationId(conversationId);
         setSelectedArtifact(null);
@@ -208,6 +257,8 @@ function runToConversation(run: WorkflowRun): ChatConversation {
   const assistantMessage = createWorkflowAssistantMessage(run, 1);
   return {
     id: run.id,
+    title: run.title ?? undefined,
+    isWorkflowRun: true,
     messages: [createUserMessage(userMessage, 1), assistantMessage]
   };
 }

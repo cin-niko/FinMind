@@ -32,6 +32,7 @@ export type WorkflowRun = {
   id: string;
   kind: "workflow";
   status: "success" | "partial" | "failed";
+  title: string | null;
   inputs: Record<string, string>;
   output: {
     sections: Array<{
@@ -142,6 +143,17 @@ export function listRuns(): Promise<WorkflowRun[]> {
 
 export function getRun(runId: string): Promise<WorkflowRun> {
   return request<WorkflowRun>(`/api/runs/${runId}`);
+}
+
+export function deleteRun(runId: string): Promise<void> {
+  return request<void>(`/api/runs/${runId}`, { method: "DELETE" });
+}
+
+export function renameRun(runId: string, title: string): Promise<WorkflowRun> {
+  return request<WorkflowRun>(`/api/runs/${runId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title })
+  });
 }
 
 export function isUnauthorizedError(caught: unknown): boolean {

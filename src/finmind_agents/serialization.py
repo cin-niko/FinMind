@@ -13,4 +13,5 @@ def serialize_run(run: ExecutionRun) -> dict[str, Any]:
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
         "output": run.output,
         "logs": run.logs,
+        "title": run.title,
     }

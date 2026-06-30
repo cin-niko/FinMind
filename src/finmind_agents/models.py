@@ -153,6 +153,7 @@ class ExecutionRun:
     completed_at: datetime | None
     output: dict[str, Any]
     logs: list[dict[str, Any]] = field(default_factory=list)
+    title: str | None = None
 
 
 def utc_now() -> datetime:

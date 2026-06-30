@@ -24,6 +24,7 @@ def persist_run(run: ExecutionRun) -> dict[str, Any]:
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
         "output": run.output,
         "logs": run.logs,
+        "title": run.title,
     }
 
 
@@ -44,6 +45,7 @@ def restore_run(data: dict[str, Any]) -> ExecutionRun:
         completed_at=completed_at,
         output=dict(data.get("output") or {}),
         logs=list(data.get("logs") or []),
+        title=data.get("title"),
     )
 
 
@@ -134,3 +136,24 @@ class PostgresRunRepository:
             cur.execute("SELECT data FROM runs ORDER BY started_at DESC")
             rows = cur.fetchall()
         return [restore_run(row[0]) for row in rows]
+
+    def delete(self, run_id: str) -> bool:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM runs WHERE run_id = %s", (run_id,))
+            return cur.rowcount > 0
+
+    def update_title(self, run_id: str, title: str) -> ExecutionRun | None:
+        from psycopg.types.json import Json
+
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT data FROM runs WHERE run_id = %s", (run_id,))
+            row = cur.fetchone()
+            if row is None:
+                return None
+            data = row[0]
+            data["title"] = title
+            cur.execute(
+                "UPDATE runs SET data = %s WHERE run_id = %s",
+                (Json(data), run_id),
+            )
+        return restore_run(data)

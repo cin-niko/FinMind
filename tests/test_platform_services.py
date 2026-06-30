@@ -1109,6 +1109,85 @@ def test_completed_workflow_run_can_be_reopened_from_history(
 
 
 
+def test_run_can_be_renamed_and_the_title_persists(client: TestClient) -> None:
+    run_response = client.post(
+        "/api/workflows/vn-financial-data-collector/run",
+        json={"market": "VN_STOCK", "symbol": "VCB"},
+    )
+    assert run_response.status_code == 200
+    run_id = run_response.json()["id"]
+    assert run_response.json()["title"] is None
+
+    rename_response = client.patch(
+        f"/api/runs/{run_id}",
+        json={"title": "VCB snapshot Q2"},
+    )
+
+    assert rename_response.status_code == 200
+    assert rename_response.json()["title"] == "VCB snapshot Q2"
+
+    detail_response = client.get(f"/api/runs/{run_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["title"] == "VCB snapshot Q2"
+
+    list_response = client.get("/api/runs")
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["title"] == "VCB snapshot Q2"
+
+
+def test_rename_run_rejects_empty_title(client: TestClient) -> None:
+    run_response = client.post(
+        "/api/workflows/vn-financial-data-collector/run",
+        json={"market": "VN_STOCK", "symbol": "VCB"},
+    )
+    run_id = run_response.json()["id"]
+
+    rename_response = client.patch(
+        f"/api/runs/{run_id}",
+        json={"title": "   "},
+    )
+
+    assert rename_response.status_code == 422
+    assert rename_response.json()["detail"] == "title must not be empty"
+
+
+def test_rename_run_returns_404_for_unknown_run(client: TestClient) -> None:
+    rename_response = client.patch(
+        "/api/runs/run_does_not_exist",
+        json={"title": "missing"},
+    )
+
+    assert rename_response.status_code == 404
+    assert rename_response.json()["detail"] == "Run not found"
+
+
+def test_run_can_be_deleted_and_disappears_from_history(
+    client: TestClient,
+) -> None:
+    run_response = client.post(
+        "/api/workflows/vn-financial-data-collector/run",
+        json={"market": "VN_STOCK", "symbol": "VCB"},
+    )
+    run_id = run_response.json()["id"]
+
+    delete_response = client.delete(f"/api/runs/{run_id}")
+
+    assert delete_response.status_code == 204
+
+    detail_response = client.get(f"/api/runs/{run_id}")
+    assert detail_response.status_code == 404
+
+    list_response = client.get("/api/runs")
+    assert all(run["id"] != run_id for run in list_response.json())
+
+
+def test_delete_run_returns_404_for_unknown_run(client: TestClient) -> None:
+    delete_response = client.delete("/api/runs/run_does_not_exist")
+
+    assert delete_response.status_code == 404
+    assert delete_response.json()["detail"] == "Run not found"
+
+
 def test_build_run_store_fails_closed_without_database_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
