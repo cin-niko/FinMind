@@ -84,7 +84,12 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact }: Props) {
                 <div className="messageRole">{message.role === "user" ? "You" : "FinMind"}</div>
                 {message.blocks.map((block, index) =>
                   block.kind === "text" ? (
-                    message.workflowRun ? (
+                    message.pending ? (
+                      <div className="pendingMessage" key={`${message.id}-text-${index}`}>
+                        <span className="typingDots"><span></span><span></span><span></span></span>
+                        {block.content}
+                      </div>
+                    ) : message.workflowRun ? (
                       <Markdown content={block.content} key={`${message.id}-text-${index}`} />
                     ) : (
                       <p key={`${message.id}-text-${index}`}>{block.content}</p>

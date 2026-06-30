@@ -11,11 +11,11 @@ import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
 import { summarizeWorkflow } from "./workflowCatalog";
 
 type Props = {
-  onRunComplete: (run: WorkflowRun, workflowId: string) => void;
+  onRunStart: (workflowId: string, symbol: string, market: string) => void;
   onSessionExpired: () => void;
 };
 
-export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
+export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [market, setMarket] = useState("VN_STOCK");
@@ -46,27 +46,11 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
   const symbolValue = symbol.trim().toUpperCase();
   const requiresSymbol = Boolean(symbolInput?.required);
 
-  async function handleRun() {
+  function handleRun() {
     if (!selected || !selectedMarket || (requiresSymbol && !symbolValue)) {
       return;
     }
-    setRunning(true);
-    setError("");
-    try {
-      const run = await runWorkflow(selected.id, {
-        market: selectedMarket,
-        ...(symbolInput && symbolValue ? { symbol: symbolValue } : {})
-      });
-      onRunComplete(run, selected.id);
-    } catch (caught) {
-      if (isUnauthorizedError(caught)) {
-        onSessionExpired();
-        return;
-      }
-      setError(caught instanceof Error ? caught.message : "Workflow failed");
-    } finally {
-      setRunning(false);
-    }
+    onRunStart(selected.id, symbolValue, selectedMarket);
   }
 
   if (loading) {
@@ -131,11 +115,11 @@ export function WorkflowPage({ onRunComplete, onSessionExpired }: Props) {
         ) : null}
         <button
           className="primaryButton"
-          disabled={running || !selectedMarket || (requiresSymbol && !symbolValue)}
+          disabled={!selectedMarket || (requiresSymbol && !symbolValue)}
           onClick={handleRun}
           type="button"
         >
-          <Play size={16} /> {running ? "Running" : "Run"}
+          <Play size={16} /> Run
         </button>
       </section>
       <section className="panel">

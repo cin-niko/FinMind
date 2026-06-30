@@ -4,6 +4,7 @@ import {
   isUnauthorizedError,
   listRuns,
   logout,
+  runWorkflow,
   type SessionState,
   type WorkflowRun
 } from "./api/client";
@@ -14,6 +15,7 @@ import { ChatPage } from "./features/chat/ChatPage";
 import {
   createMockResponse,
   createNewConversation,
+  createPendingAssistantMessage,
   createWorkflowAssistantMessage,
   createUserMessage,
   getConversationTitle,
@@ -73,14 +75,48 @@ export function App() {
     return { ...conversation, messages: [...conversation.messages, assistantMessage] };
   }
 
-  function handleRunComplete(run: WorkflowRun, workflowId: string) {
-    setWorkflowRuns((runs) => [run, ...runs.filter((existing) => existing.id !== run.id)]);
-    const symbol = (run.inputs?.symbol ?? "").toUpperCase();
-    const conversation = runToConversation(run, workflowId, symbol);
-    setConversations((items) => [conversation, ...items]);
-    setCurrentConversationId(conversation.id);
+  async function handleRunStart(workflowId: string, symbol: string, market: string) {
+    const userMessage = workflowPromptTemplate(workflowId)(symbol || market);
+    const conversation = createNewConversation(userMessage);
+    const pendingMessage = createPendingAssistantMessage(1);
+    const conversationId = conversation.id;
+    const nextConversation = { ...conversation, messages: [...conversation.messages, pendingMessage] };
+    setConversations((items) => [nextConversation, ...items]);
+    setCurrentConversationId(conversationId);
     setSelectedArtifact(null);
     setView("chat");
+    try {
+      const run = await runWorkflow(workflowId, {
+        market,
+        ...(symbol ? { symbol } : {})
+      });
+      setWorkflowRuns((runs) => [run, ...runs.filter((existing) => existing.id !== run.id)]);
+      setConversations((items) =>
+        items.map((conv) => {
+          if (conv.id !== conversationId) return conv;
+          const assistantMessage = createWorkflowAssistantMessage(run, 1);
+          return { ...conv, messages: [...conv.messages.filter((m) => !m.pending), assistantMessage] };
+        })
+      );
+    } catch (caught) {
+      if (isUnauthorizedError(caught)) {
+        handleSessionExpired();
+        return;
+      }
+      setConversations((items) =>
+        items.map((conv) => {
+          if (conv.id !== conversationId) return conv;
+          const errorMsg = {
+            id: `assistant-err-${1}`,
+            role: "assistant" as const,
+            content: caught instanceof Error ? caught.message : "Workflow failed",
+            blocks: [{ kind: "text" as const, content: caught instanceof Error ? caught.message : "Workflow failed" }],
+            artifacts: []
+          };
+          return { ...conv, messages: [...conv.messages.filter((m) => !m.pending), errorMsg] };
+        })
+      );
+    }
   }
 
   function handleNavigate(nextView: View) {
@@ -175,7 +211,7 @@ export function App() {
             ) : null}
             {view === "workflows" ? (
               <WorkflowPage
-                onRunComplete={handleRunComplete}
+                onRunStart={handleRunStart}
                 onSessionExpired={handleSessionExpired}
               />
             ) : null}

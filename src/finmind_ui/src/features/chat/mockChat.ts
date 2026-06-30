@@ -27,6 +27,7 @@ export type ChatMessage = {
   blocks: ChatBlock[];
   artifacts: ChatArtifact[];
   workflowRun?: WorkflowRun;
+  pending?: boolean;
 };
 
 export type ChatConversation = {
@@ -163,5 +164,17 @@ export function createWorkflowAssistantMessage(run: WorkflowRun, index: number):
     blocks: [{ kind: "text", content: reportContent }],
     artifacts,
     workflowRun: run
+  };
+}
+
+
+export function createPendingAssistantMessage(index: number): ChatMessage {
+  return {
+    id: `assistant-pending-${index}`,
+    role: "assistant",
+    content: "",
+    blocks: [{ kind: "text", content: "Running workflow..." }],
+    artifacts: [],
+    pending: true
   };
 }
