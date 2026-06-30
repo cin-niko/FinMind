@@ -86,6 +86,7 @@ class WorkflowService:
         citations: tuple[Citation, ...] = ()
         records: tuple[CanonicalMarketDataRecord, ...] = ()
         prior_outputs: dict[str, object] = {}
+        used_citation_ids: set[str] = set()
 
         for step_id in _ordered_steps(workflow):
             if step_id == COLLECT_STEP:
@@ -135,6 +136,7 @@ class WorkflowService:
                     citation_ids=skill_citation_ids,
                 )
             )
+            used_citation_ids.update(skill_citation_ids)
             uncited = uncited_citations(
                 agent_result.citations,
                 tuple(citation.citation_id for citation in citations),
@@ -186,7 +188,7 @@ class WorkflowService:
                 "sections": sections,
                 "steps": steps,
                 "collection": prior_outputs.get(COLLECT_STEP, {}),
-                "citations": [_citation_payload(citation) for citation in citations],
+                "citations": [_citation_payload(citation) for citation in citations if citation.citation_id in used_citation_ids],
                 "artifacts": {
                     "chart": _chart_payload(chart) if chart is not None else None,
                 },
