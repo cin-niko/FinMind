@@ -27,6 +27,16 @@ def _ema(values: list[float], period: int) -> list[float] | None:
     return out
 
 
+def _vwma(closes: list[float], volumes: list[float], period: int = 20) -> float | None:
+    if len(closes) < period:
+        return None
+    pv = sum(closes[-period:][k] * volumes[-period:][k] for k in range(period))
+    vol_sum = sum(volumes[-period:])
+    if vol_sum == 0:
+        return None
+    return pv / vol_sum
+
+
 def _rsi(closes: list[float], period: int = 14) -> float | None:
     if len(closes) <= period:
         return None
@@ -150,8 +160,10 @@ def compute_indicators(series: list[dict[str, Any]]) -> dict[str, Any]:
     sma20 = _sma(closes, 20)
     sma50 = _sma(closes, 50)
     sma200 = _sma(closes, 200)
+    ema10_list = _ema(closes, 10)
     ema12_list = _ema(closes, 12)
     ema26_list = _ema(closes, 26)
+    vwma20 = _vwma(closes, volumes, 20)
 
     # 52-week high/low (~250 trading days)
     window_52w = min(250, len(closes))
@@ -195,8 +207,10 @@ def compute_indicators(series: list[dict[str, Any]]) -> dict[str, Any]:
         "sma20": round(sma20, 4) if sma20 else None,
         "sma50": round(sma50, 4) if sma50 else None,
         "sma200": round(sma200, 4) if sma200 else None,
+        "ema10": round(ema10_list[-1], 4) if ema10_list else None,
         "ema12": round(ema12_list[-1], 4) if ema12_list else None,
         "ema26": round(ema26_list[-1], 4) if ema26_list else None,
+        "vwma20": round(vwma20, 4) if vwma20 else None,
         "rsi14": _rsi(closes, 14),
         "macd_line": macd["macd_line"],
         "macd_signal": macd["signal_line"],
