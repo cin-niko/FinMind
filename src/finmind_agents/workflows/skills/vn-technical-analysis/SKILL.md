@@ -57,19 +57,37 @@ runtime as a chart artifact.
 
 The `vn_indicators` record payload contains the following pre-computed fields:
 
+**Price summary**
 - `latest_close`, `latest_date` — most recent daily close (thousand VND)
 - `high_52w`, `low_52w` — 52-week high/low
 - `return_1y_pct` — 1-year price return percentage
-- `sma20`, `sma50`, `sma200` — simple moving averages (latest values)
-- `ema12`, `ema26` — exponential moving averages (latest values)
+
+**Moving averages**
+- `sma20` — 20-period SMA (short-term; also serves as Bollinger middle)
+- `sma50`, `sma200` — long-term trend benchmarks
+- `ema10` — 10-period EMA (short-term responsive signal)
+- `ema12`, `ema26` — MACD components (not standalone signals)
+- `vwma20` — 20-period volume-weighted moving average (confirms trends with volume)
+
+**Momentum**
 - `rsi14` — RSI(14) value (0–100)
-- `macd_line`, `macd_signal`, `macd_histogram` — MACD components
-- `bollinger_upper`, `bollinger_middle`, `bollinger_lower` — Bollinger Bands
+- `macd_line` — EMA12 − EMA26
+- `macd_signal` — EMA9 of MACD line
+- `macd_histogram` — MACD line − signal
+
+**Volatility**
+- `bollinger_upper`, `bollinger_middle`, `bollinger_lower` — Bollinger Bands (20, 2σ)
 - `atr14` — Average True Range (14)
+
+**Volume**
 - `avg_volume_20d`, `latest_volume`, `volume_ratio` — volume context
+
+**Risk / levels**
 - `trend` — classified trend ("uptrend", "downtrend", "sideways")
 - `max_drawdown_pct`, `current_drawdown_pct` — drawdown metrics
-- `resistance`, `support` — recent resistance/support levels
+- `resistance`, `support` — recent resistance/support levels (60-bar window)
+
+**Coverage**
 - `bar_count`, `start_date`, `end_date` — series coverage
 
 ## Workflow Procedure
