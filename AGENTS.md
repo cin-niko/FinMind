@@ -42,6 +42,7 @@ Every piece of information should have one canonical location. Link to it instea
 9. **Do not duplicate schemas or tables.** Pick the canonical spec and link to it.
 10. **Do not hand-edit generated/cache files.** Local agent skills live under `.agents/skills/`; generated runtime caches and virtualenv artifacts should be ignored.
 11. **Run relevant verification before completion.** For Python work, use `uv run pytest`; for frontend work, use the commands defined by `src/finmind_ui/package.json` once that app exists.
+12. **Use semantic commit messages.** Commits must follow the Conventional Commits format, such as `feat(ui): add workflow picker`, `fix(api): block unsupported markets`, or `docs(agents): document commit rules`.
 
 ## 4. Standard Loops
 

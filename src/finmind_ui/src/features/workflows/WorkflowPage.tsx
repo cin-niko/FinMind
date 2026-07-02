@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Play } from "lucide-react";
+import { Play, X } from "lucide-react";
 import {
   isUnauthorizedError,
   listWorkflows,
-  runWorkflow,
   type Workflow,
-  type WorkflowRun
 } from "../../api/client";
 import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
 import { summarizeWorkflow } from "./workflowCatalog";
@@ -21,7 +19,6 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
   const [market, setMarket] = useState("VN_STOCK");
   const [symbol, setSymbol] = useState("");
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -61,8 +58,8 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
     return <EmptyState message="No workflows available." />;
   }
 
-  if (!selected) {
-    return (
+  return (
+    <>
       <div className="workflowCatalog">
         {error ? <ErrorAlert message={error} /> : null}
         {workflows.map((workflow) => (
@@ -77,66 +74,66 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
           />
         ))}
       </div>
-    );
-  }
-
-  return (
-    <div className="workflowGrid">
-      <section className="panel">
-        <button className="textButton" onClick={() => setSelectedId(null)} type="button">
-          <ArrowLeft size={16} /> Catalog
-        </button>
-        <h2>Run Workflow</h2>
-        {error ? <ErrorAlert message={error} /> : null}
-        <div className="selectedWorkflowName">{selected.title}</div>
-        <label>
-          Market
-          <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
-            {selected.market_scope.map((scope) => (
-              <option key={scope} value={scope}>
-                {scope === "VN_STOCK" ? "VN stocks" : "US stocks"}
-              </option>
-            ))}
-            <option disabled value="BTC">
-              BTC (future)
-            </option>
-          </select>
-        </label>
-        {symbolInput ? (
-          <label>
-            Symbol
-            <input
-              autoCapitalize="characters"
-              value={symbol}
-              onChange={(event) => setSymbol(event.target.value)}
-              placeholder="VCB"
-            />
-          </label>
-        ) : null}
-        <button
-          className="primaryButton"
-          disabled={!selectedMarket || (requiresSymbol && !symbolValue)}
-          onClick={handleRun}
-          type="button"
-        >
-          <Play size={16} /> Run
-        </button>
-      </section>
-      <section className="panel">
-        <h2>{selected.title}</h2>
-        <p>{selected.description}</p>
-        <div className="meta">Markets: {selected.market_scope.join(", ")}</div>
-        <div className="meta">Sections: {selected.output_sections.join(", ")}</div>
-        <div className="stageList">
-          {selected.stages.map((stage) => (
-            <span className="stageChip" key={stage}>
-              {stage}
-            </span>
-          ))}
+      {selected ? (
+        <div className="workflowDialogOverlay" onClick={() => setSelectedId(null)}>
+          <section
+            className="workflowDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="workflow-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="dialogCloseButton"
+              onClick={() => setSelectedId(null)}
+              type="button"
+              aria-label="Close workflow details"
+            >
+              <X size={16} />
+            </button>
+            <div className="workflowDialogBody">
+              <h2 id="workflow-dialog-title">{selected.title}</h2>
+              <p>{selected.description}</p>
+            </div>
+            {error ? <ErrorAlert message={error} /> : null}
+            <div className="workflowRunOptions">
+              <label>
+                Market
+                <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
+                  {selected.market_scope.map((scope) => (
+                    <option key={scope} value={scope}>
+                      {scope === "VN_STOCK" ? "VN stocks" : "US stocks"}
+                    </option>
+                  ))}
+                  <option disabled value="BTC">
+                    BTC (future)
+                  </option>
+                </select>
+              </label>
+              {symbolInput ? (
+                <label>
+                  Symbol
+                  <input
+                    autoCapitalize="characters"
+                    value={symbol}
+                    onChange={(event) => setSymbol(event.target.value)}
+                    placeholder="VCB"
+                  />
+                </label>
+              ) : null}
+            </div>
+            <button
+              className="primaryButton"
+              disabled={!selectedMarket || (requiresSymbol && !symbolValue)}
+              onClick={handleRun}
+              type="button"
+            >
+              <Play size={16} /> Run
+            </button>
+          </section>
         </div>
-        <div className="meta">Charts: {selected.chart_requirements.join(", ")}</div>
-      </section>
-    </div>
+      ) : null}
+    </>
   );
 }
 
@@ -150,17 +147,8 @@ function WorkflowCard({
   const summary = summarizeWorkflow(workflow);
   return (
     <button className="workflowCard" onClick={onSelect} type="button">
-      <span className="meta">{summary.metadata}</span>
       <h2>{summary.title}</h2>
       <p>{summary.description}</p>
-      <div className="workflowMeta">Sections: {summary.sections}</div>
-      <div className="stageList">
-        {summary.stages.slice(0, 4).map((stage) => (
-          <span className="stageChip" key={stage}>
-            {stage}
-          </span>
-        ))}
-      </div>
     </button>
   );
 }

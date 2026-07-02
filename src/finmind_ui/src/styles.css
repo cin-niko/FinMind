@@ -1016,18 +1016,85 @@ button:focus-visible {
 
 .workflowCard {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   align-content: start;
-  min-height: 220px;
-  padding: 16px;
+  min-height: 132px;
+  padding: 14px;
 }
 
 .workflowCard p {
   color: #4f4a42;
+  margin: 0;
 }
 
-.workflowGrid {
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+.workflowCard h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.workflowDialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(36, 33, 28, 0.22);
+}
+
+.workflowDialog {
+  position: relative;
+  width: min(520px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-1);
+  box-shadow:
+    0 22px 60px rgba(41, 37, 31, 0.22),
+    0 4px 14px rgba(41, 37, 31, 0.12);
+}
+
+.workflowDialogBody {
+  display: grid;
+  gap: 8px;
+  padding-right: 28px;
+}
+
+.workflowDialogBody h2,
+.workflowDialogBody p {
+  margin: 0;
+}
+
+.workflowDialogBody p {
+  color: #4f4a42;
+}
+
+.workflowRunOptions {
+  display: grid;
+  gap: 12px;
+}
+
+.dialogCloseButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dialogCloseButton:hover {
+  background: var(--surface-selected);
+  color: var(--text-primary);
 }
 
 .resultGrid {

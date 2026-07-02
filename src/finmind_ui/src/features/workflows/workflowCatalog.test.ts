@@ -21,8 +21,8 @@ const workflow: Workflow = {
 const summary = summarizeWorkflow(workflow);
 
 assert.equal(summary.id, "vn-financial-data-collector");
-assert.equal(summary.metadata, "atomic · VN_STOCK");
-assert.equal(summary.sections, "Data Quality, Collected Data");
-assert.deepEqual(summary.stages, workflow.stages);
-assert.equal(summary.metadata.includes("vnstock"), false);
-assert.equal(summary.metadata.includes("alpha_vantage"), false);
+assert.equal(summary.title, "VN Financial Data Collector");
+assert.equal(summary.description, "Collects and checks VN stock financial data.");
+assert.equal("metadata" in summary, false);
+assert.equal("sections" in summary, false);
+assert.equal("stages" in summary, false);
