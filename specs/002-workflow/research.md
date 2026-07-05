@@ -8,6 +8,7 @@ implements: []
 validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
+  - docs/adr/ADR-002-direct-async-sse-streaming.md
 ---
 
 # Research: Workflow
@@ -72,20 +73,30 @@ build a custom graph runtime. Rejected because direct LangGraph and custom graph
 code increase complexity early, while plain `create_agent` does not match the
 agreed future chatflow/workflow agent substrate.
 
-## Decision: Use LangChain plus `langchain-litellm` as the default model adapter
+## Decision: `langchain-openai` for OpenAI-compatible endpoints, `langchain-litellm` for provider-routed models
 
-The default model adapter should be `langchain-litellm`. It provides one
-LangChain-facing integration point for multiple providers such as Azure OpenAI,
-OpenAI, Cohere, Anthropic, and others. Provider-specific LangChain packages
-should be exceptions, not the default.
+The model adapter is selected by `build_chat_model` based on configuration:
 
-Rationale: The MVP needs model portability more than provider-specific
-optimization. `langchain-litellm` reduces adapter sprawl and keeps workflow and
-future chatflow on the same model interface.
+- When `LITELLM_API_BASE` is set (OpenAI-compatible endpoint, e.g. an Azure
+  OpenAI `/openai/v1` surface or an OpenAI proxy), use `langchain-openai`
+  `ChatOpenAI` with `streaming=True`. `langchain-litellm` was found to buffer
+  the streamed completion into a single chunk for these endpoints, which
+  defeats token streaming; `ChatOpenAI` forwards per-SSE deltas.
+- Without `LITELLM_API_BASE`, use `langchain-litellm` `ChatLiteLLM` for
+  provider-routed model ids (e.g. `gemini/...`, `cohere/...`, `anthropic/...`).
 
-Alternatives considered: direct provider packages for each model family or
-provider-specific runtime wrappers. Rejected because they multiply integration
-surface and make future provider switching harder.
+Rationale: The MVP needs both model portability and real token streaming. The
+diagnostic in `scripts/diagnose_model_streaming.py` showed the same
+`gpt-5.4` Azure `/openai/v1` endpoint streaming 479 incremental chunks through
+`ChatOpenAI` but a single 1827-char chunk through `ChatLiteLLM`. Streaming is a
+product requirement (FR-035/FR-037), so the OpenAI-compatible path must use the
+adapter that actually streams.
+
+Alternatives considered: keep `langchain-litellm` as the single default.
+Rejected because it does not stream token-by-token for the configured
+OpenAI-compatible endpoint. Direct provider packages for every model family:
+rejected because they multiply integration surface; `langchain-litellm` remains
+the fallback for provider-routed ids.
 
 ## Decision: Prototype with Deep Agents orchestration instead of rebuilding it
 
@@ -143,6 +154,106 @@ duplicating implementation.
 
 Alternatives considered: one global agent policy. Rejected because workflow and
 chatflow have materially different user expectations and failure behavior.
+
+## Decision: Use async-first execution boundaries
+
+Workflow and chatflow execution should expose async service methods from FastAPI
+routes through repositories, dataflows, runtime orchestration, and model calls.
+Async HTTP providers should use `httpx.AsyncClient`; PostgreSQL persistence
+should use `psycopg` async support; runtime adapters should prefer async
+`ainvoke` or streaming APIs when available.
+
+Rationale: The product must support multiple authenticated users running
+workflows and chatflow requests concurrently. A synchronous provider, database, or model call
+inside an async request handler can block the event loop and delay unrelated
+users.
+
+Alternatives considered: keep sync routes and increase worker count, or use
+sync internals under async routes without isolation. Rejected because worker
+scaling hides but does not remove head-of-line blocking, and sync internals in
+async routes would violate the multi-user requirement.
+
+## Decision: Use SSE for Phase 02 run streaming
+
+Phase 02 should use Server-Sent Events for workflow and chatflow streams. The
+client makes one async `POST` request and the response itself is
+`text/event-stream`, mirroring OpenAI-style completion streaming. Workflow runs
+use `POST /api/workflows/{workflow_id}/runs`; chatflow appends a message to an
+existing chat through `POST /api/chatflow/chats/{chat_id}/messages`. The response
+emits safe JSON events: response start, stage status, warnings, citations,
+artifacts, output deltas, final output, failure, and heartbeat events.
+
+Rationale: Workflow/chatflow output is server-to-client for the current product
+shape. SSE works well with browser clients, cookie-backed sessions, HTTP
+infrastructure, and progressive answer rendering. SSE is only the transport;
+durable reconnect or replay is a separate persistence feature and is not
+required for the current request-scoped stream design. It is simpler than
+WebSockets and avoids a background queue/subscription protocol for the current
+request-response UX.
+
+Alternatives considered: WebSockets, long polling, `/stream` path suffixes,
+`POST /api/chatflow/runs`, and only returning the final JSON result. WebSockets
+are useful later for bidirectional collaboration or tool control, but add
+unnecessary protocol state now. Long polling is noisier and less natural for
+answer deltas. A `/stream` suffix is redundant when streaming is the only run
+behavior. A generic chatflow run endpoint is less explicit than appending a
+message to a chat resource for ownership, history, and audit semantics.
+Final-only JSON does not satisfy streaming UX.
+
+## Decision: Persist final run output, not a background event queue
+
+Workflow and chatflow streams should emit events directly from the request-scoped
+async generator. The final completed/partial/failed run output is persisted for
+history and result inspection after the stream closes. Stream events may be kept
+in memory only for assembling the final response and tests unless a later spec
+requires durable event replay.
+
+Rationale: The target UX is an OpenAI-style completion stream: call one async API
+and render events from that response. A queued run plus separate subscription URL
+adds protocol complexity and does not match the desired interaction model.
+Persisting final output preserves history without turning streaming into a job
+queue.
+
+Alternatives considered: background queue with `202 Accepted` and replayable
+run events, or final-only JSON. The queue model was rejected because the user
+expects direct completion streaming. Final-only JSON was rejected because it does
+not support progressive UI rendering.
+
+## Decision: Bound concurrency even with async execution
+
+Async-native FastAPI handlers and SSE streams can hold many idle or waiting
+connections, but Phase 02 still needs explicit process-local global stream,
+per-user stream, and sync-offload limits. These limits should return safe `429`
+errors before stream start when capacity is exhausted. Provider/model-specific
+limit buckets are deferred until real usage or multi-worker deployment requires
+them.
+
+Rationale: Async execution prevents a blocked thread from monopolizing the
+server, but it does not make downstream resources unlimited. Provider APIs have
+rate limits, model calls have latency/cost caps, PostgreSQL pools have finite
+connections, CPU-bound work can starve the event loop, and sync-only libraries
+must be isolated behind bounded thread/process offload.
+
+Alternatives considered: allow unlimited async requests. Rejected because
+unbounded streams can exhaust memory, file descriptors, provider quotas, model
+budgets, DB pool slots, or offload workers, causing one user or workload to
+degrade service for others.
+
+## Decision: Isolate sync-only libraries with bounded offload
+
+Any unavoidable synchronous dependency, such as a provider library that lacks
+native async support, must run through a bounded offload wrapper with timeout,
+concurrency limits, cancellation handling, and safe failure metadata. New
+provider and model integrations should prefer native async APIs.
+
+Rationale: Some useful finance libraries are synchronous, but calling them
+directly from async execution would block the event loop. Bounded offload lets
+Phase 02 keep current provider choices while making the blocking behavior
+explicit, measurable, and testable.
+
+Alternatives considered: ban sync libraries completely, or allow direct sync
+calls in async routes. A total ban would discard useful provider adapters too
+early. Direct sync calls would fail the multi-user performance requirement.
 
 ## Decision: Skill-owned data requirements drive collection planning
 

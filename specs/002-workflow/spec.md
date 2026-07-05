@@ -11,6 +11,7 @@ validated_by:
   - src/finmind_ui/package.json
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
+  - docs/adr/ADR-002-direct-async-sse-streaming.md
 ---
 
 # Feature Specification: Workflow
@@ -28,8 +29,9 @@ objects, citations, chart artifacts, execution status, and result
 reinspection from the UI.
 
 This draft feature will own workflow execution and result inspection. It does not own the
-overall app shell (`../001-mvp-ui/`) or flexible agentic Q&A chatflow
-(`../003-agentic-chatflow/`).
+overall app shell (`../001-mvp-ui/`). It owns the async execution and streaming
+transport needed by workflows and chat, while production flexible Q&A behavior
+remains governed by `../003-agentic-chatflow/`.
 
 ## User Scenarios & Testing
 
@@ -138,6 +140,69 @@ Acceptance scenarios:
 3. Given a run ID does not exist, when requested, then the system returns a
    not-found state rather than fabricating a result.
 
+### User Story 6 - Run Workflows Asynchronously With Streaming (Priority: P1)
+
+An authenticated internal user can call one async workflow API and receive an
+OpenAI-style event stream on that same HTTP response while the server executes
+collection, skill, grounding, citation, artifact, and answer generation. The
+stream must serve two user needs at once: immediate visible execution progress
+while long steps are still running, and incremental answer text once the final
+LLM-backed response is being produced.
+
+**Independent Test**: Submit a workflow through the streaming endpoint, consume
+the response event stream directly, and verify `run.started`, `run.stage`,
+`answer.delta`, `run.completed`, or `run.failed` events arrive in order while
+the final result is persisted for history after the stream completes.
+
+Acceptance scenarios:
+
+1. Given a valid workflow request with streaming enabled, when the user submits
+   it, then the server returns a `text/event-stream` response from the same
+   request and begins executing the workflow in that request's async coroutine.
+2. Given the workflow is executing, when collection, workflow stages, agent
+   tool activity, or grounded progress summaries are produced, then the response
+   stream emits safe ordered progress events immediately so the user does not
+   wait on a blank screen.
+3. Given the workflow enters the final answer-generation phase, when the model
+   produces answer text, then the response stream emits ordered plain-text
+   answer deltas before metadata finalization and before the final stored result
+   is complete.
+4. Given internal steps such as `collect_data` or `vn-financial-data-auditor`
+   execute during the workflow, when they produce intermediate output, then that
+   output is kept internal and surfaced only through safe progress events rather
+   than user-facing answer deltas or persisted final sections.
+5. Given the configured model adapter cannot provide streaming through
+   LangChain/LiteLLM, when runtime configuration is validated, then workflow
+   execution fails closed before presenting a degraded non-streaming answer.
+6. Given a provider, model adapter, or legacy library is synchronous, when it is
+   called from async execution, then it is isolated from the event loop through a
+   bounded thread/process offload or replaced with an async adapter.
+
+### User Story 7 - Chatflow Asynchronously With Streaming (Priority: P2)
+
+An authenticated internal user can send a chatflow message to the server, receive
+a streaming progress/answer feed, and keep chatflow output bounded by the same
+evidence, citation, safety, and no-raw-reasoning rules as workflows.
+
+**Independent Test**: Submit a chatflow message through the async chatflow
+endpoint, consume streamed answer/status events, and verify the persisted
+chatflow run can be reopened without exposing raw reasoning. Phase 02 may satisfy
+this with deterministic mock chatflow output.
+
+Acceptance scenarios:
+
+1. Given a chatflow message is submitted, when the backend accepts it, then it
+   creates a chatflow run and streams safe progress/output events without
+   blocking other authenticated users.
+2. Given chatflow synthesis produces token or section deltas, when streaming is
+   supported by the model adapter, then the UI renders those deltas in order and
+   reconciles them with the final stored answer.
+3. Given streaming is not supported by a configured adapter, when runtime
+   configuration is validated, then chatflow execution fails closed before
+   presenting a degraded non-streaming answer.
+4. Given a chatflow answer includes material financial claims, when the answer is
+   shown, then claims have citations or are marked unsupported/unavailable.
+
 ## Functional Requirements
 
 - **FR-001**: System MUST provide a workflow catalog of fixed system-defined
@@ -227,6 +292,40 @@ Acceptance scenarios:
 - **FR-033**: Provider failures, missing API keys, rate limits, license
   restrictions, unavailable symbols, or stale latest data MUST produce a
   warning/partial/unavailable result instead of fabricated claims.
+- **FR-034**: Workflow execution APIs MUST support request-scoped async
+  streaming: one async HTTP call starts execution and returns a live event stream
+  on the same response.
+- **FR-035**: Workflow streams MUST expose two user-visible stream layers:
+  immediate safe progress events during execution and incremental answer deltas
+  during final response generation.
+- **FR-036**: Workflow progress events MUST cover response start, workflow stage
+  status, agent tool activity or equivalent execution-step visibility, warnings,
+  citations, artifacts, completion, and failure states.
+- **FR-037**: Workflow answer events MUST stream the final user-visible answer
+  text incrementally when the model provider supports streaming, instead of
+  waiting to emit the entire answer at once.
+- **FR-038**: Streamed progress visibility MAY include normalized summaries of
+  agent planning or intermediate work, but MUST NOT expose raw chain-of-thought,
+  hidden prompts, provider secrets, raw provider payloads, or unsafe internal
+  diagnostics.
+- **FR-039**: Streamed workflow events MUST be ordered within the response and
+  reconcilable with the persisted final run record after completion.
+- **FR-040**: Chatflow submissions MUST use a separate direct async stream API
+  from workflow submissions. The API MUST append a user message to a chat
+  resource at `POST /api/chatflow/chats/{chat_id}/messages`, stream safe
+  progress updates and incremental assistant answer text on the same HTTP
+  response, and use a chatflow-specific runtime policy and answer schema. Phase
+  02 MAY use deterministic mock chatflow output behind this stream contract.
+- **FR-041**: Async API handlers MUST NOT directly call blocking provider,
+  database, filesystem, or model operations. Any unavoidable synchronous library
+  call MUST be isolated with bounded offload and timeout controls.
+- **FR-042**: The system MUST enforce process-local global stream, per-user
+  stream, and sync-offload concurrency limits for workflow and chatflow streams
+  so one user or blocking sync path does not starve other users. Provider/model
+  specific limit buckets are deferred until real usage or multi-worker
+  deployment requires them.
+- **FR-043**: Streamed responses MUST NOT expose raw agent reasoning, hidden
+  prompts, provider secrets, raw provider payloads, or unsafe diagnostics.
 
 ## Key Entities
 
@@ -236,7 +335,8 @@ Acceptance scenarios:
 - Workflow Step
 - Workflow Composition
 - Execution Run
- - Grounding Check
+- Stream Event
+- Grounding Check
 - Citation
 - Chart Artifact
 - Source Document
@@ -264,6 +364,20 @@ See `../system/state-model.md` for canonical entity definitions.
   marks the data-quality issue before presenting valuation or peer-comparison
   conclusions.
 - Run ID does not exist: return not-found behavior.
+- Stream client disconnects mid-run: the request-scoped execution is cancelled
+  cooperatively where possible, and any completed partial/final result already
+  persisted remains inspectable.
+- Server restarts while streams are active: active request-scoped streams end;
+  only completed/persisted run results are inspectable after restart.
+- Streaming model support unavailable: fail closed before advertising answer
+  streaming for that workflow or chatflow request.
+- Long-running workflow step with no answer text yet: progress visibility still
+  updates the user through safe stage/tool/progress events before answer deltas
+  begin.
+- Final answer generation starts late: progress stream remains active first, then
+  answer deltas begin once the LLM-backed answer phase starts.
+- Blocking provider/library call in async path: reject the implementation unless
+  it uses a bounded offload wrapper, timeout, and safe failure status.
 
 ## Assumptions
 
@@ -278,6 +392,13 @@ See `../system/state-model.md` for canonical entity definitions.
 - Workflows provide advice support and evidence framing, not buy/sell decisions.
 - `data-collector` is bounded to workflow-run needs and does not implement a
   broad native ingestion platform.
+- Phase 02 may define and implement the separate direct async chatflow transport
+  and server-side streaming contract, including deterministic mock chatflow
+  output; production flexible Q&A behavior, broad dynamic research planning, and
+  chat-specific product intelligence remain owned by `../003-agentic-chatflow/`.
+- User-facing "reasoning" in Phase 02 means safe execution visibility such as
+  workflow stages, tool activity summaries, and progress updates; it does not
+  mean raw chain-of-thought or hidden internal reasoning.
 
 ## Success Criteria
 
@@ -301,11 +422,24 @@ See `../system/state-model.md` for canonical entity definitions.
   `Workflow Runs` after refresh with a valid session.
 - **SC-009**: 100% of workflow outputs avoid autonomous buy/sell/order language
   and keep final trading judgment with the user.
+- **SC-010**: A streaming workflow request receives its first safe stream event
+  in under 1 second in offline automated tests.
+- **SC-011**: A workflow stream emits immediate progress visibility before final
+  answer completion for 100% of completed, partial, or failed streamed runs.
+- **SC-012**: At least 10 concurrent authenticated local test clients can hold
+  workflow or chatflow streams without event-loop blocking from synchronous
+  provider, database, or model calls.
+- **SC-013**: For long-answer workflows and chatflow requests, streamed answer
+  text begins before the final persisted result is emitted in at least 95% of
+  successful streaming runs against supported streaming providers.
+- **SC-014**: Chatflow streams never expose raw reasoning and reconcile streamed
+  output with the persisted final chatflow run.
 
 ## Out Of Scope
 
 - App shell/login ownership.
-- Production flexible Q&A agentic chatflow.
+- Production flexible Q&A agentic chatflow behavior beyond the separate direct
+  async chatflow stream transport and deterministic Phase 02 mock output.
 - Broad native realtime market data platform beyond per-run provider fetch.
 - Broad native realtime news ingestion beyond provider/source documents required
   by one workflow run.

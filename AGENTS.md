@@ -151,7 +151,7 @@ tests/                   current test suite
 ## 9. Current Feature State
 
 1. `001-mvp-ui`: active implemented feature covering auth, app shell, deterministic mock chat UI, artifact detail, navigation, grouped history layout, and UI foundations.
-2. `002-workflow`: draft phase 02 feature for a guarded workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock and US stock scope, citations, chart artifacts, execution status, and workflow run inspection.
+2. `002-workflow`: draft phase 02 feature for a guarded async workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock and US stock scope, citations, chart artifacts, execution status, separate workflow/chatflow stream transport, and run inspection.
 3. `003-agentic-chatflow`: draft phase 03 feature for future evidence-backed flexible Q&A chatflow over trusted sources.
 
 Deleted roadmap folders such as data operations and extension hardening are not canonical. Recreate future capabilities through a fresh Spec Kit cycle only when scope, data access, safety, and contracts are ready.

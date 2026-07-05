@@ -12,7 +12,7 @@ adr_refs: []
 # Specification Quality Checklist: Workflow
 
 **Purpose**: Validate specification completeness and quality before planning
-**Created**: 2026-06-26
+**Created**: 2026-07-04
 **Feature**: [`spec.md`](../spec.md)
 
 ## Content Quality
@@ -27,6 +27,7 @@ adr_refs: []
 - [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
+- [x] Success criteria are technology-agnostic
 - [x] Acceptance scenarios are defined
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
@@ -38,6 +39,10 @@ adr_refs: []
 - [x] Current market scope is VN stocks and US stocks only
 - [x] Workflow suite includes fundamental analysis, technical analysis, and news
   digest as required phase 02 capabilities
+- [x] Streaming scope distinguishes immediate progress visibility from
+  incremental final answer text
+- [x] "Reasoning" visibility is specified as safe progress summaries, not raw
+  chain-of-thought
 - [x] Internal `collect_data` step and `vn-financial-data-auditor` skill + post-skill `GroundingCheck` are specified
 - [x] `stock-brief` composite workflow and step reuse are specified
 - [x] UI run support is specified without moving app shell ownership out of

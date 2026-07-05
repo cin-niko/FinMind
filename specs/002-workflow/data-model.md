@@ -8,6 +8,7 @@ implements: []
 validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
+  - docs/adr/ADR-002-direct-async-sse-streaming.md
 ---
 
 # Data Model: Workflow
@@ -186,8 +187,9 @@ agents in Phase 03.
 Fields:
 
 - `runtime_id`: stable runtime identity.
-- `adapter`: runtime adapter such as `langchain_litellm`, `langchain_agent`, or
-  another approved adapter.
+- `adapter`: runtime adapter such as `langchain_openai` (OpenAI-compatible
+  endpoints), `langchain_litellm` (provider-routed models), `langchain_agent`,
+  or another approved adapter.
 - `model_config_ref`: safe reference to configured model settings; never a
   secret value.
 - `policy`: linked `AgentRuntimePolicy`.
@@ -233,6 +235,9 @@ Validation:
 - Chatflow policy may be broader later but still must require data-driven,
   citation-backed answers.
 - Policies must block unsupported assets and irreversible financial actions.
+- Phase 02 model/provider adapters must support streaming through
+  LangChain/LiteLLM; unsupported streaming capability fails closed during runtime
+  configuration instead of selecting a weaker policy.
 
 ## AgentTool
 
@@ -367,6 +372,82 @@ Validation:
   wait until the required collected records or upstream skill output are available.
 - Missing required LLM configuration blocks execution instead of producing
   deterministic prose disguised as analysis.
+- Request execution must be async. Any unavoidable sync tool/provider/model call
+  must run through a bounded offload wrapper, not directly on the event loop.
+
+## ChatflowRunRequest
+
+Input passed from chatflow API routes to the direct async stream runtime
+transport. Phase 02 defines the transport and safety envelope and may return
+deterministic mock chatflow output; production flexible Q&A behavior is owned by
+`../003-agentic-chatflow/`.
+
+Fields:
+
+- `run_id`
+- `mode`: chatflow.
+- `conversation_id`
+- `message_id`
+- `user_message`
+- `market_context`: optional bounded market/symbol hints.
+- `policy_id`
+- `streaming_requested`
+- `prior_messages`: safe persisted chat messages, never raw reasoning.
+- `output_schema`
+
+Validation:
+
+- Chatflow runs must use authenticated user/session ownership.
+- The source chat is identified by `chat_id` in the route path, not by a request
+  body routing field.
+- Chatflow output must follow advice-only, citation, unsupported-claim, and
+  no-raw-reasoning rules.
+- Dynamic tool/skill behavior broader than the Phase 02 workflow policy remains
+  out of scope until `../003-agentic-chatflow/` specifies it.
+
+## ChatflowConversation
+
+Authenticated conversation resource used by the Phase 02 chatflow transport.
+
+Fields:
+
+- `chat_id`
+- `owner_user_id`
+- `title`
+- `created_at`
+- `updated_at`
+- `status`: active or archived.
+
+Validation:
+
+- Chat ownership is checked before accepting or returning messages.
+- Phase 02 may keep the chat model minimal, but the URL shape must treat chat as
+  the resource being appended to.
+
+## ChatflowMessage
+
+Safe persisted chat message visible to the authenticated owner.
+
+Fields:
+
+- `message_id`
+- `chat_id`
+- `run_id`: optional assistant generation run linked to the message.
+- `role`: user, assistant, or system_status.
+- `content`
+- `market_context`: optional bounded market/symbol hints.
+- `citations`
+- `created_at`
+- `status`: submitted, streaming, completed, partial, or failed.
+
+Validation:
+
+- User messages are appended through
+  `POST /api/chatflow/chats/{chat_id}/messages`.
+- Assistant messages are streamed as safe events and reconciled with the final
+  persisted message/run output.
+- Raw reasoning, hidden prompts, provider secrets, and unsafe diagnostics are
+  never persisted as chat messages.
 
 ## AgentRunResult
 
@@ -391,6 +472,7 @@ Validation:
   payloads must not appear.
 - Failed or partial agent execution must preserve safe status for result
   inspection.
+- Streamed deltas must reconcile to the final stored result.
 
 ## WorkflowSpecification
 
@@ -475,17 +557,21 @@ Fields:
 - `step_id`
 - `title`
 - `kind`: collector, quality_gate, analysis, artifact, risk
-- `status`: queued, running, success, partial, failed, unavailable
+- `status`: running, success, partial, failed, unavailable
 - `started_at`
 - `completed_at`
 - `blocking_issues`
 - `warnings`
 - `output_refs`
+- `stream_sequence_start`
+- `stream_sequence_end`
 
 Validation:
 
 - Failed/unavailable steps must not silently produce claims.
 - Partial composite workflows preserve successful step outputs.
+- Step status changes must emit safe `StreamEvent` frames on the active SSE
+  response.
 
 ## GroundingCheck
 
@@ -522,6 +608,19 @@ Validation:
 
 Workflow run record.
 
+Base fields:
+
+- `run_id`
+- `kind`: workflow or chatflow.
+- `owner_user_id`
+- `conversation_id`: optional for chat-linked workflow output.
+- `status`: running, success, partial, or failed.
+- `created_at`
+- `started_at`
+- `completed_at`
+- `last_stream_sequence`
+- `failure_reason`: safe user-visible reason when failed.
+
 Additional Phase 02 output expectations:
 
 - `sections`: generated result sections with citation ids, status, allowed
@@ -538,10 +637,77 @@ Additional Phase 02 output expectations:
 State transitions:
 
 ```text
-queued -> running -> success
-queued -> running -> partial
-queued -> running -> failed
+running -> success
+running -> partial
+running -> failed
 ```
+
+Validation:
+
+- Run ownership is scoped to the authenticated user/session.
+- Streaming submission creates the run context when the request starts and
+  persists the final run output before the stream closes when possible.
+- Active request-scoped streams are not resumable after server restart; only
+  completed/persisted final runs are inspectable.
+- Final run output is the source of truth for result reinspection.
+
+## StreamEvent
+
+Ordered, safe event emitted on the active workflow or chatflow SSE response.
+
+Fields:
+
+- `event_id`: optional stable frame id for client-side ordering.
+- `run_id`
+- `sequence`: monotonically increasing integer scoped to one streaming response.
+- `kind`: response_started, stage_status, warning, citation, artifact,
+  output_delta, final_output, completed, failed, heartbeat.
+- `created_at`
+- `payload`: safe JSON payload.
+- `visible`: whether the event can be shown directly in UI.
+
+Validation:
+
+- `(run_id, sequence)` is unique within the streaming response.
+- Payloads must not contain raw reasoning, hidden prompts, provider secrets, raw
+  provider payloads, or unsafe diagnostics.
+- Output deltas must be reconcilable with `ExecutionRun` final output.
+- Stream events are not a background queue and are not required to be replayable
+  after disconnect.
+
+## StreamingRequestContext
+
+Transient request-scoped context for one workflow or chatflow streaming response.
+
+Fields:
+
+- `request_id`
+- `run_id`
+- `owner_user_id`
+- `kind`: workflow or chatflow.
+- `connected_at`
+- `transport`: sse for Phase 02.
+- `heartbeat_interval_seconds`
+- `global_concurrency_limit`
+- `per_user_concurrency_limit`
+- `sync_offload_limit`
+- `limiter_backend`: process_local for Phase 02; redis or equivalent later.
+
+Validation:
+
+- The request must be authenticated and authorized for the run context.
+- Client disconnect cancels the request-scoped stream cooperatively where
+  possible; completed partial/final output already persisted remains inspectable.
+- Global and per-user stream limits apply before provider/model execution.
+- Sync-offload limits apply before unavoidable synchronous provider/model/library
+  calls are offloaded.
+- Phase 02 concurrency limits are process-local semaphores configured by
+  `FINMIND_STREAM_GLOBAL_LIMIT`, `FINMIND_STREAM_PER_USER_LIMIT`,
+  `FINMIND_SYNC_OFFLOAD_LIMIT`.
+- Provider/model-specific limit buckets are deferred until real usage or
+  multi-worker deployment requires them.
+- Single-process request-scoped streaming is acceptable for Phase 02; durable
+  background jobs or replayable event queues require a later explicit spec.
 
 ## Citation / Artifact
 

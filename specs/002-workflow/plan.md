@@ -11,6 +11,7 @@ validated_by:
   - src/finmind_ui/package.json
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
+  - docs/adr/ADR-002-direct-async-sse-streaming.md
 ---
 
 # Implementation Plan: Workflow
@@ -19,24 +20,31 @@ adr_refs:
 
 Implement Phase 02 fixed, UI-runnable financial trading support workflows for VN
 stocks and US stocks on top of a shared agent runtime that can later power
-Phase 03 chatflow. The target repo split is `src/finmind_agents` for the agentic
+Phase 03 chatflow. Workflow and chatflow execution should be async-first on the
+server so multiple authenticated users can run workflows or chatflow requests
+concurrently without blocking API worker threads. The target repo split is `src/finmind_agents` for the agentic
 and finance orchestration layer, `src/finmind_api` for the FastAPI delivery
 layer, and `src/finmind_ui` for the frontend. The workflow contract remains
 hybrid: YAML definitions declare inputs, skill refs, stages, output schemas,
 runtime policy, and safety gates; Agent Skills own governed analyst procedure
 and skill-level data requirements. The MVP runtime should rely on LangChain
-Deep Agents via `deepagents.create_deep_agent`, use `langchain-litellm` as the
+Deep Agents via `deepagents.create_deep_agent`, use `langchain-openai` for OpenAI-compatible endpoints (`LITELLM_API_BASE` set) and `langchain-litellm` for provider-routed models as the
 default multi-provider model adapter, and defer LangGraph until workflow or
 chatflow complexity actually requires graph state, checkpointing, or multi-agent
-branching. The first active workflow focus is the VN financial data collector
-path, with broader workflow catalog contracts retained for Phase 02.
+branching. Streaming uses a shared safe response-event format while keeping
+workflow run and chat message APIs separate, so each request can return
+stage/status/output events on the same HTTP response when the configured adapter
+supports it. The first active workflow focus is the
+VN financial data collector path, with broader workflow catalog and async
+execution contracts retained for Phase 02.
 
 ## Technical Context
 
 - Language/version: Python 3.12 backend, TypeScript React/Vite frontend.
 - Backend dependencies: FastAPI, Pydantic, LangChain, Deep Agents
-  (`deepagents`), `langchain-litellm` as the default multi-provider model
-  adapter, `httpx`, collection-first dataflow adapters, in-memory fallback
+  (`deepagents`), `langchain-openai` for OpenAI-compatible endpoints and `langchain-litellm` for provider-routed models as the multi-provider model
+  adapter, `httpx` as a runtime dependency for async provider clients,
+  collection-first dataflow adapters, async run repositories, in-memory fallback
   repositories, pytest. LangGraph is intentionally deferred for the current MVP.
 - Market-data providers: `vnstock` (4.x unified API) adapter for VN stock
   latest price and fundamentals, using the `vci` source (the legacy `kbs`
@@ -47,26 +55,36 @@ path, with broader workflow catalog contracts retained for Phase 02.
 - Frontend dependencies: React/Vite, existing app shell, existing workflow/result
   pages, Lightweight Charts.
 - Storage: in-memory canonical record cache for Phase 02 provider results
-  plus deterministic offline fallback records; workflow and chat runs persist to
-  PostgreSQL via `psycopg` (one `runs` table, `kind` discriminator), bootstrapped
-  with idempotent DDL. Development uses the `postgres` service in
-  `docker-compose.yaml`; tests inject an in-memory run repository via the
-  `build_run_store` seam.
+  plus deterministic offline fallback records; completed workflow and chatflow runs
+  persist to PostgreSQL via async `psycopg` support (one `runs` table,
+  `kind` discriminator), bootstrapped with idempotent DDL. Development uses
+  the `postgres` service in `docker-compose.yaml`; tests inject an async
+  in-memory run repository via the `build_run_store` seam.
 - Testing: `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest`
   and `npm run build` in `src/finmind_ui`.
 - Target platform: internal browser app backed by FastAPI JSON APIs.
-- Performance goals: supported offline workflow runs complete under 3 seconds in
-  automated tests. Live provider collection should target a 15-second per-run
-  timeout budget, with per-provider timeout/failure surfaced to
-  the `collect_data` step. Agent skill execution should have a bounded iteration
-  and timeout budget per workflow stage.
+- Performance goals: streamed workflow/chatflow requests emit the first safe event
+  in under 1 second in offline automated tests. Supported offline workflow runs
+  complete under 3 seconds in automated tests.
+  Live provider collection should target a 15-second per-run timeout budget,
+  with per-provider timeout/failure surfaced to the `collect_data` step. Agent
+  skill execution should have a bounded iteration and timeout budget per
+  workflow stage. Local concurrency tests should support at least 10
+  authenticated workflow/chatflow streams without event-loop blocking.
+  Phase 02 concurrency is process-local and configured through
+  `FINMIND_STREAM_GLOBAL_LIMIT`, `FINMIND_STREAM_PER_USER_LIMIT`, and
+  `FINMIND_SYNC_OFFLOAD_LIMIT`. Provider/model-specific limit buckets and
+  Redis/distributed leases are deferred until real usage or multi-worker /
+  multi-instance deployment requires them.
 - Constraints: VN stocks and US stocks only; gold/BTC/other assets blocked or
   roadmap-marked; no broker/order/trade execution; no raw reasoning exposure;
   workflow skill execution requires an explicit LLM configuration and fails
-  closed when unavailable.
+  closed when unavailable; async handlers must not directly perform blocking
+  provider, database, filesystem, or model work.
 - Scale/scope: latest provider fetch for one requested symbol per run, small
-  canonical in-memory cache/fallback datasets, one authenticated internal admin,
-  single-process execution.
+  canonical in-memory cache/fallback datasets, authenticated multi-user internal
+  workbench, request-scoped async streaming execution for MVP, and persisted
+  final run state for result inspection.
 
 ## Constitution Check
 
@@ -84,9 +102,12 @@ path, with broader workflow catalog contracts retained for Phase 02.
 - UX consistency: workflow catalog, forms, run result, stage status, data-quality
   warnings, citations, and artifacts follow
   `../system/ui-ux-guidelines.md`.
-- Performance requirements: offline workflow execution target is under 3 seconds
-  in automated tests; live provider collection has a 15-second per-run timeout
-  budget and must surface timeout/failure state through the `collect_data` step.
+- Performance requirements: streamed requests must emit the first safe event
+  quickly; offline workflow execution target is under 3 seconds in automated
+  tests; live provider collection has a 15-second per-run timeout budget and
+  must surface timeout/failure state through the `collect_data` step;
+  stream/concurrency tests must guard against event-loop blocking from sync
+  operations.
 - Spec traceability: feature behavior lives in this folder; shared state,
   contracts, runtime/security, and UI rules remain in `../system/`.
 
@@ -95,11 +116,13 @@ Gate result: pass. No constitution violations require exception.
 ## Architecture
 
 - `src/finmind_agents/runtime/`: own `FinMindAgentRuntime`, model bootstrap,
-  `deepagents.create_deep_agent` orchestration, `langchain-litellm` adapter
+  `deepagents.create_deep_agent` orchestration, `langchain-openai`/`langchain-litellm` adapter selection (see `research.md`)
   wiring, tool registry, runtime policies, and the seam where LangGraph may be
-  added later. For the MVP, Deep Agents plus normal Python guardrail code are
-  sufficient; do not introduce LangGraph graph state until workflow/chatflow
-  needs it.
+  added later. Phase 02 runtime configuration requires a LangChain/LiteLLM
+  adapter that supports streaming; runtime entrypoints should be async and expose
+  safe stream events without leaking raw reasoning. For the MVP, Deep Agents plus
+  normal Python guardrail code are sufficient; do not
+  introduce LangGraph graph state until workflow/chatflow needs it.
 - `src/finmind_agents/workflows/`: own workflow definitions, catalog loading,
   validation, collection orchestration, quality gates, executor logic, and run
   result assembly.
@@ -107,12 +130,15 @@ Gate result: pass. No constitution violations require exception.
   `<skill-name>/SKILL.md` and `DATA_REQUIREMENTS.yaml`.
 - `src/finmind_agents/dataflows/`: own provider selection, latest data fetch,
   normalization, fallback policy, provider status, and canonical collection
-  results. It remains shared by workflows now and chatflow later.
+  results. It remains shared by workflows now and chatflow later. Provider
+  adapters should be async where possible; unavoidable sync libraries such as
+  `vnstock` must run through bounded offload wrappers with timeout/failure
+  reporting so the event loop is not blocked.
 - `src/finmind_agents/domain/`: own shared finance domain models and canonical
   workflow/dataflow entities.
 - `src/finmind_api/`: own FastAPI app setup, auth, dependencies, routes,
-  schemas, and API-facing error mapping. It should call into `finmind_agents`
-  and stay thin.
+  schemas, request-scoped SSE stream endpoints, async final-run persistence, and
+  API-facing error mapping. It should call into `finmind_agents` and stay thin.
 - `src/finmind_ui/`: own workflow forms, result views, app shell integration,
   and API client bindings for workflow contracts.
 
@@ -147,6 +173,26 @@ stock-brief
 Execution rules:
 
 - Every workflow run starts with validation.
+- A streamed workflow request validates input, creates a run context, returns a
+  `text/event-stream` response, and executes collection/model work inside the
+  request's async coroutine. There is no background queue for the streaming path.
+- Streaming uses a shared safe event contract with `run.started`,
+  `run.stage`, `answer.delta`, `citation`, `artifact`, `run.completed`, and
+  `run.failed`. Workflow execution must fail closed if the configured runtime
+  cannot produce streamed answer deltas through the adapter boundary.
+- The final visible workflow step streams plain answer text through the deep
+  agent's event-stream API (`agent.astream_events(..., version="v3")`), consuming
+  the `messages` projection's per-LLM-call text deltas as `answer.delta`. This
+  routes streaming through `create_deep_agent` (including its `load_skill` tool
+  and middleware) instead of calling a raw chat model or a hand-rolled provider
+  SSE client directly. Workflow execution is streaming-only; there is no separate
+  synchronous run path. Structured
+  workflow metadata is finalized after the streamed answer completes through a
+  second async metadata pass. The stream must not depend on recovering answer
+  text from partial JSON. The v3 typed-projection API is chosen over
+  `stream_mode="messages"` so future subagent delegation (Phase 03 chatflow,
+  composite workflows) can use the `subagents`/`tool_calls` projections for
+  `run.stage` progress without changing the streaming contract.
 - Workflow YAML is the executable product contract for inputs, markets, skill
   refs, stages, output sections, citations, chart requirements, runtime policy,
   and safety gates. It must not duplicate detailed skill data requirements.
@@ -164,6 +210,9 @@ Execution rules:
   technical data, news/source documents, and risk review. Their outputs remain
   intermediate and must pass FinMind grounding/citation validators before being
   shown.
+- Internal steps may contribute progress events and later validation context,
+  but only the final user-visible workflow step may emit `answer.delta` events
+  or persisted user-facing sections.
 - Every claim-generating workflow runs `collect_data` then the data-audit skill
   before claim-generating synthesis, even if the UI selected an atomic workflow.
   `collect_data` is a deterministic, FinMind-validated collection through the
@@ -185,6 +234,70 @@ Execution rules:
   freshness concept.
 - Composite workflows preserve completed sections even when later stages are
   partial.
+
+## Async Execution And Streaming Design
+
+Transport:
+
+- Use Server-Sent Events (SSE) for browser-facing run streams in Phase 02 because
+  workflow/chatflow output is server-to-client and authenticated cookie sessions
+  already exist. SSE is the transport only; durable reconnect/replay semantics
+  are not part of the request-scoped stream design. WebSockets remain a later
+  option if bidirectional collaboration or tool-control events are specified.
+- Stream endpoint response type is `text/event-stream`. Events are JSON payloads
+  with `event_id`, `run_id`, `kind`, `sequence`, `created_at`, and safe payload.
+- Stream events are generated directly by the request-scoped async response
+  generator. Final run state remains available through `GET /api/runs/{id}`
+  after the stream completes or fails.
+- Phase 02 stream events are intentionally generic enough for future chatflow
+  reuse, but Phase 02 only implements workflow streaming.
+- `answer.delta` events carry plain text chunks from the final visible step.
+  Metadata such as final status, citations, blocked claims, and warnings is
+  finalized after the answer stream completes and reconciled in
+  `run.completed`.
+
+Request-scoped stream runner:
+
+- `src/finmind_api/streaming.py` owns safe SSE serialization, heartbeat events,
+  client-disconnect handling, and process-local global/per-user stream
+  semaphores.
+  The semaphore backend is process-local in Phase 02 but should sit behind an
+  internal limiter interface so Redis-backed leases can replace it later.
+- The stream runner invokes async workflow/chatflow services directly and yields safe
+  events as the runtime produces them. It does not enqueue a background job or
+  require a second subscription endpoint.
+- Heartbeats are emitted as SSE comment frames (`: heartbeat`) when the stream is
+  idle so browsers and proxies keep the connection alive during long model phases
+  (for example a reasoning model's pre-answer phase). The interval is configured via
+  `FINMIND_STREAM_HEARTBEAT_SECONDS` (default 5s; `0` disables). A `run.stage`
+  event with `status: running` is emitted when a visible skill step starts, before
+  answer deltas, so the UI shows progress during answer generation.
+- Client disconnect policy: cooperative cancellation is attempted for in-flight
+  work; completed partial/final output already persisted remains inspectable.
+
+Non-blocking boundaries:
+
+- FastAPI routes, repository calls, dataflow collection, workflow execution, and
+  chatflow execution should expose async methods.
+- Use async database connections/cursors through `psycopg` async support.
+- Use `httpx.AsyncClient` for HTTP providers.
+- Any sync-only provider/model/library call must be wrapped in a bounded
+  offload helper (`asyncio.to_thread`/AnyIO equivalent) with concurrency limits,
+  timeout, cancellation handling, and safe provider failure metadata.
+
+Chatflow streaming:
+
+- Phase 02 owns a separate direct async chatflow message API and the runtime
+  policy seam. `POST /api/chatflow/chats/{chat_id}/messages` appends a user
+  message to an authenticated chat resource and streams the assistant response on
+  the same HTTP response. Production flexible Q&A behavior remains in
+  `../003-agentic-chatflow/`.
+- Chatflow streams use the same direct SSE response event format as workflows,
+  with `kind=chatflow` and a chatflow-specific policy/output schema.
+- Phase 02 may return deterministic mock chatflow output through the stream
+  contract.
+- Chatflow answers must obey the same citation, advice-only, no-raw-reasoning,
+  and unsupported-claim behavior as workflow output.
 
 ## Dataflows Collection Design
 
@@ -233,6 +346,7 @@ Execution boundary:
 ```text
 finmind_api route
   -> workflow validation
+  -> request-scoped SSE response generator starts workflow execution
   -> finmind_agents.workflows loads workflow YAML and allowed skill ref
   -> FinMindAgentRuntime loads SKILL.md and DATA_REQUIREMENTS.yaml
   -> Deep Agents runtime derives required/optional collection plan inside policy
@@ -243,11 +357,15 @@ finmind_api route
   -> post-skill GroundingCheck (cited sources subset only; no pre-skill gate)
   -> grounding/citation/output validators
   -> finmind_api serializes result output
+  -> SSE response emits status/stage/output/final events directly
 ```
 
 Rules:
 
 - Workflows and chatflow do not know provider internals.
+- Workflows and chatflow share async runtime, dataflows, final-run persistence,
+  and safe direct stream event format; they use separate API endpoints and differ
+  by policy envelope and output schema.
 - Provider raw responses, API keys, credentials, hidden prompts, and unsafe
   diagnostics never reach user-facing responses.
 - Provider failure returns `partial`, `failed`, or `fallback`; it never fabricates
@@ -264,11 +382,13 @@ Resolved in `research.md`:
   one-off fixed-code workflows or unconstrained skill-only execution.
 - Use one shared `FinMindAgentRuntime` for workflow now and chatflow later, with
   different policy envelopes.
+- Use async-first execution and OpenAI-style SSE response streaming for workflow
+  and chat transport, with bounded offload for unavoidable sync libraries.
 - Treat Agent Skill `DATA_REQUIREMENTS.yaml` as the canonical source for detailed
   data needs; workflow YAML references skills and constrains runtime policy
   instead of duplicating collection requirements.
 - Use Deep Agents (`deepagents.create_deep_agent`) for the shared workflow
-  runtime core and `langchain-litellm` as the default model adapter so multiple
+  runtime core and `langchain-openai`/`langchain-litellm` adapter selection so multiple
   providers can run behind one LangChain-facing integration point.
 - Defer LangGraph until the runtime truly needs graph state, checkpoints,
   multi-agent branching, or pause/resume orchestration.

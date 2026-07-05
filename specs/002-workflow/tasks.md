@@ -8,6 +8,7 @@ implements: []
 validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
+  - docs/adr/ADR-002-direct-async-sse-streaming.md
 ---
 
 # Tasks: Workflow
@@ -87,7 +88,7 @@ status.
 ### Tests for User Story 1
 
 - [X] T018 [P] [US1] Add VN workflow runtime test for `technical-analysis` with agent metadata in `tests/test_platform_services.py`
-- [ ] T019 [P] [US1] Add US workflow runtime test for `technical-analysis` with provider/fallback metadata in `tests/test_platform_services.py`
+- [X] T019 [P] [US1] Add US workflow runtime test for `technical-analysis` with provider/fallback metadata in `tests/test_platform_services.py`
 - [X] T020 [P] [US1] Add fail-closed workflow run test when `FINMIND_AGENT_MODEL` is unset in `tests/test_platform_services.py`
 
 ### Implementation for User Story 1
@@ -97,7 +98,7 @@ status.
 - [X] T023 [US1] Implement the `collect_dataflow` runtime tool against shared dataflows in `src/finmind_agents/runtime/tools.py`
 - [X] T024 [US1] Add workflow API routes that call the new runtime-backed service in `src/finmind_api/routes/workflows.py`
 - [X] T025 [US1] Align backend schemas with the `agent` and `collection` response envelopes in `src/finmind_api/schemas.py`
-- [X] T026 [US1] Migrate workflow page request handling and response typing into `src/finmind_ui/src/finmind_api/client.ts` and `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
+- [X] T026 [US1] Migrate workflow page request handling and response typing into `src/finmind_ui/src/api/client.ts` and `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
 - [X] T027 [US1] Migrate result rendering for agent metadata, citations, and chart artifacts into `src/finmind_ui/src/features/results/ResultView.tsx`
 
 **Checkpoint**: User Story 1 is a working MVP on the new runtime boundary.
@@ -115,15 +116,15 @@ expectations through the migrated UI.
 
 ### Tests for User Story 2
 
-- [ ] T028 [P] [US2] Add catalog metadata regression tests for the migrated workflow catalog in `tests/test_platform_services.py`
-- [ ] T029 [P] [US2] Add frontend catalog mapping coverage for the migrated UI client in `src/finmind_ui/src/features/workflows/workflowCatalog.test.ts`
+- [X] T028 [P] [US2] Add catalog metadata regression tests for the migrated workflow catalog in `tests/test_platform_services.py`
+- [X] T029 [P] [US2] Add frontend catalog mapping coverage for the migrated UI client in `src/finmind_ui/src/features/workflows/workflowCatalog.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T030 [P] [US2] Migrate workflow catalog loading and serialization into `src/finmind_agents/workflows/catalog.py`
-- [ ] T031 [US2] Add workflow catalog API route and serialization wiring in `src/finmind_api/routes/workflows.py`
-- [ ] T032 [US2] Migrate catalog display logic and provider-neutral workflow copy into `src/finmind_ui/src/features/workflows/workflowCatalog.ts` and `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
-- [ ] T033 [US2] Migrate workflow page styling for dense metadata display into `src/finmind_ui/src/styles.css`
+- [X] T030 [P] [US2] Migrate workflow catalog loading and serialization into `src/finmind_agents/workflows/catalog.py`
+- [X] T031 [US2] Add workflow catalog API route and serialization wiring in `src/finmind_api/routes/workflows.py`
+- [X] T032 [US2] Migrate catalog display logic and provider-neutral workflow copy into `src/finmind_ui/src/features/workflows/workflowCatalog.ts` and `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
+- [X] T033 [US2] Migrate workflow page styling for dense metadata display into `src/finmind_ui/src/styles.css`
 
 **Checkpoint**: Workflow choice is independently testable through the migrated
 catalog path.
@@ -209,22 +210,63 @@ migration.
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 8: User Story 6 - Direct Async Workflow Streaming With Progress And Answer Separation (Priority: P1)
+
+**Goal**: An authenticated internal user can call one async workflow API and
+receive safe SSE stream events on the same HTTP response, with a separate
+progress lane for visible working steps and a separate answer lane for streamed
+final answer text. The shared event model must stay generic enough for Phase 03
+chatflow reuse without implementing chatflow in Phase 02.
+
+**Independent Test**: Submit `POST /api/workflows/{workflow_id}/runs`, consume
+`text/event-stream` events from the same response, and verify first event
+latency, ordered safe `run.*` progress events, ordered `answer.delta` events,
+final output reconciliation, and no event-loop blocking from sync dependencies.
+
+### Tests for User Story 6
+
+- [X] T065 [P] [US6] Add direct workflow SSE stream API tests in `tests/test_app.py` covering `run.started`, `run.stage`, `run.completed`, and terminal events
+- [X] T066 [P] [US6] Add workflow stream completion persistence/reinspection coverage in `tests/test_app.py`
+- [X] T067 [P] [US6] Add mandatory streaming-adapter validation and non-blocking sync-offload regression coverage for workflow providers or model calls in `tests/test_platform_services.py`
+- [X] T068 [P] [US6] Add workflow process-local global and per-user stream limit coverage for safe `429` responses in `tests/test_app.py`
+- [X] T069 [P] [US6] Add workflow progress-vs-answer event ordering coverage in `tests/test_app.py` so `run.stage` becomes visible before `answer.delta`
+- [X] T070 [P] [US6] Add frontend stream client parsing coverage for `run.*` and `answer.delta` events in `src/finmind_ui/src/api/client.test.ts`
+
+### Implementation for User Story 6
+
+- [X] T071 [US6] Add shared safe stream event models in `src/finmind_agents/streaming/models.py` for `run.started`, `run.stage`, `answer.delta`, `citation`, `artifact`, `run.completed`, and `run.failed`
+- [X] T072 [US6] Update request-scoped SSE helpers, heartbeat handling, disconnect handling, and process-local concurrency semaphores in `src/finmind_api/streaming.py`
+- [X] T073 [US6] Convert workflow service execution to expose async streaming events in `src/finmind_agents/workflows/service.py`
+- [X] T074 [US6] Add `POST /api/workflows/{workflow_id}/runs` route in `src/finmind_api/routes/workflows.py`
+- [X] T075 [US6] Refactor workflow runtime emission so visible working-step events and final answer text deltas are produced as separate shared event kinds in `src/finmind_agents/runtime/service.py` and `src/finmind_agents/workflows/service.py`, with plain-text answer streaming and async metadata finalization
+- [X] T076 [US6] Persist final completed, partial, or failed workflow stream output through `src/finmind_api/run_store.py`
+- [X] T077 [US6] Add bounded sync-offload helpers for sync-only provider/model paths in `src/finmind_agents/runtime/offload.py`
+- [X] T078 [US6] Update frontend API client to consume shared workflow stream events in `src/finmind_ui/src/api/client.ts`
+- [X] T079 [US6] Render a collapsible `Working` / `Completed N steps` progress group from `run.stage` events and keep `answer.delta` in a separate final-answer area in `src/finmind_ui/src/App.tsx` and `src/finmind_ui/src/features/chat/ChatPage.tsx`
+- [X] T080 [US6] Encode the shared event contract extension note for future chatflow reuse without implementing chatflow in Phase 02 in `specs/002-workflow/plan.md` and `specs/002-workflow/contracts/api-contract.md`
+
+**Checkpoint**: Workflow run endpoint works through direct request-scoped SSE
+without compatibility wrappers or queue/subscription URLs, and the UI separates
+visible working steps from final answer text.
+
+---
+
+## Phase 9: Polish & Cross-Cutting Concerns
 
 **Purpose**: Finish migration edges, documentation, traceability, and final
 verification.
 
-- [ ] T054 [P] Update workflow implementation traceability in `specs/002-workflow/spec.md`
-- [X] T055 [P] Update workflow plan traceability after package migration in `specs/002-workflow/plan.md`
-- [X] T056 [P] Record runtime/package migration decisions in `docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md`
-- [ ] T057 [P] Update workflow runtime and provider-risk mitigations in `docs/risks/RISK-001-workflow-skill-contract-drift.md` and `docs/risks/RISK-002-agent-skill-unsupported-claims.md`
-- [ ] T058 [P] Update validated environment configuration and deprecated env cleanup notes in `.env`
-- [ ] T059 [P] Add a manual workflow runtime test script for DXG using `.env` configuration in `test.py`
-- [ ] T060 Review migrated workflow UI against `specs/system/ui-ux-guidelines.md`
-- [ ] T061 Review runtime safety guardrails against `.specify/memory/constitution.md`
-- [X] T062 Run backend verification command `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py`
-- [X] T063 Run frontend verification command `cd src/finmind_ui && npm run build`
-- [ ] T064 Run the workflow quickstart validation scenarios in `specs/002-workflow/quickstart.md`
+- [X] T081 [P] Update workflow implementation traceability in `specs/002-workflow/spec.md`
+- [X] T082 [P] Update workflow plan traceability after package migration in `specs/002-workflow/plan.md`
+- [X] T083 [P] Record runtime/package migration and direct async SSE decisions in `docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md` and `docs/adr/ADR-002-direct-async-sse-streaming.md`
+- [ ] T084 [P] Update workflow runtime, provider-risk, and async stream saturation mitigations in `docs/risks/RISK-001-workflow-skill-contract-drift.md`, `docs/risks/RISK-002-agent-skill-unsupported-claims.md`, and `docs/risks/RISK-004-async-stream-resource-saturation.md`
+- [ ] T085 [P] Update validated environment configuration, stream limiter defaults, and deprecated env cleanup notes in `.env`
+- [ ] T086 [P] Add a manual workflow runtime test script for DXG using `.env` configuration in `test.py`
+- [ ] T087 Review migrated workflow UI against `specs/system/ui-ux-guidelines.md`
+- [ ] T088 Review runtime safety guardrails against `.specify/memory/constitution.md`
+- [X] T089 Run backend verification command `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py`
+- [X] T090 Run frontend verification command `cd src/finmind_ui && npm run build`
+- [ ] T091 Run the workflow quickstart validation scenarios in `specs/002-workflow/quickstart.md`
 
 ---
 
@@ -234,8 +276,8 @@ verification.
 
 - **Setup (Phase 1)**: No dependencies.
 - **Foundational (Phase 2)**: Depends on Setup and blocks all user stories.
-- **User Stories (Phases 3-7)**: Depend on Foundational completion.
-- **Polish (Phase 8)**: Depends on all desired user stories being complete.
+- **User Stories (Phases 3-8)**: Depend on Foundational completion.
+- **Polish (Phase 9)**: Depends on all desired user stories being complete.
 
 ### User Story Dependencies
 
@@ -249,6 +291,9 @@ verification.
   parallel with US1 because it targets validation and safety behavior.
 - **US5 Reopen Workflow Results (P2)**: Depends on Foundation and at least one
   run-producing story, preferably US1.
+- **US6 Direct Async Workflow Streaming (P1)**: Depends on Foundation and should
+  land before UI workflows are considered complete, because stream endpoints are
+  the canonical execution APIs for the development branch.
 
 ### Within Each User Story
 
@@ -270,7 +315,8 @@ verification.
 - US3 tests T034-T036 can run in parallel.
 - US4 tests T042-T044 can run in parallel.
 - US5 tests T049-T050 can run in parallel.
-- Polish documentation tasks T054-T059 can run in parallel.
+- US6 tests T065-T070 can run in parallel.
+- Polish documentation tasks T081-T086 can run in parallel.
 
 ---
 
@@ -309,7 +355,8 @@ Task: "Add API response coverage for visible stage statuses and blocked claim ca
 3. Deliver US3 to make `stock-brief` reusable and visible.
 4. Deliver US4 to lock down validation and collection-plan safety.
 5. Deliver US5 to preserve run history and result reinspection.
-6. Finish documentation, verification, and quickstart validation in Phase 8.
+6. Deliver US6 direct workflow streaming with separate progress and final-answer areas.
+7. Finish documentation, verification, and quickstart validation in Phase 9.
 
 ### Notes
 
@@ -319,5 +366,5 @@ Task: "Add API response coverage for visible stage statuses and blocked claim ca
   workflow YAML.
 - Keep provider access behind `collect_dataflow`; agent skills must not call
   provider clients directly.
-- Do not add chatflow, broker actions, gold, BTC, or autonomous financial
-  actions in this feature.
+- Do not add production flexible chatflow behavior, broker actions, gold, BTC,
+  or autonomous financial actions in this feature.

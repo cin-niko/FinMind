@@ -8,6 +8,7 @@ implements: []
 validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
+  - docs/adr/ADR-002-direct-async-sse-streaming.md
 ---
 
 # Quickstart: Workflow Validation
@@ -33,6 +34,10 @@ adr_refs:
   - SEC EDGAR requests must use a configured User-Agent/contact setting before
     live US fundamentals collection is enabled.
   - VN collection uses the `vnstock` adapter.
+- Optional stream concurrency limits:
+  - `FINMIND_STREAM_GLOBAL_LIMIT`
+  - `FINMIND_STREAM_PER_USER_LIMIT`
+  - `FINMIND_SYNC_OFFLOAD_LIMIT`
 - Dependencies installed.
 
 ## Package Migration Notes
@@ -61,6 +66,11 @@ Backend/API verification:
 ```bash
 UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py
 ```
+
+Async/streaming verification should include API tests that use an async HTTP
+client or ASGI test client to submit workflow/chatflow stream requests, consume
+SSE events from the same response, and assert no blocking sync work occurs in
+request handlers.
 
 Frontend verification:
 
@@ -166,3 +176,67 @@ npm run build
 3. Open `History` -> `Workflow Runs`.
 4. Reopen the completed run and confirm output, quality, collection status,
    citations, artifacts, and step/grounding status remain visible.
+
+## Scenario 8: Async Workflow Stream
+
+1. Log in through the API or UI shell.
+2. Submit `POST /api/workflows/technical-analysis/runs` with
+   `market=VN_STOCK` and `symbol=VCB`.
+3. Confirm the response is `200 OK` with `Content-Type: text/event-stream`.
+4. Confirm the first safe event arrives in under 1 second in offline tests.
+5. Confirm the same response stream emits ordered safe events:
+   - `response_started`
+   - `stage_status`
+   - `warning` when applicable
+   - `citation` when citations are produced
+   - `artifact` when chart artifacts are produced
+   - `output_delta`
+   - `final_output`
+   - `completed` or `failed`
+6. Confirm no event contains raw reasoning, hidden prompts, provider secrets, raw
+   provider payloads, or unsafe diagnostics.
+7. Confirm the final run can be reopened through `GET /api/runs/{run_id}` after
+   stream completion without rerunning providers.
+
+## Scenario 9: Async Chatflow Stream
+
+1. Create or select a chat owned by the authenticated user, for example through
+   `POST /api/chatflow/chats`.
+2. Submit `POST /api/chatflow/chats/{chat_id}/messages` with a message and
+   optional bounded market context such as `market=VN_STOCK`, `symbol=VCB`.
+3. Confirm the response is `200 OK` with `Content-Type: text/event-stream`.
+4. Consume the same response stream and confirm status events arrive while the
+   chatflow run executes.
+5. Confirm answer deltas arrive in order and reconcile with the final stored
+   answer.
+6. Configure a non-streaming adapter in a negative test and confirm runtime
+   validation fails closed before returning a degraded answer.
+7. Confirm material financial claims in the final answer include citations or are
+   marked unsupported/unavailable.
+8. When Phase 02 uses deterministic mock chatflow output, confirm the mock output
+   still arrives through the same stream event contract.
+
+## Scenario 10: Multi-User Non-Blocking Execution
+
+1. Start at least 10 authenticated test clients.
+2. Submit a mix of direct workflow and chatflow streaming requests.
+3. Hold each client's SSE response stream open until completion or timeout.
+4. Confirm each client receives its first safe event promptly and no client is
+   delayed by another client's provider/model call.
+5. Force one sync-only provider path, such as a VN provider library call, and
+   confirm it executes through bounded offload with timeout/failure metadata
+   rather than blocking the event loop.
+6. Confirm per-user, global, or sync-offload concurrency limits return `429`
+   with a safe error when exceeded.
+7. Confirm Phase 02 limits are enforced by process-local semaphores; Redis or
+   distributed lease behavior is not expected in this phase.
+
+## Scenario 11: Disconnect And Restart Safety
+
+1. Submit a long-running async workflow or chatflow stream.
+2. Close the client connection before completion.
+3. Confirm request-scoped execution is cancelled cooperatively where possible.
+4. Confirm no raw reasoning or unsafe diagnostics are emitted during disconnect.
+5. Simulate server restart while streams are active.
+6. Confirm active streams end and only completed/persisted final run results are
+   inspectable after restart.

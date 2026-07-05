@@ -8,6 +8,7 @@ implements: []
 validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
+  - docs/adr/ADR-002-direct-async-sse-streaming.md
 ---
 
 # API Contract: Workflow
@@ -60,32 +61,11 @@ Required catalog ids:
 - `risk-review`
 - `stock-brief`
 
-## `POST /api/workflows/{workflow_id}/run`
+## Final Workflow Run Shape
 
-Runs a bounded workflow with validated inputs.
-
-Request:
-
-```json
-{
-  "market": "VN_STOCK",
-  "symbol": "VCB"
-}
-```
-
-Valid markets:
-
-- `VN_STOCK`
-- `US_STOCK`
-
-Validation errors:
-
-- Unsupported market or asset: `422`
-- Unsupported symbol for market: `422`
-- Missing required input: `422`
-- Unknown workflow: `404`
-
-Response shape:
+`POST /api/workflows/{workflow_id}/runs` emits this payload in a
+`run.completed` stream event and persists the same shape for later
+`GET /api/runs/{run_id}` reinspection.
 
 ```json
 {
@@ -238,12 +218,203 @@ Collection contract:
   preserve the fallback provider id and quality warnings so user-facing claims
   are caveated or marked unavailable.
 
+## `POST /api/workflows/{workflow_id}/runs`
+
+Starts a workflow run and streams safe events on the same HTTP response. This is
+the preferred UI contract and mirrors OpenAI-style completion streaming.
+`workflow_id` identifies the executable workflow resource in the path; the
+request body contains run inputs only.
+
+Request:
+
+```json
+{
+  "market": "VN_STOCK",
+  "symbol": "VCB"
+}
+```
+
+Response: `200 OK` with `Content-Type: text/event-stream`
+
+Validation errors:
+
+- Unsupported market or asset: `422`
+- Unsupported symbol for market: `422`
+- Missing required input: `422`
+- Unknown workflow: `404`
+- Per-user, global, or sync-offload concurrency limit exceeded before stream
+  start: `429`
+
+Concurrency error response shape:
+
+```json
+{
+  "error": {
+    "code": "concurrency_limit_exceeded",
+    "message": "Too many active workflow or chatflow streams. Retry after a short delay.",
+    "retry_after_seconds": 5
+  }
+}
+```
+
+Phase 02 limiter configuration:
+
+- `FINMIND_STREAM_GLOBAL_LIMIT`
+- `FINMIND_STREAM_PER_USER_LIMIT`
+- `FINMIND_SYNC_OFFLOAD_LIMIT`
+
+These limits are process-local semaphores in Phase 02. They do not coordinate
+across multiple API workers or app instances until a Redis-backed limiter is
+introduced later.
+Provider/model-specific limit buckets are deferred until real usage or
+multi-worker deployment requires them.
+
+Rules:
+
+- The endpoint executes the workflow in the request's async coroutine and yields
+  stream frames as execution progresses.
+- The endpoint is not a background queue and must not require a second
+  subscription URL.
+- The stream emits at least one `run.started` event before provider/model
+  work where possible.
+- `answer.delta` must come only from the final user-visible workflow step and
+  must carry plain text chunks, not partial JSON fragments.
+- Sync-only provider/model calls must not execute in the request handler.
+
+## `POST /api/chatflow/chats`
+
+Creates a chat conversation owned by the authenticated user. Phase 02 may use a
+minimal deterministic chat resource so the streaming message endpoint has clear
+ownership and history semantics.
+
+Request:
+
+```json
+{
+  "title": "VCB research"
+}
+```
+
+Response:
+
+```json
+{
+  "chat_id": "chat_123",
+  "title": "VCB research",
+  "created_at": "2026-06-27T00:00:00+00:00"
+}
+```
+
+## `GET /api/chatflow/chats/{chat_id}/messages`
+
+Returns safe persisted messages visible to the authenticated user. Unknown or
+unauthorized chats return `404` or `403`; raw reasoning is never returned.
+
+## `POST /api/chatflow/chats/{chat_id}/messages`
+
+Appends one user message to an existing chat and streams safe assistant
+answer/status events on the same HTTP response. Phase 02 may return
+deterministic mock chatflow output through this contract; production flexible
+Q&A behavior remains governed by `../003-agentic-chatflow/`.
+
+Request:
+
+```json
+{
+  "message": "What changed for VCB fundamentals?",
+  "market_context": { "market": "VN_STOCK", "symbol": "VCB" }
+}
+```
+
+Response: `200 OK` with `Content-Type: text/event-stream`
+
+Rules:
+
+- Chatflow output must follow citation, unsupported-claim, advice-only, and
+  no-raw-reasoning rules.
+- Configured model/provider adapters must support streaming through
+  LangChain/LiteLLM in Phase 02. Unsupported streaming capability fails closed
+  during runtime configuration.
+- Chatflow streams share the direct response event format with workflows but use
+  a chatflow-specific runtime policy and output schema.
+- Mock chatflow output in Phase 02 must still use the stream event contract and
+  no-raw-reasoning rules.
+
+## Streaming Event Frames
+
+Workflow and chatflow streaming endpoints return ordered safe events using SSE.
+
+Request headers:
+
+- `Accept: text/event-stream`
+
+Route semantics:
+
+- Workflow runs use `POST /api/workflows/{workflow_id}/runs`; `workflow_id`
+  stays in the path because it selects the executable workflow resource.
+- Chatflow messages use `POST /api/chatflow/chats/{chat_id}/messages`;
+  `chat_id` stays in the path because it selects the conversation resource.
+- Streaming is defined by `Accept: text/event-stream` and response
+  `Content-Type: text/event-stream`, not by a `/stream` path suffix or request
+  payload flag.
+
+Event frame format:
+
+```text
+event: answer.delta
+data: {"event_id":"evt_0005","run_id":"run_abc123","sequence":5,"kind":"answer.delta","created_at":"2026-06-27T00:00:01+00:00","payload":{"text":"Momentum remains"}}
+```
+
+Canonical event payload shape:
+
+```json
+{
+  "event_id": "evt_0005",
+  "run_id": "run_abc123",
+  "sequence": 5,
+  "kind": "answer.delta",
+  "created_at": "2026-06-27T00:00:01+00:00",
+  "payload": {
+    "text": "Momentum remains"
+  }
+}
+```
+
+Required event kinds:
+
+- `run.started`
+- `run.stage`
+- `answer.delta`
+- `citation`
+- `artifact`
+- `run.completed`
+- `run.failed`
+
+Rules:
+
+- Events are ordered by `sequence` within one run.
+- Events must be safe for UI display and must not include raw reasoning, hidden
+  prompts, provider secrets, raw provider payloads, or unsafe diagnostics.
+- `run.stage` events feed the visible progress lane; `answer.delta` feeds the
+  final answer lane; `run.completed` carries the persisted final run payload.
+- Internal workflow steps such as collection or audit may produce `run.stage`
+  progress only. Their intermediate output must not be emitted as
+  `answer.delta` or persisted as user-facing final sections.
+- `run.completed` is emitted only after final metadata reconciliation, so the
+  answer stream can start before status/citation finalization is complete.
+- Stream events are request-scoped and are not required to be replayable after
+  disconnect.
+- Disconnecting from the stream cancels request-scoped execution cooperatively
+  where possible. Already-persisted final/partial output remains inspectable.
+- Unknown or unauthorized workflow/chatflow contexts return `404` or `403`; stream
+  payloads must not leak whether another user's run exists.
+
 ## `GET /api/runs`
 
-Returns workflow runs visible to the authenticated user for history and result
-reinspection. Latest runs appear first.
+Returns workflow and chatflow runs visible to the authenticated user for history and
+result reinspection. Latest runs appear first.
 
 ## `GET /api/runs/{run_id}`
 
-Returns a completed, partial, or failed workflow run. Unknown run ids return
+Returns a completed, partial, or failed workflow/chatflow run. Unknown run ids return
 `404`.
