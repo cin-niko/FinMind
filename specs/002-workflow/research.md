@@ -318,6 +318,30 @@ Rationale: Users need trustworthy results, not operational noise. Internal
 collection and grounding can protect claims while keeping the UI focused on
 research output.
 
+## Decision: Use an editorial stream presentation for workflow-backed assistant responses
+
+Transcript-style workflow responses should keep user prompts as bubbles but
+render workflow-backed assistant answers as frameless editorial content in the
+chat stream. Safe execution visibility should appear as a compact collapsible
+metadata block above the answer body, with the summary label `Working` while
+the run is active and `Completed N steps` after completion. Completed step lists
+end with `Done`, and product-facing step labels may show optional symbol/period
+subtext on a lighter secondary line.
+
+Rationale: The existing white assistant message card and raw-ish progress list
+look closer to a debug panel than a finance research workbench. The editorial
+stream pattern reduces chrome, saves vertical space, and makes the answer read
+like a research note while preserving visible bounded execution state. Keeping
+the disclosure open during active work gives immediate reassurance that the run
+is progressing; auto-collapsing when complete reduces clutter once the answer is
+available.
+
+Alternatives considered: keep the existing full-card assistant message layout,
+show progress in a permanently expanded debug-style accordion, or separate
+progress into a side panel. Rejected because the full-card layout is visually
+heavy, the always-open accordion competes with the answer body, and a side panel
+breaks the transcript reading flow for chat-first use.
+
 Alternatives considered: exposing the data audit as a standalone workflow.
 Deferred until there is enough operational need for a diagnostics-focused view.
 

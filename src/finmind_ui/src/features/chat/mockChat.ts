@@ -26,6 +26,7 @@ export type WorkflowProgressStep = {
   kind: "collect_data" | "skill";
   status: string;
   warnings: string[];
+  inputContext?: string;
 };
 
 export type WorkflowStreamState = {
@@ -190,7 +191,7 @@ export function createWorkflowAssistantMessage(run: WorkflowRun, index: number):
 }
 
 
-export function createPendingAssistantMessage(index: number): ChatMessage {
+export function createPendingAssistantMessage(index: number, inputContext?: string): ChatMessage {
   return {
     id: `assistant-pending-${index}`,
     role: "assistant",
@@ -201,7 +202,18 @@ export function createPendingAssistantMessage(index: number): ChatMessage {
     streamState: {
       label: "Working",
       complete: false,
-      steps: [],
+      steps: inputContext
+        ? [
+            {
+              id: "collect_data",
+              title: "Collect market data",
+              kind: "collect_data",
+              status: "running",
+              warnings: [],
+              inputContext
+            }
+          ]
+        : [],
       answer: ""
     }
   };
@@ -209,33 +221,73 @@ export function createPendingAssistantMessage(index: number): ChatMessage {
 
 
 export function workflowStreamStateFromRun(run: WorkflowRun): WorkflowStreamState {
+  const inputContext = inputContextForRun(run);
   return {
     label: `Completed ${run.output.steps.length} steps`,
     complete: true,
     steps: run.output.steps.map((step) => ({
       id: step.id,
-      title: titleForStep(step.id),
+      title: titleForStep(step.id, run.inputs),
       kind: step.kind,
       status: step.status,
-      warnings: step.warnings
+      warnings: step.warnings,
+      inputContext
     })),
     answer: run.output.sections.map((section) => section.content).join("\n\n---\n\n")
   };
 }
 
 
-function titleForStep(stepId: string): string {
+export function titleForStep(stepId: string, inputs?: Record<string, string>): string {
+  const marketLabel = marketLabelForInputs(inputs);
   if (stepId === "collect_data") {
-    return "Collect the data";
+    return marketLabel ? `Collect ${marketLabel} data` : "Collect market data";
   }
   if (stepId.includes("data-auditor")) {
-    return "Audit data";
+    return "Audit source coverage";
   }
   if (stepId.includes("technical-analysis")) {
-    return "Technical analysis";
+    return "Analyze technical momentum";
   }
   if (stepId.includes("fundamental-analysis")) {
-    return "Fundamental analysis";
+    return "Analyze fundamentals";
   }
-  return stepId;
+  if (stepId.includes("news")) {
+    return "Review news signals";
+  }
+  if (stepId.includes("risk")) {
+    return "Review downside risks";
+  }
+  return humanizeStepId(stepId);
+}
+
+export function inputContextForRun(run: WorkflowRun): string | undefined {
+  return inputContextForInputs(run.inputs);
+}
+
+export function inputContextForInputs(inputs?: Record<string, string>): string | undefined {
+  const symbol = inputs?.symbol?.trim().toUpperCase();
+  if (symbol) {
+    return symbol;
+  }
+  const market = inputs?.market?.trim().replace(/_/g, " ");
+  return market || undefined;
+}
+
+function marketLabelForInputs(inputs?: Record<string, string>): string | null {
+  const market = inputs?.market?.trim().toUpperCase();
+  if (market === "VN_STOCK") {
+    return "VN stock";
+  }
+  if (market === "US_STOCK") {
+    return "US stock";
+  }
+  return null;
+}
+
+function humanizeStepId(stepId: string): string {
+  return stepId
+    .replace(/^vn-|^us-/, "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }

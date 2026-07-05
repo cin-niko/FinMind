@@ -262,7 +262,7 @@ verification.
 - [ ] T084 [P] Update workflow runtime, provider-risk, and async stream saturation mitigations in `docs/risks/RISK-001-workflow-skill-contract-drift.md`, `docs/risks/RISK-002-agent-skill-unsupported-claims.md`, and `docs/risks/RISK-004-async-stream-resource-saturation.md`
 - [ ] T085 [P] Update validated environment configuration, stream limiter defaults, and deprecated env cleanup notes in `.env`
 - [ ] T086 [P] Add a manual workflow runtime test script for DXG using `.env` configuration in `test.py`
-- [ ] T087 Review migrated workflow UI against `specs/system/ui-ux-guidelines.md`
+- [X] T087 Review migrated workflow UI against `specs/system/ui-ux-guidelines.md`
 - [ ] T088 Review runtime safety guardrails against `.specify/memory/constitution.md`
 - [X] T089 Run backend verification command `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py`
 - [X] T090 Run frontend verification command `cd src/finmind_ui && npm run build`

@@ -110,6 +110,21 @@ Navigation is roadmap-aware:
 - Validation messages near fields
 - Stage status chips
 - Result panel with citations, chart artifacts, and step/grounding status
+- Workflow-backed assistant responses in transcript-style views use a frameless
+  editorial presentation for the assistant answer body rather than a full white
+  message card.
+- User prompts remain visually distinct bubbles, while assistant responses do
+  not repeat `You` or `FinMind` role headers above each message.
+- Workflow execution visibility inside assistant responses appears as a compact
+  collapsible metadata block above the answer body. Its summary label is
+  `Working` while incomplete and `Completed N steps` when complete.
+- The execution-visibility block opens by default while work is still running,
+  collapses by default once complete, and remains user-expandable after
+  completion.
+- Execution-visibility steps use lighter secondary styling, connector lines,
+  step-type icons, product-facing labels, optional input subtext such as the
+  active symbol, and a terminal `Done` row. They show safe stage metadata only,
+  not raw reasoning transcripts.
 
 ### Results
 
@@ -125,6 +140,9 @@ Navigation is roadmap-aware:
 - After a user submits any chat message, including the first message in a new chat, that latest user message must align to the top of the chat transcript viewport so the answer can unfold below it.
 - `001-mvp-ui` chat responses are deterministic mock responses, not production
   orchestrator output
+- User prompts may remain bubble-style, but workflow-backed assistant responses
+  should read like editorial research notes in the transcript instead of
+  stacked generic cards.
 - Chat messages may show trusted mock inline visual blocks generated from local templates
 - Report, chart, table, evidence list, and citation bundle artifacts appear as cards inside messages
 - Clicking an artifact card opens the artifact in the right-side detail panel on desktop or full-screen artifact view on mobile

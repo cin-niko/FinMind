@@ -179,6 +179,49 @@ Validation:
 - Missing or stale documents block or qualify news digest claims.
 - Source excerpts must respect source constraints.
 
+## WorkflowStreamDisplayState
+
+Display-ready workflow execution state used by transcript-style workflow
+responses.
+
+Fields:
+
+- `summary_label`: `Working` while execution is incomplete, `Completed N steps`
+  when complete.
+- `is_complete`
+- `default_expanded`
+- `steps`: ordered display steps.
+
+Validation:
+
+- Incomplete workflow-backed assistant responses default to expanded execution
+  visibility.
+- Completed workflow-backed assistant responses default to collapsed execution
+  visibility but remain user-expandable.
+- The display state must show safe execution metadata only and must not expose
+  raw reasoning, hidden prompts, or unsafe diagnostics.
+
+## WorkflowDisplayStep
+
+User-visible execution step in transcript-style workflow responses.
+
+Fields:
+
+- `step_id`
+- `display_label`: product-facing main label.
+- `step_type`: collection, audit, analysis, summary, or equivalent bounded step
+  family.
+- `status`
+- `input_context`: optional secondary subtext such as symbol or symbol plus
+  period.
+
+Validation:
+
+- `display_label` must not expose raw internal workflow or skill ids directly.
+- `input_context` is optional and omitted when unavailable.
+- Completed visible step lists append a terminal `Done` row after workflow
+  steps.
+
 ## FinMindAgentRuntime
 
 Shared runtime boundary for workflow agents in Phase 02 and future chatflow

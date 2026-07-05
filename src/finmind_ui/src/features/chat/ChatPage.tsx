@@ -1,4 +1,13 @@
-import { Send } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Database,
+  FilePenLine,
+  LineChart,
+  SearchCheck,
+  Send,
+  ShieldCheck
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChatArtifact, ChatConversation } from "./mockChat";
 import type { WorkflowRun } from "../../api/client";
@@ -75,26 +84,44 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact }: Props) {
           <div className="messageStack">
             {conversation.messages.map((message) => (
               <article
-                className={`chatMessage ${message.role}`}
+                className={`chatMessage ${message.role}${message.role === "assistant" && (message.workflowRun || message.streamState) ? " workflowMessage" : ""}`}
                 key={message.id}
                 ref={(element) => {
                   messageRefs.current[message.id] = element;
                 }}
               >
-                <div className="messageRole">{message.role === "user" ? "You" : "FinMind"}</div>
                 {message.streamState ? (
                   <details className="workflowProgress" open={!message.streamState.complete}>
                     <summary>
-                      <span>{message.streamState.label}</span>
-                      <small>{message.streamState.steps.length ? `${message.streamState.steps.length} step(s)` : "Starting..."}</small>
+                      <span className="workflowProgressSummary">
+                        <span>{message.streamState.label}</span>
+                        <ChevronRight className="workflowProgressChevron" size={14} aria-hidden="true" />
+                      </span>
                     </summary>
                     <ul className="workflowProgressList">
                       {message.streamState.steps.map((step) => (
                         <li className={`workflowProgressItem ${step.status}`} key={step.id}>
-                          <span>{step.title}</span>
-                          <small>{step.status.replace(/_/g, " ")}</small>
+                          <span className="workflowProgressRail" aria-hidden="true">
+                            <span className="workflowProgressLine"></span>
+                            <span className="workflowProgressMarker">{iconForStep(step.id, step.kind, step.status)}</span>
+                          </span>
+                          <span className="workflowProgressCopy">
+                            <span>{step.title}</span>
+                            {step.inputContext ? <small>{step.inputContext}</small> : null}
+                          </span>
                         </li>
                       ))}
+                      {message.streamState.complete ? (
+                        <li className="workflowProgressItem done">
+                          <span className="workflowProgressRail" aria-hidden="true">
+                            <span className="workflowProgressLine"></span>
+                            <span className="workflowProgressMarker"><CheckCircle2 size={14} /></span>
+                          </span>
+                          <span className="workflowProgressCopy">
+                            <span>Done</span>
+                          </span>
+                        </li>
+                      ) : null}
                     </ul>
                   </details>
                 ) : null}
@@ -168,4 +195,24 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact }: Props) {
       </form>
     </section>
   );
+}
+
+function iconForStep(stepId: string, kind: "collect_data" | "skill", status: string) {
+  const size = 14;
+  if (status === "failed") {
+    return <ShieldCheck size={size} />;
+  }
+  if (kind === "collect_data") {
+    return <Database size={size} />;
+  }
+  if (stepId.includes("data-auditor")) {
+    return <SearchCheck size={size} />;
+  }
+  if (stepId.includes("technical-analysis")) {
+    return <LineChart size={size} />;
+  }
+  if (stepId.includes("fundamental-analysis")) {
+    return <ShieldCheck size={size} />;
+  }
+  return <FilePenLine size={size} />;
 }

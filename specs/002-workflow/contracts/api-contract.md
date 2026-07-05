@@ -196,6 +196,9 @@ Step and grounding contract:
   citations, market scope, and advice-only framing before appearing in
   `sections`. Data age is conveyed by citation `timestamp`; there is no separate
   freshness field.
+- The run result plus its `inputs` must provide enough safe metadata for the UI
+  to derive product-facing execution labels and optional input subtext without
+  exposing hidden reasoning or raw internal diagnostics.
 
 Collection contract:
 

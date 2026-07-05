@@ -782,10 +782,13 @@ button:focus-visible {
   background: var(--surface-selected);
 }
 
-.messageRole {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 760;
+.chatMessage.assistant.workflowMessage {
+  gap: 12px;
+  width: min(720px, 100%);
+  padding: 4px 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .inlineVisual {
@@ -1475,52 +1478,72 @@ th {
 }
 
 .workflowProgress {
-  margin: 0 0 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--surface-2);
+  margin: 0 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   overflow: hidden;
 }
 
 .workflowProgress summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 4px 0;
   list-style: none;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 450;
+  opacity: 0.92;
+  cursor: pointer;
 }
 
 .workflowProgress summary::-webkit-details-marker {
   display: none;
 }
 
-.workflowProgress summary small {
+.workflowProgressSummary,
+.workflowProgressMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workflowProgressSummaryIcon,
+.workflowProgressChevron {
   color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+  opacity: 0.82;
+}
+
+.workflowProgress:not([open]) .workflowProgressChevron {
+  transform: rotate(0deg);
+}
+
+.workflowProgress[open] .workflowProgressChevron {
+  transform: rotate(90deg);
+}
+
+.workflowProgressChevron {
+  transition: transform 180ms ease-out;
 }
 
 .workflowProgressList {
   display: grid;
-  gap: 6px;
+  gap: 0;
   margin: 0;
-  padding: 0 12px 12px;
+  padding: 6px 0 2px;
   list-style: none;
 }
 
 .workflowProgressItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
   gap: 12px;
-  padding: 8px 0;
-  border-top: 1px solid var(--border-subtle);
+  padding: 0 0 10px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .workflowProgressItem.success,
@@ -1532,8 +1555,78 @@ th {
   color: var(--danger);
 }
 
-.workflowProgressItem.running small {
+.workflowProgressItem.done {
+  color: var(--text-primary);
+}
+
+.workflowProgressRail {
+  position: relative;
+  min-height: 22px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.workflowProgressLine {
+  position: absolute;
+  top: 0;
+  bottom: -10px;
+  left: 50%;
+  width: 1px;
+  background: var(--border-subtle);
+  transform: translateX(-50%);
+}
+
+.workflowProgressItem:last-child .workflowProgressLine {
+  bottom: 4px;
+}
+
+.workflowProgressMarker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+}
+
+.workflowProgressCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.workflowProgressCopy span {
+  line-height: 1.4;
+  font-size: 12px;
+  font-weight: 450;
+  opacity: 0.72;
+}
+
+.workflowProgressCopy small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 1.35;
+}
+
+.workflowProgressCopy small {
+  opacity: 0.58;
+}
+
+.workflowProgressItem.running .workflowProgressMarker {
   color: var(--accent-teal);
+}
+
+.workflowMessage .markdown p:first-child {
+  margin-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflowProgressChevron {
+    transition: none;
+  }
 }
 
 .typingDots span {

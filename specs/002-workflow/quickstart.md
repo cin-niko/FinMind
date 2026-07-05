@@ -198,6 +198,25 @@ npm run build
 7. Confirm the final run can be reopened through `GET /api/runs/{run_id}` after
    stream completion without rerunning providers.
 
+## Scenario 8A: Transcript-Style Workflow Response UI
+
+1. Open the authenticated chat/transcript surface that renders workflow-backed
+   assistant responses.
+2. Submit or reopen a workflow-backed response with visible execution progress.
+3. Confirm the user prompt remains a bubble-style message.
+4. Confirm the assistant answer renders without a full white message card and
+   without repeated `You` or `FinMind` role headers.
+5. While the run is still active, confirm the execution-visibility block shows
+   the summary label `Working` and is expanded by default.
+6. After the run completes, confirm the summary label changes to
+   `Completed N steps`, the block collapses by default, and the user can reopen
+   it manually.
+7. Confirm visible steps use product-facing labels and optional lighter subtext
+   such as `DXG` rather than raw workflow or skill ids.
+8. Confirm the completed visible step list ends with `Done`.
+9. Confirm artifact cards remain rendered with the existing card treatment and
+   still open the same artifact-detail surface.
+
 ## Scenario 9: Async Chatflow Stream
 
 1. Create or select a chat owned by the authenticated user, for example through

@@ -36,7 +36,11 @@ workflow run and chat message APIs separate, so each request can return
 stage/status/output events on the same HTTP response when the configured adapter
 supports it. The first active workflow focus is the
 VN financial data collector path, with broader workflow catalog and async
-execution contracts retained for Phase 02.
+execution contracts retained for Phase 02. Transcript-style workflow responses
+also need a lighter editorial assistant presentation: user prompts stay as
+bubbles, workflow-backed assistant answers become frameless research-note
+content, and safe execution visibility appears as a compact collapsible block
+that is open while work is running and collapsed after completion.
 
 ## Technical Context
 
@@ -53,7 +57,7 @@ execution contracts retained for Phase 02.
   adapter for public-company fundamentals; deterministic offline fallback for
   tests and provider outage paths.
 - Frontend dependencies: React/Vite, existing app shell, existing workflow/result
-  pages, Lightweight Charts.
+  pages, existing chat transcript surface, Lightweight Charts.
 - Storage: in-memory canonical record cache for Phase 02 provider results
   plus deterministic offline fallback records; completed workflow and chatflow runs
   persist to PostgreSQL via async `psycopg` support (one `runs` table,
@@ -100,7 +104,8 @@ execution contracts retained for Phase 02.
   is excluded, LLM/tool failures fail closed or produce partial/unavailable
   output, and outputs remain advice support only.
 - UX consistency: workflow catalog, forms, run result, stage status, data-quality
-  warnings, citations, and artifacts follow
+  warnings, citations, artifacts, and transcript-style workflow response
+  presentation follow
   `../system/ui-ux-guidelines.md`.
 - Performance requirements: streamed requests must emit the first safe event
   quickly; offline workflow execution target is under 3 seconds in automated
@@ -140,7 +145,8 @@ Gate result: pass. No constitution violations require exception.
   schemas, request-scoped SSE stream endpoints, async final-run persistence, and
   API-facing error mapping. It should call into `finmind_agents` and stay thin.
 - `src/finmind_ui/`: own workflow forms, result views, app shell integration,
-  and API client bindings for workflow contracts.
+  transcript-style workflow response rendering, and API client bindings for
+  workflow contracts.
 
 ## Workflow Execution Design
 
@@ -274,6 +280,24 @@ Request-scoped stream runner:
   answer deltas, so the UI shows progress during answer generation.
 - Client disconnect policy: cooperative cancellation is attempted for in-flight
   work; completed partial/final output already persisted remains inspectable.
+
+Transcript-style workflow response rendering:
+
+- Workflow-backed assistant responses in the chat/transcript surface use an
+  editorial stream layout rather than a full white assistant message card.
+- User prompts remain bubble-style and visually distinct; assistant responses do
+  not repeat `You` or `FinMind` role headers.
+- Safe execution visibility renders above the answer body as a compact
+  disclosure block with the summary label `Working` while incomplete and
+  `Completed N steps` once complete.
+- The disclosure is expanded by default while work is running, collapses by
+  default after completion, and remains user-expandable for later review.
+- Visible step rows use product-facing action labels, optional input subtext
+  such as symbol/period, connector lines, and bounded step-type icons. The list
+  appends a terminal `Done` row once the run completes.
+- Artifact cards and artifact-detail behavior remain unchanged in this planning
+  slice; the UI refresh is limited to assistant answer framing and execution
+  visibility.
 
 Non-blocking boundaries:
 

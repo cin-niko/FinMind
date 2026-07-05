@@ -19,6 +19,8 @@ import {
   createMockResponse,
   createNewConversation,
   createPendingAssistantMessage,
+  inputContextForInputs,
+  titleForStep,
   workflowStreamStateFromRun,
   createWorkflowAssistantMessage,
   createUserMessage,
@@ -83,6 +85,10 @@ export function App() {
     const userMessage = workflowPromptTemplate(workflowId)(symbol || market);
     const conversation = createNewConversation(userMessage);
     const conversationId = conversation.id;
+    const streamInputs = {
+      market,
+      ...(symbol ? { symbol } : {})
+    };
     const pendingMessage = createPendingAssistantMessage(1);
     const nextConversation = { ...conversation, isWorkflowRun: true, messages: [...conversation.messages, pendingMessage] };
     setConversations((items) => [nextConversation, ...items]);
@@ -90,10 +96,7 @@ export function App() {
     setSelectedArtifact(null);
     setView("chat");
     try {
-      const run = await runWorkflow(workflowId, {
-        market,
-        ...(symbol ? { symbol } : {})
-      }, (event: WorkflowStreamEvent) => {
+      const run = await runWorkflow(workflowId, streamInputs, (event: WorkflowStreamEvent) => {
         if (event.kind !== "answer.delta" && event.kind !== "run.stage" && event.kind !== "run.completed") {
           return;
         }
@@ -118,7 +121,7 @@ export function App() {
                       }
                     : event.kind === "run.completed"
                       ? workflowStreamStateFromRun(event.payload.run as WorkflowRun)
-                      : updateStreamState(currentState, event);
+                      : updateStreamState(currentState, event, streamInputs);
                 const nextText = nextState.answer;
                 return {
                   ...message,
@@ -302,17 +305,20 @@ export function App() {
 
 function updateStreamState(
   currentState: NonNullable<ChatConversation["messages"][number]["streamState"]>,
-  event: WorkflowStreamEvent
+  event: WorkflowStreamEvent,
+  inputs?: Record<string, string>
 ): NonNullable<ChatConversation["messages"][number]["streamState"]> {
   const stageId = String(event.payload.stage ?? "");
+  const inputContext = inputContextForInputs(inputs);
   const nextStep = {
     id: stageId,
-    title: String(event.payload.title ?? stageId),
+    title: titleForStep(stageId, inputs),
     kind: String(event.payload.kind ?? "skill") === "collect_data" ? "collect_data" as const : "skill" as const,
     status: String(event.payload.status ?? "running"),
     warnings: Array.isArray(event.payload.warnings)
       ? event.payload.warnings.map((warning) => String(warning))
-      : []
+      : [],
+    inputContext
   };
   const steps = currentState.steps.some((step) => step.id === stageId)
     ? currentState.steps.map((step) => (step.id === stageId ? nextStep : step))

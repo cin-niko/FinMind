@@ -177,6 +177,20 @@ Acceptance scenarios:
 6. Given a provider, model adapter, or legacy library is synchronous, when it is
    called from async execution, then it is isolated from the event loop through a
    bounded thread/process offload or replaced with an async adapter.
+7. Given a workflow-backed assistant response is rendered in the UI, when the
+   user scans the answer, then the assistant answer appears without a full white
+   message card or repeated role header labels and the user's own prompt remains
+   visually distinct.
+8. Given workflow progress is still active, when the assistant response renders,
+   then the execution-visibility summary shows `Working` and the step list is
+   expanded by default.
+9. Given workflow progress is complete, when the assistant response renders,
+   then the execution-visibility summary shows `Completed N steps`, the step
+   list is collapsed by default, and the user can expand it again.
+10. Given workflow steps are shown to the user, when they read the list, then
+    each step uses a product-facing label with optional input subtext rather
+    than exposing internal step ids directly, and the completed list ends with
+    `Done`.
 
 ### User Story 7 - Chatflow Asynchronously With Streaming (Priority: P2)
 
@@ -326,6 +340,27 @@ Acceptance scenarios:
   deployment requires them.
 - **FR-043**: Streamed responses MUST NOT expose raw agent reasoning, hidden
   prompts, provider secrets, raw provider payloads, or unsafe diagnostics.
+- **FR-044**: Workflow-backed assistant responses shown in transcript-style UI
+  surfaces MUST render the assistant answer body without a full enclosing white
+  message card and MUST NOT repeat `You` or `FinMind` role header labels above
+  each message.
+- **FR-045**: Workflow execution visibility inside assistant responses MUST
+  render as a compact collapsible metadata block above the answer body using the
+  summary label `Working` while incomplete and `Completed N steps` when
+  complete.
+- **FR-046**: The workflow execution-visibility block MUST be expanded by
+  default while incomplete, collapsed by default when complete, and
+  user-expandable after completion.
+- **FR-047**: User-visible workflow steps in transcript-style assistant
+  responses MUST use product-facing labels instead of raw internal ids and MAY
+  show input context such as the active symbol as lighter secondary subtext
+  beneath the main step label.
+- **FR-048**: Completed workflow execution-visibility lists in assistant
+  responses MUST include a terminal `Done` row after the workflow steps.
+- **FR-049**: Transcript-style workflow response presentation MUST keep status
+  expansion, collapse, and answer rendering visually stable so the composer
+  stays pinned and the latest user message remains aligned to the top of the
+  transcript viewport while the answer unfolds below it.
 
 ## Key Entities
 
@@ -340,6 +375,7 @@ Acceptance scenarios:
 - Citation
 - Chart Artifact
 - Source Document
+- Workflow Stream Display State
 
 See `../system/state-model.md` for canonical entity definitions.
 
@@ -378,6 +414,10 @@ See `../system/state-model.md` for canonical entity definitions.
   answer deltas begin once the LLM-backed answer phase starts.
 - Blocking provider/library call in async path: reject the implementation unless
   it uses a bounded offload wrapper, timeout, and safe failure status.
+- Workflow step has no user-facing input context such as symbol or period:
+  display only the main step label and omit empty subtext.
+- Workflow execution has started but no visible steps are completed yet: keep
+  the summary label as `Working` without exposing placeholder internal ids.
 
 ## Assumptions
 
@@ -399,6 +439,9 @@ See `../system/state-model.md` for canonical entity definitions.
 - User-facing "reasoning" in Phase 02 means safe execution visibility such as
   workflow stages, tool activity summaries, and progress updates; it does not
   mean raw chain-of-thought or hidden internal reasoning.
+- This UI refinement keeps artifact cards and artifact-detail behavior unchanged
+  while updating only transcript-style workflow response presentation and
+  execution-visibility wording.
 
 ## Success Criteria
 
@@ -434,6 +477,12 @@ See `../system/state-model.md` for canonical entity definitions.
   successful streaming runs against supported streaming providers.
 - **SC-014**: Chatflow streams never expose raw reasoning and reconcile streamed
   output with the persisted final chatflow run.
+- **SC-015**: In transcript-style workflow responses, users can distinguish
+  their prompt from the assistant answer and scan execution visibility without a
+  full assistant message card or repeated role headers.
+- **SC-016**: For 100% of completed workflow-backed assistant responses, the
+  execution-visibility block auto-expands during active work, auto-collapses
+  after completion, and remains re-openable by the user.
 
 ## Out Of Scope
 

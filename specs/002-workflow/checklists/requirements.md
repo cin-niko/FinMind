@@ -49,3 +49,5 @@ adr_refs: []
   `001-mvp-ui`
 - [x] Reviewed TradingAgents and equity-research-vn for workflow ideas while
   keeping FinMind scope advice-only and provider-neutral
+- [x] Transcript-style workflow responses specify compact execution visibility
+  without exposing raw reasoning or shifting ownership of the overall app shell
