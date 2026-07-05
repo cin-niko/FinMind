@@ -14,7 +14,7 @@
     "src/finmind_agents/workflows/skills/vn-financial-data-auditor/SKILL.md",
     "src/finmind_agents/workflows/skills/vn-fundamental-analysis/SKILL.md"
   ],
-  "output_sections": ["Collected Data", "Fundamental Analysis"],
+  "output_sections": ["Fundamental Analysis"],
   "citation_policy": "material_claims_require_citations",
   "chart_requirements": ["price_series"],
   "step_sequence": ["collect_data", "vn-financial-data-auditor", "vn-fundamental-analysis"]

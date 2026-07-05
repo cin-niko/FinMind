@@ -21,6 +21,10 @@ class Settings:
     dataflow_provider_timeout_seconds: float = 15.0
     dataflow_allow_fallback: bool = True
     database_url: str = ""
+    stream_global_limit: int = 32
+    stream_per_user_limit: int = 4
+    sync_offload_limit: int = 8
+    stream_heartbeat_seconds: float = 5.0
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -71,6 +75,22 @@ class Settings:
             ).lower()
             not in {"0", "false", "no"},
             database_url=_env("FINMIND_DATABASE_URL", dotenv, "").strip(),
+            stream_global_limit=max(
+                1,
+                int(_env("FINMIND_STREAM_GLOBAL_LIMIT", dotenv, "32")),
+            ),
+            stream_per_user_limit=max(
+                1,
+                int(_env("FINMIND_STREAM_PER_USER_LIMIT", dotenv, "4")),
+            ),
+            sync_offload_limit=max(
+                1,
+                int(_env("FINMIND_SYNC_OFFLOAD_LIMIT", dotenv, "8")),
+            ),
+            stream_heartbeat_seconds=max(
+                0.0,
+                float(_env("FINMIND_STREAM_HEARTBEAT_SECONDS", dotenv, "5")),
+            ),
         )
 
 

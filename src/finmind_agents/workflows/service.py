@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from collections.abc import AsyncIterator
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,6 +10,13 @@ from finmind_agents.agents.models import (
 )
 from finmind_agents.artifacts import build_chart_artifact
 from finmind_agents.dataflows.service import DataflowService
+from finmind_agents.runtime.offload import run_sync
+from finmind_agents.runtime.service import AgentOrchestratorError
+from finmind_agents.streaming.models import (
+    StreamEvent,
+    StreamEventKind,
+    build_stream_event,
+)
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
     Citation,
@@ -37,6 +45,14 @@ COLLECT_STEP = "collect_data"
 
 
 @dataclass(frozen=True)
+class PreparedWorkflowRun:
+    workflow: WorkflowSpecification
+    run_inputs: dict[str, object]
+    validated_market: object
+    validated_symbol: str | None
+
+
+@dataclass(frozen=True)
 class WorkflowService:
     workflows: WorkflowRepository
     dataflows: DataflowService
@@ -62,12 +78,21 @@ class WorkflowService:
             for workflow in self.workflows.list()
         ]
 
-    def run_workflow(
+    async def stream_workflow(
         self,
         workflow_id: str,
         inputs: dict[str, object],
         requested_by: str,
-    ) -> dict[str, object]:
+    ) -> AsyncIterator[StreamEvent]:
+        prepared = self.prepare_workflow_run(workflow_id, inputs)
+        async for event in self._stream_workflow_events(prepared, requested_by):
+            yield event
+
+    def prepare_workflow_run(
+        self,
+        workflow_id: str,
+        inputs: dict[str, object],
+    ) -> PreparedWorkflowRun:
         workflow = self.workflows.get(workflow_id)
         if workflow is None:
             raise KeyError("Workflow not found")
@@ -75,8 +100,21 @@ class WorkflowService:
         run_inputs: dict[str, object] = {"market": validated_inputs.market.value}
         if validated_inputs.symbol:
             run_inputs["symbol"] = validated_inputs.symbol
+        return PreparedWorkflowRun(
+            workflow=workflow,
+            run_inputs=run_inputs,
+            validated_market=validated_inputs.market,
+            validated_symbol=validated_inputs.symbol,
+        )
 
+    async def _stream_workflow_events(
+        self,
+        prepared: PreparedWorkflowRun,
+        requested_by: str,
+    ) -> AsyncIterator[StreamEvent]:
         started_at = utc_now()
+        run_id = f"run_{uuid4().hex[:12]}"
+        sequence = 0
         steps: list[dict[str, object]] = []
         sections: list[dict[str, object]] = []
         grounding_blocked: list[str] = []
@@ -88,131 +126,276 @@ class WorkflowService:
         prior_outputs: dict[str, object] = {}
         used_citation_ids: set[str] = set()
 
-        for step_id in _ordered_steps(workflow):
-            if step_id == COLLECT_STEP:
-                collected = collect_workflow_data(
-                    workflow=workflow,
-                    dataflows=self.dataflows,
-                    market=validated_inputs.market,
-                    symbol=validated_inputs.symbol,
-                )
-                records = collected.records
-                records = _enrich_with_indicators(records, workflow)
-                citations = build_citations(records)
-                collection_output = collected.collection.to_output()
-                prior_outputs[COLLECT_STEP] = collection_output
-                steps.append(
-                    _step(
-                        step_id,
-                        "collect_data",
-                        collected.collection.status.value,
-                        list(collected.collection.warnings),
-                    )
-                )
-                continue
-
-            skill_id = step_id
-            skill_ref = skill_ref_for_id(workflow, skill_id)
-            skill_requirements = data_requirements_for_skill(workflow, skill_id)
-
-            skill_record_payloads = _skill_record_payloads(skill_id, records)
-            skill_citation_ids = tuple(
-                payload["citation_id"]
-                for payload in skill_record_payloads
-                if payload.get("citation_id")
+        def emit(
+            kind: StreamEventKind,
+            payload: dict[str, object],
+        ) -> StreamEvent:
+            nonlocal sequence
+            sequence += 1
+            return build_stream_event(
+                run_id=run_id,
+                sequence=sequence,
+                kind=kind,
+                payload=payload,
             )
-            agent_result = self.agent_orchestrator.run_skill(
-                AgentRunRequest(
-                    workflow_id=workflow.workflow_id,
+
+        yield emit(
+            StreamEventKind.RUN_STARTED,
+            {
+                "workflow_id": prepared.workflow.workflow_id,
+                "inputs": dict(prepared.run_inputs),
+            },
+        )
+
+        try:
+            for step_id in _ordered_steps(prepared.workflow):
+                step_kind = "collect_data" if step_id == COLLECT_STEP else "skill"
+                yield emit(
+                    StreamEventKind.RUN_STAGE,
+                    _stage_payload(
+                        prepared.workflow,
+                        step_id,
+                        step_kind,
+                        "running",
+                    ),
+                )
+                if step_id == COLLECT_STEP:
+                    collected = await run_sync(
+                        lambda: collect_workflow_data(
+                            workflow=prepared.workflow,
+                            dataflows=self.dataflows,
+                            market=prepared.validated_market,
+                            symbol=prepared.validated_symbol,
+                        )
+                    )
+                    records = collected.records
+                    records = _enrich_with_indicators(records, prepared.workflow)
+                    citations = build_citations(records)
+                    collection_output = collected.collection.to_output()
+                    prior_outputs[COLLECT_STEP] = collection_output
+                    steps.append(
+                        _step(
+                            step_id,
+                            "collect_data",
+                            collected.collection.status.value,
+                            list(collected.collection.warnings),
+                        )
+                    )
+                    yield emit(
+                        StreamEventKind.RUN_STAGE,
+                        _stage_payload(
+                            prepared.workflow,
+                            step_id,
+                            "collect_data",
+                            collected.collection.status.value,
+                            list(collected.collection.warnings),
+                        ),
+                    )
+                    continue
+
+                skill_id = step_id
+                skill_ref = skill_ref_for_id(prepared.workflow, skill_id)
+                skill_requirements = data_requirements_for_skill(prepared.workflow, skill_id)
+
+                skill_record_payloads = _skill_record_payloads(skill_id, records)
+                skill_citation_ids = tuple(
+                    payload["citation_id"]
+                    for payload in skill_record_payloads
+                    if payload.get("citation_id")
+                )
+                request = AgentRunRequest(
+                    workflow_id=prepared.workflow.workflow_id,
                     skill_id=skill_id,
                     skill_markdown=_skill_markdown(skill_ref),
                     data_requirements=skill_requirements,
                     context={
-                        "inputs": run_inputs,
+                        "inputs": prepared.run_inputs,
                         "collection": prior_outputs.get(COLLECT_STEP, {}),
                         "records": skill_record_payloads,
                         "prior_outputs": prior_outputs,
                     },
                     citation_ids=skill_citation_ids,
                 )
+                yield emit(
+                    StreamEventKind.RUN_STAGE,
+                    _stage_payload(
+                        prepared.workflow,
+                        skill_id,
+                        "skill",
+                        "running",
+                        [],
+                    ),
+                )
+                agent_result: AgentRunResult | None = None
+                stream_skill = getattr(self.agent_orchestrator, "stream_skill", None)
+                if not callable(stream_skill):
+                    raise AgentOrchestratorError(
+                        f"Agent orchestrator does not support streaming for {skill_id}"
+                    )
+                async for agent_event in stream_skill(request):
+                    if (
+                        agent_event.kind == "content_delta"
+                        and agent_event.text
+                        and _is_visible_output_step(prepared.workflow, skill_id)
+                    ):
+                        yield emit(
+                            StreamEventKind.ANSWER_DELTA,
+                            {
+                                "section_title": _visible_output_title(
+                                    prepared.workflow,
+                                    skill_id,
+                                ),
+                                "text": agent_event.text,
+                            },
+                        )
+                    if agent_event.kind == "result" and agent_event.result is not None:
+                        agent_result = agent_event.result
+                if agent_result is None:
+                    raise AgentOrchestratorError(
+                        f"Workflow agent stream completed without a final result for {skill_id}"
+                    )
+                used_citation_ids.update(skill_citation_ids)
+                uncited = uncited_citations(
+                    agent_result.citations,
+                    tuple(citation.citation_id for citation in citations),
+                )
+                grounding_uncited.extend(uncited)
+                grounding_blocked.extend(agent_result.blocked_claims)
+                if _is_visible_output_step(prepared.workflow, skill_id):
+                    sections.append(
+                        {
+                            "title": _visible_output_title(prepared.workflow, skill_id),
+                            "status": agent_result.status,
+                            "content": agent_result.content,
+                            "citations": list(agent_result.citations),
+                            "warnings": list(agent_result.warnings),
+                            "allowed_claims": list(agent_result.allowed_claims),
+                            "blocked_claims": list(agent_result.blocked_claims),
+                        }
+                    )
+                steps.append(
+                    _step(skill_id, "skill", agent_result.status, list(agent_result.warnings))
+                )
+                prior_outputs[skill_id] = agent_result.content
+                for citation_id in agent_result.citations:
+                    citation = next(
+                        (item for item in citations if item.citation_id == citation_id),
+                        None,
+                    )
+                    if citation is not None:
+                        yield emit(StreamEventKind.CITATION, _citation_payload(citation))
+                yield emit(
+                    StreamEventKind.RUN_STAGE,
+                    _stage_payload(
+                        prepared.workflow,
+                        skill_id,
+                        "skill",
+                        agent_result.status,
+                        list(agent_result.warnings),
+                    ),
+                )
+
+            chart_records = [
+                record for record in records if record.dataset_id.endswith("_prices")
+            ]
+            chart = (
+                build_chart_artifact(prepared.workflow.workflow_id, chart_records, list(citations))
+                if prepared.workflow.chart_requirements and chart_records
+                else None
             )
-            used_citation_ids.update(skill_citation_ids)
-            uncited = uncited_citations(
-                agent_result.citations,
-                tuple(citation.citation_id for citation in citations),
+
+            grounding = GroundingResult(
+                grounding_status=("blocked" if grounding_uncited else "pass"),
+                blocked_claims=tuple(grounding_blocked),
+                uncited_claims=tuple(grounding_uncited),
             )
-            grounding_uncited.extend(uncited)
-            grounding_blocked.extend(agent_result.blocked_claims)
-            sections.append(
+
+            if chart is not None:
+                yield emit(StreamEventKind.ARTIFACT, _chart_payload(chart))
+
+            run = ExecutionRun(
+                run_id=run_id,
+                kind="workflow",
+                status=_run_status(steps),
+                requested_by=requested_by,
+                inputs=prepared.run_inputs,
+                started_at=started_at,
+                completed_at=utc_now(),
+                output={
+                    "sections": sections,
+                    "steps": steps,
+                    "collection": prior_outputs.get(COLLECT_STEP, {}),
+                    "citations": [
+                        _citation_payload(citation)
+                        for citation in citations
+                        if citation.citation_id in used_citation_ids
+                    ],
+                    "artifacts": {
+                        "chart": _chart_payload(chart) if chart is not None else None,
+                    },
+                    "grounding": {
+                        "grounding_status": grounding.grounding_status,
+                        "blocked_claims": list(grounding.blocked_claims),
+                        "uncited_claims": list(grounding.uncited_claims),
+                    },
+                },
+                logs=[
+                    {
+                        "event": "workflow_started",
+                        "stage": prepared.workflow.stages[0]
+                        if prepared.workflow.stages
+                        else COLLECT_STEP,
+                    },
+                    *(
+                        [{"event": "artifact_created", "artifact_id": chart.artifact_id}]
+                        if chart is not None
+                        else []
+                    ),
+                    {"event": "workflow_completed", "status": _run_status(steps).value},
+                ],
+            )
+            self.runs.save(run)
+            serialized = serialize_run(run)
+            yield emit(
+                StreamEventKind.RUN_COMPLETED,
                 {
-                    "title": agent_result.section_title,
-                    "status": agent_result.status,
-                    "content": agent_result.content,
-                    "citations": list(agent_result.citations),
-                    "warnings": list(agent_result.warnings),
-                    "allowed_claims": list(agent_result.allowed_claims),
-                    "blocked_claims": list(agent_result.blocked_claims),
-                }
-            )
-            steps.append(
-                _step(skill_id, "skill", agent_result.status, list(agent_result.warnings))
-            )
-            prior_outputs[skill_id] = agent_result.content
-
-        chart_records = [
-            record for record in records if record.dataset_id.endswith("_prices")
-        ]
-        chart = (
-            build_chart_artifact(workflow.workflow_id, chart_records, list(citations))
-            if workflow.chart_requirements and chart_records
-            else None
-        )
-
-        grounding = GroundingResult(
-            grounding_status=(
-                "blocked" if grounding_uncited else "pass"
-            ),
-            blocked_claims=tuple(grounding_blocked),
-            uncited_claims=tuple(grounding_uncited),
-        )
-
-        run = ExecutionRun(
-            run_id=f"run_{uuid4().hex[:12]}",
-            kind="workflow",
-            status=_run_status(steps),
-            requested_by=requested_by,
-            inputs=run_inputs,
-            started_at=started_at,
-            completed_at=utc_now(),
-            output={
-                "sections": sections,
-                "steps": steps,
-                "collection": prior_outputs.get(COLLECT_STEP, {}),
-                "citations": [_citation_payload(citation) for citation in citations if citation.citation_id in used_citation_ids],
-                "artifacts": {
-                    "chart": _chart_payload(chart) if chart is not None else None,
+                    "status": run.status.value,
+                    "completed_steps": len(run.output["steps"]),
+                    "run": serialized,
                 },
-                "grounding": {
-                    "grounding_status": grounding.grounding_status,
-                    "blocked_claims": list(grounding.blocked_claims),
-                    "uncited_claims": list(grounding.uncited_claims),
+            )
+        except Exception as error:
+            partial_run = ExecutionRun(
+                run_id=run_id,
+                kind="workflow",
+                status=RunStatus.FAILED,
+                requested_by=requested_by,
+                inputs=prepared.run_inputs,
+                started_at=started_at,
+                completed_at=utc_now(),
+                output={
+                    "sections": sections,
+                    "steps": steps,
+                    "collection": prior_outputs.get(COLLECT_STEP, {}),
+                    "citations": [],
+                    "artifacts": {"chart": None},
+                    "grounding": {
+                        "grounding_status": "blocked",
+                        "blocked_claims": list(grounding_blocked),
+                        "uncited_claims": list(grounding_uncited),
+                    },
                 },
-            },
-            logs=[
+                logs=[{"event": "workflow_failed", "message": str(error)}],
+            )
+            self.runs.save(partial_run)
+            yield emit(
+                StreamEventKind.RUN_FAILED,
                 {
-                    "event": "workflow_started",
-                    "stage": workflow.stages[0] if workflow.stages else COLLECT_STEP,
+                    "status": partial_run.status.value,
+                    "message": str(error),
+                    "run": serialize_run(partial_run),
                 },
-                *(
-                    [{"event": "artifact_created", "artifact_id": chart.artifact_id}]
-                    if chart is not None
-                    else []
-                ),
-                {"event": "workflow_completed", "status": _run_status(steps).value},
-            ],
-        )
-        self.runs.save(run)
-        return serialize_run(run)
+            )
 
     def get_run(self, run_id: str) -> dict[str, object] | None:
         run = self.runs.get(run_id)
@@ -275,10 +458,51 @@ def _section_title_for_skill(
     return skill_id
 
 
+def _is_visible_output_step(
+    workflow: WorkflowSpecification,
+    step_id: str,
+) -> bool:
+    skill_steps = [step for step in _ordered_steps(workflow) if step != COLLECT_STEP]
+    return bool(skill_steps) and step_id == skill_steps[-1]
+
+
+def _visible_output_title(
+    workflow: WorkflowSpecification,
+    skill_id: str,
+) -> str:
+    if workflow.output_sections:
+        return workflow.output_sections[-1]
+    return _section_title_for_skill(workflow, skill_id)
+
+
 def _skill_markdown(skill_ref: str | None) -> str:
     if not skill_ref:
         return ""
     return Path(skill_ref).read_text(encoding="utf-8")
+
+
+def _stage_payload(
+    workflow: WorkflowSpecification,
+    stage_id: str,
+    stage_kind: str,
+    status: str,
+    warnings: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "stage": stage_id,
+        "title": _stage_title(workflow, stage_id),
+        "kind": stage_kind,
+        "status": status,
+        "warnings": list(warnings or []),
+    }
+
+
+def _stage_title(workflow: WorkflowSpecification, stage_id: str) -> str:
+    if stage_id == COLLECT_STEP:
+        return "Collect the data"
+    if stage_id.endswith("data-auditor"):
+        return "Audit data"
+    return _section_title_for_skill(workflow, stage_id)
 
 
 def _record_payload(record: CanonicalMarketDataRecord) -> dict[str, object]:

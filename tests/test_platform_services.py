@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+import asyncio
 import json
 from pathlib import Path
 import sys
@@ -40,18 +41,71 @@ def test_finmind_agent_runtime_policy_fails_closed_without_model(
 
 
 class FakeAgentOrchestrator:
-    def run_skill(self, request: object) -> object:
-        from finmind_agents.agents.models import AgentRunResult
+    async def stream_skill(self, request: object) -> object:
+        from finmind_agents.agents.models import AgentRunResult, AgentStreamEvent
 
-        return AgentRunResult(
-            status="success",
-            section_title="Collected Data",
-            content="Agent-collected VCB data package with evidence.",
-            citations=("citation_vn_prices_VCB-prices",),
-            allowed_claims=("data_availability",),
-            blocked_claims=(),
-            warnings=(),
+        yield AgentStreamEvent(
+            kind="content_delta",
+            text="Agent-collected VCB data package with evidence.",
         )
+        yield AgentStreamEvent(
+            kind="result",
+            result=AgentRunResult(
+                status="success",
+                section_title="Collected Data",
+                content="Agent-collected VCB data package with evidence.",
+                citations=("citation_vn_prices_VCB-prices",),
+                allowed_claims=("data_availability",),
+                blocked_claims=(),
+                warnings=(),
+            ),
+        )
+
+
+def _collect_sse_events(response: object) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    event_name = "message"
+    data_lines: list[str] = []
+    for raw_line in response.iter_lines():
+        line = raw_line if isinstance(raw_line, str) else raw_line.decode("utf-8")
+        if not line:
+            if data_lines:
+                payload = json.loads("\n".join(data_lines))
+                payload["_event"] = event_name
+                events.append(payload)
+            event_name = "message"
+            data_lines = []
+            continue
+        if line.startswith("event:"):
+            event_name = line.removeprefix("event:").strip()
+        elif line.startswith("data:"):
+            data_lines.append(line.removeprefix("data:").strip())
+    return events
+
+
+def _post_workflow_run(
+    client: TestClient,
+    workflow_id: str,
+    payload: dict[str, object],
+) -> tuple[object, dict[str, object] | None, list[dict[str, object]]]:
+    with client.stream(
+        "POST",
+        f"/api/workflows/{workflow_id}/runs",
+        json=payload,
+        headers={"Accept": "text/event-stream"},
+    ) as response:
+        events = _collect_sse_events(response)
+    final_output = next(
+        (event for event in events if event["kind"] == "run.completed"),
+        None,
+    )
+    return response, (
+        final_output["payload"]["run"] if final_output is not None else None
+    ), events
+
+
+def _failed_event_from_events(events: list[dict[str, object]]) -> dict[str, object]:
+    return next(event for event in events if event["kind"] == "run.failed")
 
 
 @pytest.fixture
@@ -99,13 +153,34 @@ def test_workflow_definitions_load_phase_02_catalog(
     ]
     fundamental = by_id["vn-fundamental-analysis"]
     assert fundamental["workflow_type"] == "composite"
-    assert fundamental["output_sections"] == [
-        "Collected Data",
-        "Fundamental Analysis",
-    ]
+    assert fundamental["output_sections"] == ["Fundamental Analysis"]
     technical = by_id["vn-technical-analysis"]
     assert technical["workflow_type"] == "atomic"
     assert technical["output_sections"] == ["Technical Analysis"]
+
+
+def test_workflow_catalog_entries_expose_required_metadata(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/workflows")
+
+    assert response.status_code == 200
+    for workflow in response.json():
+        assert workflow["title"]
+        assert workflow["description"]
+        assert workflow["market_scope"]
+        assert workflow["required_inputs"] == [
+            {"name": "market", "type": "string", "required": True},
+            {"name": "symbol", "type": "string", "required": True},
+        ]
+        assert workflow["stages"]
+        assert workflow["output_sections"]
+        assert workflow["requires_citations"] is True
+        assert isinstance(workflow["chart_requirements"], list)
+        serialized = json.dumps(workflow).lower()
+        assert "alpha_vantage" not in serialized
+        assert "vnstock" not in serialized
+        assert "sec_edgar" not in serialized
 
 
 def test_workflow_yaml_definitions_reference_existing_agent_skills() -> None:
@@ -301,13 +376,13 @@ def test_dataflow_service_passes_effective_groups_to_provider() -> None:
 def test_collector_workflow_uses_skill_data_requirements(
     client: TestClient,
 ) -> None:
-    response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    response, result, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
 
     assert response.status_code == 200
-    result = response.json()
     assert result["output"]["collection"]["requested_dataset_groups"] == [
         "market_price",
         "fundamental",
@@ -319,13 +394,13 @@ def test_collector_workflow_uses_skill_data_requirements(
 def test_workflow_uses_agent_skill_output(
     client: TestClient,
 ) -> None:
-    response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    response, result, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
 
     assert response.status_code == 200
-    result = response.json()
     collected = next(
         section
         for section in result["output"]["sections"]
@@ -342,13 +417,13 @@ def test_workflow_uses_agent_skill_output(
 def test_fundamental_analysis_workflow_runs_collector_audit_and_analysis_steps(
     client: TestClient,
 ) -> None:
-    response = client.post(
-        "/api/workflows/vn-fundamental-analysis/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    response, result, _events = _post_workflow_run(
+        client,
+        "vn-fundamental-analysis",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
 
     assert response.status_code == 200
-    result = response.json()
     steps = result["output"]["steps"]
     assert [step["id"] for step in steps] == [
         "collect_data",
@@ -366,18 +441,41 @@ def test_fundamental_analysis_workflow_runs_collector_audit_and_analysis_steps(
         "company_profile",
         "news",
     ]
+    assert [section["title"] for section in result["output"]["sections"]] == [
+        "Fundamental Analysis"
+    ]
+
+
+def test_internal_workflow_steps_do_not_become_user_visible_sections(
+    client: TestClient,
+) -> None:
+    response, result, events = _post_workflow_run(
+        client,
+        "vn-fundamental-analysis",
+        {"market": "VN_STOCK", "symbol": "VCB"},
+    )
+
+    assert response.status_code == 200
+    assert all(section["title"] != "Collected Data" for section in result["output"]["sections"])
+    assert all(
+        not (
+            event["kind"] == "answer.delta"
+            and event["payload"].get("section_title") == "Collected Data"
+        )
+        for event in events
+    )
 
 
 def test_technical_analysis_workflow_runs_collect_and_analysis_steps(
     client: TestClient,
 ) -> None:
-    response = client.post(
-        "/api/workflows/vn-technical-analysis/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    response, result, _events = _post_workflow_run(
+        client,
+        "vn-technical-analysis",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
 
     assert response.status_code == 200
-    result = response.json()
     steps = result["output"]["steps"]
     assert [step["id"] for step in steps] == [
         "collect_data",
@@ -389,7 +487,7 @@ def test_technical_analysis_workflow_runs_collect_and_analysis_steps(
     assert "market_price" in result["output"]["collection"]["requested_dataset_groups"]
 
 
-def test_agent_orchestrator_requires_litellm_chat_model(
+def test_agent_orchestrator_stream_skill_requires_litellm_chat_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from finmind_agents.agents.models import AgentRunRequest
@@ -399,8 +497,8 @@ def test_agent_orchestrator_requires_litellm_chat_model(
 
     orchestrator = AgentOrchestrator()
 
-    with pytest.raises(AgentOrchestratorError, match="LITELLM_CHAT_MODEL"):
-        orchestrator.run_skill(
+    async def consume() -> None:
+        async for _event in orchestrator.stream_skill(
             AgentRunRequest(
                 workflow_id="vn-financial-data-collector",
                 skill_id="vn-financial-data-collector",
@@ -409,7 +507,11 @@ def test_agent_orchestrator_requires_litellm_chat_model(
                 context={},
                 citation_ids=("citation_vn_prices_VCB-2026-06-18",),
             )
-        )
+        ):
+            pass
+
+    with pytest.raises(AgentOrchestratorError, match="LITELLM_CHAT_MODEL"):
+        asyncio.run(consume())
 
 
 def test_workflow_agent_orchestrator_is_langchain_native() -> None:
@@ -424,106 +526,7 @@ def test_workflow_agent_orchestrator_is_langchain_native() -> None:
     assert "Compatibility exports" in shim
 
 
-def test_agent_orchestrator_accepts_json_chat_response(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from finmind_agents.agents.models import AgentRunRequest
-    from finmind_agents.agents.orchestrator import AgentOrchestrator
-
-    class JsonDeepAgent:
-        def invoke(self, input: dict[str, object]) -> dict[str, object]:
-            assert input["messages"]
-            return {
-                "messages": [
-                    {
-                        "content": (
-                            '{"status":"success","section_title":"Collected Data",'
-                            '"content":"DXG data was collected with partial provider coverage.",'
-                            '"citations":["citation_vn_prices_DXG-2026-06-26"],'
-                            '"allowed_claims":["data_availability"],'
-                            '"blocked_claims":["valuation_context"],'
-                            '"warnings":["vnstock_finance_fetch_failed"]}'
-                        )
-                    }
-                ]
-            }
-
-    def fake_agent_factory(
-        model: str,
-        system_prompt: str,
-        skill_loader: object,
-        use_tools: bool,
-    ) -> JsonDeepAgent:
-        assert model == "command-r"
-        assert "guarded financial workflow agent" in system_prompt
-        assert callable(skill_loader)
-        assert skill_loader("vn-financial-data-collector") == "# Skill"
-        assert use_tools is False
-        return JsonDeepAgent()
-
-    monkeypatch.setenv("LITELLM_CHAT_MODEL", "command-r")
-
-    result = AgentOrchestrator(agent_factory=fake_agent_factory).run_skill(
-        AgentRunRequest(
-            workflow_id="vn-financial-data-collector",
-            skill_id="vn-financial-data-collector",
-            skill_markdown="# Skill",
-            data_requirements=(),
-            context={},
-            citation_ids=("citation_vn_prices_DXG-2026-06-26",),
-        )
-    )
-
-    assert result.status == "success"
-    assert result.section_title == "Collected Data"
-    assert result.citations == ("citation_vn_prices_DXG-2026-06-26",)
-
-
-def test_agent_orchestrator_coerces_structured_content_to_string(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from finmind_agents.agents.models import AgentRunRequest
-    from finmind_agents.agents.orchestrator import AgentOrchestrator
-
-    class StructuredContentDeepAgent:
-        def invoke(self, input: dict[str, object]) -> dict[str, object]:
-            return {
-                "messages": [
-                    {
-                        "content": (
-                            '{"status":"partial","section_title":"Collected Data",'
-                            '"content":{"market":"VN_STOCK","ticker":"DXG"},'
-                            '"citations":["citation_vn_prices_DXG-2026-06-26"],'
-                            '"allowed_claims":["data_availability"],'
-                            '"blocked_claims":["valuation_context"],'
-                            '"warnings":["vnstock_finance_fetch_failed"]}'
-                        )
-                    }
-                ]
-            }
-
-    monkeypatch.setenv("LITELLM_CHAT_MODEL", "command-r7b-12-2024")
-
-    result = AgentOrchestrator(
-        agent_factory=lambda model, system_prompt, skill_loader, use_tools: (
-            StructuredContentDeepAgent()
-        )
-    ).run_skill(
-        AgentRunRequest(
-            workflow_id="vn-financial-data-collector",
-            skill_id="vn-financial-data-collector",
-            skill_markdown="# Skill",
-            data_requirements=(),
-            context={},
-            citation_ids=("citation_vn_prices_DXG-2026-06-26",),
-        )
-    )
-
-    assert result.status == "partial"
-    assert '"ticker": "DXG"' in result.content
-
-
-def test_agent_orchestrator_reports_sanitized_provider_error(
+def test_agent_orchestrator_stream_skill_reports_sanitized_provider_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from finmind_agents.agents.models import AgentRunRequest
@@ -542,8 +545,10 @@ def test_agent_orchestrator_reports_sanitized_provider_error(
 
     monkeypatch.setenv("LITELLM_CHAT_MODEL", "qwen/qwen3.7-plus")
 
-    with pytest.raises(AgentOrchestratorError) as error:
-        AgentOrchestrator(agent_factory=failing_agent_factory).run_skill(
+    async def consume() -> None:
+        async for _event in AgentOrchestrator(
+            agent_factory=failing_agent_factory,
+        ).stream_skill(
             AgentRunRequest(
                 workflow_id="vn-financial-data-collector",
                 skill_id="vn-financial-data-collector",
@@ -552,13 +557,195 @@ def test_agent_orchestrator_reports_sanitized_provider_error(
                 context={},
                 citation_ids=("citation_vn_prices_DXG-2026-06-26",),
             )
-        )
+        ):
+            pass
+
+    with pytest.raises(AgentOrchestratorError) as error:
+        asyncio.run(consume())
 
     message = str(error.value)
     assert "RuntimeError" in message
     assert "You have no permission to access this resource" in message
     assert "secret-provider-key" not in message
     assert "api_key=<redacted>" in message
+
+
+def _fake_v3_chat_stream(deltas: tuple[str, ...]) -> object:
+    class _TextProjection:
+        def __aiter__(self) -> object:
+            async def _gen() -> object:
+                for delta in deltas:
+                    yield delta
+            return _gen()
+
+    class _ChatStream:
+        @property
+        def text(self) -> object:
+            return _TextProjection()
+
+    return _ChatStream()
+
+
+def _fake_v3_run_stream(chat_streams: list[object]) -> object:
+    class _RunStream:
+        async def __aenter__(self) -> object:
+            return self
+
+        async def __aexit__(self, *_exc: object) -> bool:
+            return False
+
+        @property
+        def messages(self) -> object:
+            async def _gen() -> object:
+                for chat_stream in chat_streams:
+                    yield chat_stream
+            return _gen()
+
+    return _RunStream()
+
+
+def _fake_streaming_agent_factory(chat_streams: list[object]):
+    class _StreamingAgent:
+        async def astream_events(
+            self,
+            input: object,
+            config: object | None = None,
+            *,
+            version: str = "v2",
+            **_kwargs: object,
+        ) -> object:
+            assert version == "v3"
+            return _fake_v3_run_stream(chat_streams)
+
+    def _factory(
+        _model: str,
+        _system_prompt: str,
+        _skill_loader: object,
+        _use_tools: bool,
+    ) -> object:
+        return _StreamingAgent()
+
+    return _factory
+
+
+def test_agent_orchestrator_stream_skill_emits_incremental_content_deltas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from finmind_agents.agents.models import AgentRunRequest
+    from finmind_agents.agents.orchestrator import AgentOrchestrator
+
+    class FakeMetadataModel:
+        async def ainvoke(self, messages: object) -> object:
+            assert messages
+            return SimpleNamespace(
+                content=(
+                    '{"status":"success",'
+                    '"citations":["citation_vn_prices_DXG-2026-06-26"],'
+                    '"allowed_claims":["data_availability"],'
+                    '"blocked_claims":[],"warnings":[]}'
+                )
+            )
+
+    monkeypatch.setenv("LITELLM_CHAT_MODEL", "gpt-4o-mini")
+    monkeypatch.setattr(
+        "finmind_agents.runtime.service.build_chat_model",
+        lambda settings: FakeMetadataModel(),
+    )
+
+    chat_streams = [
+        _fake_v3_chat_stream(("VCB momentum ", "remains constructive")),
+    ]
+    orchestrator = AgentOrchestrator(
+        agent_factory=_fake_streaming_agent_factory(chat_streams),
+    )
+
+    async def collect_events() -> list[object]:
+        events: list[object] = []
+        async for event in orchestrator.stream_skill(
+            AgentRunRequest(
+                workflow_id="vn-financial-data-collector",
+                skill_id="vn-financial-data-collector",
+                skill_markdown="# Skill",
+                data_requirements=(),
+                context={},
+                citation_ids=("citation_vn_prices_DXG-2026-06-26",),
+            )
+        ):
+            events.append(event)
+        return events
+
+    events = asyncio.run(collect_events())
+    content_deltas = [event.text for event in events if getattr(event, "kind", "") == "content_delta"]
+    result_event = next(event for event in events if getattr(event, "kind", "") == "result")
+
+    assert content_deltas
+    assert "".join(content_deltas) == "VCB momentum remains constructive"
+    assert result_event.result is not None
+    assert result_event.result.content == "VCB momentum remains constructive"
+
+
+def test_agent_orchestrator_stream_skill_fails_closed_without_async_stream_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from finmind_agents.agents.models import AgentRunRequest
+    from finmind_agents.agents.orchestrator import AgentOrchestrator
+    from finmind_agents.runtime.service import AgentOrchestratorError
+
+    class NonStreamingAgent:
+        async def astream_events(
+            self,
+            input: object,
+            config: object | None = None,
+            *,
+            version: str = "v2",
+            **_kwargs: object,
+        ) -> object:
+            raise NotImplementedError("model does not support event streaming")
+
+    monkeypatch.setenv("LITELLM_CHAT_MODEL", "gpt-4o-mini")
+
+    async def consume() -> None:
+        async for _event in AgentOrchestrator(
+            agent_factory=lambda *_a, **_k: NonStreamingAgent(),
+        ).stream_skill(
+            AgentRunRequest(
+                workflow_id="vn-financial-data-collector",
+                skill_id="vn-financial-data-collector",
+                skill_markdown="# Skill",
+                data_requirements=(),
+                context={},
+                citation_ids=("citation_vn_prices_DXG-2026-06-26",),
+            )
+        ):
+            pass
+
+    with pytest.raises(AgentOrchestratorError, match="event streaming"):
+        asyncio.run(consume())
+
+
+def test_run_sync_offloads_work_without_blocking_the_event_loop() -> None:
+    from time import sleep
+
+    from finmind_agents.runtime.offload import configure_sync_offload_limit, run_sync
+
+    configure_sync_offload_limit(1)
+
+    async def exercise() -> int:
+        ticks = 0
+
+        async def ticker() -> None:
+            nonlocal ticks
+            for _ in range(3):
+                await asyncio.sleep(0.01)
+                ticks += 1
+
+        await asyncio.gather(
+            run_sync(sleep, 0.05),
+            ticker(),
+        )
+        return ticks
+
+    assert asyncio.run(exercise()) == 3
 
 
 def test_dataflow_models_serialize_safe_provider_statuses() -> None:
@@ -934,13 +1121,13 @@ def test_vnstock_provider_registration_failure_does_not_leak_key(
 def test_workflow_run_returns_cited_chart_result(
     client: TestClient,
 ) -> None:
-    response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    response, result, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
 
     assert response.status_code == 200
-    result = response.json()
     assert result["kind"] == "workflow"
     assert result["status"] == "success"
     assert result["inputs"]["symbol"] == "VCB"
@@ -981,13 +1168,13 @@ def test_workflow_run_returns_cited_chart_result(
 def test_single_symbol_workflow_targets_requested_symbol(
     client: TestClient,
 ) -> None:
-    response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    response, result, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
 
     assert response.status_code == 200
-    result = response.json()
     section = next(
         item
         for item in result["output"]["sections"]
@@ -1007,7 +1194,7 @@ def test_invalid_workflow_input_does_not_create_successful_run(
     client: TestClient,
 ) -> None:
     response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
+        "/api/workflows/vn-financial-data-collector/runs",
         json={"market": "GOLD", "symbol": "SJC"},
     )
 
@@ -1023,7 +1210,6 @@ def test_invalid_workflow_input_does_not_create_successful_run(
         ({"market": "BTC", "symbol": "BTC"}, "supports VN stocks and US stocks only"),
         ({"market": "CRYPTO", "symbol": "ETH"}, "supports VN stocks and US stocks only"),
         ({"market": "VN_STOCK"}, "symbol is required"),
-        ({"market": "VN_STOCK", "symbol": "ZZZ"}, "Required market data is missing"),
     ],
 )
 def test_unsupported_or_missing_workflow_inputs_are_rejected(
@@ -1031,24 +1217,28 @@ def test_unsupported_or_missing_workflow_inputs_are_rejected(
     payload: dict[str, str],
     expected_detail: str,
 ) -> None:
-    response = client.post("/api/workflows/vn-financial-data-collector/run", json=payload)
+    response = client.post("/api/workflows/vn-financial-data-collector/runs", json=payload)
 
     assert response.status_code == 422
     assert expected_detail in response.json()["detail"]
 
 
-def test_failed_validation_does_not_create_successful_run(
+def test_missing_market_data_emits_failed_stream_event_and_failed_run(
     client: TestClient,
 ) -> None:
-    failed = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "ZZZ"},
+    response, run, events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "ZZZ"},
     )
     runs = client.get("/api/runs")
 
-    assert failed.status_code == 422
+    assert response.status_code == 200
     assert runs.status_code == 200
-    assert runs.json() == []
+    assert run is None
+    failed = _failed_event_from_events(events)
+    assert "Required market data is missing" in failed["payload"]["message"]
+    assert runs.json()[0]["status"] == "failed"
 
 
 def test_workflow_catalog_remains_provider_neutral(client: TestClient) -> None:
@@ -1072,10 +1262,7 @@ def test_unsupported_market_validation_stops_before_dataflow_calls(
 
     monkeypatch.setattr(DataflowService, "collect", fail_collect)
 
-    response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "GOLD", "symbol": "SJC"},
-    )
+    response = client.post("/api/workflows/vn-financial-data-collector/runs", json={"market": "GOLD", "symbol": "SJC"})
 
     assert response.status_code == 422
 
@@ -1090,11 +1277,11 @@ def test_unknown_run_returns_404(client: TestClient) -> None:
 def test_completed_workflow_run_can_be_reopened_from_history(
     client: TestClient,
 ) -> None:
-    run_response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    run_response, result, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
-    result = run_response.json()
 
     list_response = client.get("/api/runs")
     detail_response = client.get(f"/api/runs/{result['id']}")
@@ -1110,13 +1297,14 @@ def test_completed_workflow_run_can_be_reopened_from_history(
 
 
 def test_run_can_be_renamed_and_the_title_persists(client: TestClient) -> None:
-    run_response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    run_response, run, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
     assert run_response.status_code == 200
-    run_id = run_response.json()["id"]
-    assert run_response.json()["title"] is None
+    run_id = run["id"]
+    assert run["title"] is None
 
     rename_response = client.patch(
         f"/api/runs/{run_id}",
@@ -1136,11 +1324,12 @@ def test_run_can_be_renamed_and_the_title_persists(client: TestClient) -> None:
 
 
 def test_rename_run_rejects_empty_title(client: TestClient) -> None:
-    run_response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    _run_response, run, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
-    run_id = run_response.json()["id"]
+    run_id = run["id"]
 
     rename_response = client.patch(
         f"/api/runs/{run_id}",
@@ -1164,11 +1353,12 @@ def test_rename_run_returns_404_for_unknown_run(client: TestClient) -> None:
 def test_run_can_be_deleted_and_disappears_from_history(
     client: TestClient,
 ) -> None:
-    run_response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    _run_response, run, _events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
-    run_id = run_response.json()["id"]
+    run_id = run["id"]
 
     delete_response = client.delete(f"/api/runs/{run_id}")
 
@@ -1205,3 +1395,45 @@ def test_build_run_store_fails_closed_without_database_url(
 
     with pytest.raises(SettingsError, match="FINMIND_DATABASE_URL"):
         _real_build_run_store(settings)
+
+
+def test_with_heartbeats_emits_keepalive_when_idle_and_forwards_frames() -> None:
+    import asyncio as _asyncio
+
+    from finmind_api.streaming import HEARTBEAT_FRAME, with_heartbeats
+
+    async def frame_source():
+        yield b"event: run.stage\ndata: {\"kind\":\"run.stage\"}\n\n"
+        await _asyncio.sleep(0.05)
+        yield b"event: answer.delta\ndata: {\"kind\":\"answer.delta\"}\n\n"
+
+    async def collect() -> list[bytes]:
+        frames: list[bytes] = []
+        async for frame in with_heartbeats(frame_source(), interval=0.01):
+            frames.append(frame)
+        return frames
+
+    frames = _asyncio.run(collect())
+    assert frames[0] == b"event: run.stage\ndata: {\"kind\":\"run.stage\"}\n\n"
+    assert HEARTBEAT_FRAME in frames
+    assert frames[-1] == b"event: answer.delta\ndata: {\"kind\":\"answer.delta\"}\n\n"
+
+
+def test_with_heartbeats_disabled_when_interval_is_zero() -> None:
+    import asyncio as _asyncio
+
+    from finmind_api.streaming import HEARTBEAT_FRAME, with_heartbeats
+
+    async def frame_source():
+        yield b"a\n\n"
+        yield b"b\n\n"
+
+    async def collect() -> list[bytes]:
+        frames: list[bytes] = []
+        async for frame in with_heartbeats(frame_source(), interval=0):
+            frames.append(frame)
+        return frames
+
+    frames = _asyncio.run(collect())
+    assert frames == [b"a\n\n", b"b\n\n"]
+    assert HEARTBEAT_FRAME not in frames

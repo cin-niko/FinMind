@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from typing import Protocol, Literal
 
 from pydantic import BaseModel, Field
@@ -24,5 +25,22 @@ class AgentRunResult(BaseModel):
     warnings: tuple[str, ...] = ()
 
 
+class AgentMetadataResult(BaseModel):
+    status: Literal["success", "partial", "failed"]
+    citations: tuple[str, ...] = ()
+    allowed_claims: tuple[str, ...] = ()
+    blocked_claims: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+
+
+class AgentStreamEvent(BaseModel):
+    kind: Literal["content_delta", "result"]
+    text: str = ""
+    result: AgentRunResult | None = None
+
+
 class AgentOrchestratorProtocol(Protocol):
-    def run_skill(self, request: AgentRunRequest) -> AgentRunResult: ...
+    def stream_skill(
+        self,
+        request: AgentRunRequest,
+    ) -> AsyncIterator[AgentStreamEvent]: ...

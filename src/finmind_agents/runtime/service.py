@@ -1,15 +1,30 @@
 import json
 import re
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Protocol
 
 from finmind_agents.runtime.bootstrap import AgentModelSettings, build_chat_model
 from finmind_agents.runtime.models import AgentRuntimePolicy, RuntimeMode
 
-from finmind_agents.agents.models import AgentRunRequest, AgentRunResult
-from finmind_agents.agents.prompts import SYSTEM_PROMPT, build_skill_user_prompt
-from finmind_agents.agents.validators import AgentValidationError, validate_agent_result
+from finmind_agents.agents.models import (
+    AgentMetadataResult,
+    AgentRunRequest,
+    AgentRunResult,
+    AgentStreamEvent,
+)
+from finmind_agents.agents.prompts import (
+    ANSWER_STREAM_SYSTEM_PROMPT,
+    METADATA_SYSTEM_PROMPT,
+    build_skill_answer_prompt,
+    build_skill_metadata_prompt,
+)
+from finmind_agents.agents.validators import (
+    AgentValidationError,
+    validate_agent_content,
+    validate_agent_metadata,
+    validate_agent_result,
+)
 
 
 class RuntimeConfigurationError(RuntimeError):
@@ -53,7 +68,7 @@ class AgentOrchestrator:
     settings: AgentModelSettings | None = None
     agent_factory: DeepAgentFactory | None = None
 
-    def run_skill(self, request: AgentRunRequest) -> AgentRunResult:
+    async def stream_skill(self, request: AgentRunRequest) -> AsyncIterator[AgentStreamEvent]:
         settings = self.settings or AgentModelSettings.from_env()
         runtime = FinMindAgentRuntime(
             model_settings=settings,
@@ -70,26 +85,62 @@ class AgentOrchestrator:
             )
 
         factory = self.agent_factory or build_deep_agent
+        skill_loader: Callable[[str], str] = lambda skill_id: (
+            request.skill_markdown
+            if skill_id == request.skill_id
+            else f"Unknown skill: {skill_id}"
+        )
+
+        answer_parts: list[str] = []
         try:
             agent = factory(
                 settings.model,
-                SYSTEM_PROMPT,
-                lambda skill_id: request.skill_markdown
-                if skill_id == request.skill_id
-                else f"Unknown skill: {skill_id}",
+                ANSWER_STREAM_SYSTEM_PROMPT,
+                skill_loader,
                 _supports_agent_tools(settings.model),
             )
-            response = agent.invoke(
+            run_stream = await agent.astream_events(
                 {
                     "messages": [
-                        {
-                            "role": "user",
-                            "content": build_skill_user_prompt(request),
-                        }
+                        {"role": "user", "content": build_skill_answer_prompt(request)}
                     ]
-                }
+                },
+                version="v3",
             )
-            result = _agent_result_from_content(_content_from_agent_response(response))
+            async with run_stream as run:
+                async for chat_stream in run.messages:
+                    async for delta in chat_stream.text:
+                        if delta:
+                            answer_parts.append(delta)
+                            yield AgentStreamEvent(
+                                kind="content_delta",
+                                text=delta,
+                            )
+        except Exception as error:
+            if isinstance(error, AgentOrchestratorError):
+                raise
+            raise AgentOrchestratorError(
+                "Workflow agent skill execution failed: "
+                f"{type(error).__name__}: {_safe_error_summary(error)}"
+            ) from error
+
+        answer_text = "".join(answer_parts).strip()
+        if not answer_text:
+            raise AgentOrchestratorError("Workflow agent returned empty content")
+        validate_agent_content(answer_text)
+
+        model = build_chat_model(settings)
+        try:
+            metadata = await _collect_streamed_metadata(model, request, answer_text)
+            result = AgentRunResult(
+                status=metadata.status,
+                section_title=request.skill_id,
+                content=answer_text,
+                citations=metadata.citations,
+                allowed_claims=metadata.allowed_claims,
+                blocked_claims=metadata.blocked_claims,
+                warnings=metadata.warnings,
+            )
             validate_agent_result(result, request.citation_ids)
         except AgentValidationError as error:
             raise AgentOrchestratorError(str(error)) from error
@@ -100,7 +151,8 @@ class AgentOrchestrator:
                 "Workflow agent skill execution failed: "
                 f"{type(error).__name__}: {_safe_error_summary(error)}"
             ) from error
-        return result
+
+        yield AgentStreamEvent(kind="result", result=result)
 
 
 def build_deep_agent(
@@ -175,23 +227,6 @@ def _message_content(message: object) -> str | None:
     return None
 
 
-def _agent_result_from_content(content: str | None) -> AgentRunResult:
-    if not content:
-        raise AgentOrchestratorError("Workflow agent returned empty content")
-    try:
-        payload = json.loads(_extract_json_object(content))
-        if isinstance(payload, dict) and not isinstance(payload.get("content"), str):
-            payload["content"] = json.dumps(
-                payload.get("content"),
-                ensure_ascii=True,
-                indent=2,
-                default=str,
-            )
-        return AgentRunResult.model_validate(payload)
-    except (ValueError, json.JSONDecodeError) as error:
-        raise AgentOrchestratorError("Workflow agent returned invalid JSON") from error
-
-
 def _extract_json_object(content: str) -> str:
     stripped = content.strip()
     if stripped.startswith("{") and stripped.endswith("}"):
@@ -201,6 +236,39 @@ def _extract_json_object(content: str) -> str:
     if start == -1 or end == -1 or end <= start:
         raise ValueError("No JSON object found")
     return stripped[start : end + 1]
+
+
+async def _collect_streamed_metadata(
+    model: object,
+    request: AgentRunRequest,
+    answer_text: str,
+) -> AgentMetadataResult:
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    ainvoke = getattr(model, "ainvoke", None)
+    if not callable(ainvoke):
+        raise AgentOrchestratorError(
+            "Workflow agent skill execution failed: model does not support async metadata finalization"
+        )
+    response = await ainvoke(
+        [
+            SystemMessage(content=METADATA_SYSTEM_PROMPT),
+            HumanMessage(content=build_skill_metadata_prompt(request, answer_text)),
+        ]
+    )
+    metadata = _agent_metadata_from_content(_content_from_agent_response(response))
+    validate_agent_metadata(metadata, request.citation_ids)
+    return metadata
+
+
+def _agent_metadata_from_content(content: str | None) -> AgentMetadataResult:
+    if not content:
+        raise AgentOrchestratorError("Workflow agent returned empty metadata")
+    try:
+        payload = json.loads(_extract_json_object(content))
+        return AgentMetadataResult.model_validate(payload)
+    except (ValueError, json.JSONDecodeError) as error:
+        raise AgentOrchestratorError("Workflow agent returned invalid metadata JSON") from error
 
 
 def _safe_error_summary(error: Exception) -> str:

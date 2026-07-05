@@ -8,6 +8,8 @@ Dockerfile*
 .uv-cache
 .npm-cache
 node_modules/
+dist/
+build/
 **/__pycache__
 **/*.py[cod]
 *.log*
@@ -15,5 +17,5 @@ coverage/
 .env
 .env.*
 !.env.example
-src/ui/node_modules
-src/ui/dist
+src/finmind_ui/node_modules
+src/finmind_ui/dist

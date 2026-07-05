@@ -1,9 +1,12 @@
+import json
 from collections.abc import Iterator
 from pathlib import Path
+import asyncio
 
 import pytest
 from fastapi.testclient import TestClient
 
+from finmind_agents.agents.models import AgentStreamEvent
 from finmind_api.app import create_app
 from finmind_api.settings import Settings, SettingsError
 
@@ -16,18 +19,68 @@ def admin_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class FakeAgentOrchestrator:
-    def run_skill(self, request: object) -> object:
+    def _result(self, request: object) -> object:
         from finmind_agents.agents.models import AgentRunResult
 
         return AgentRunResult(
             status="success",
             section_title="Collected Data",
-            content="Agent-collected VCB data package with evidence.",
+            content="VCB momentum remains constructive on available data.",
             citations=("citation_vn_prices_VCB-prices",),
             allowed_claims=("data_availability",),
             blocked_claims=(),
             warnings=(),
         )
+
+    async def stream_skill(self, request: object) -> object:
+        yield AgentStreamEvent(kind="content_delta", text="VCB momentum remains ")
+        yield AgentStreamEvent(kind="content_delta", text="constructive on available data.")
+        yield AgentStreamEvent(kind="result", result=self._result(request))
+
+
+def _collect_sse_events(response: object) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    event_name = "message"
+    data_lines: list[str] = []
+    for raw_line in response.iter_lines():
+        line = raw_line if isinstance(raw_line, str) else raw_line.decode("utf-8")
+        if not line:
+            if data_lines:
+                payload = json.loads("\n".join(data_lines))
+                payload["_event"] = event_name
+                events.append(payload)
+            event_name = "message"
+            data_lines = []
+            continue
+        if line.startswith("event:"):
+            event_name = line.removeprefix("event:").strip()
+        elif line.startswith("data:"):
+            data_lines.append(line.removeprefix("data:").strip())
+    return events
+
+
+def _post_workflow_run(
+    client: TestClient,
+    workflow_id: str,
+    payload: dict[str, object],
+) -> tuple[object, list[dict[str, object]]]:
+    with client.stream(
+        "POST",
+        f"/api/workflows/{workflow_id}/runs",
+        json=payload,
+        headers={"Accept": "text/event-stream"},
+    ) as response:
+        events = _collect_sse_events(response)
+    return response, events
+
+
+def _final_run_from_events(events: list[dict[str, object]]) -> dict[str, object]:
+    final_event = next(event for event in events if event["kind"] == "run.completed")
+    return final_event["payload"]["run"]
+
+
+def _failed_event_from_events(events: list[dict[str, object]]) -> dict[str, object]:
+    return next(event for event in events if event["kind"] == "run.failed")
 
 
 @pytest.fixture
@@ -112,7 +165,7 @@ def test_protected_workflow_routes_require_login(client: TestClient) -> None:
     workflows_response = client.get("/api/workflows")
     runs_response = client.get("/api/runs")
     run_response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
+        "/api/workflows/vn-financial-data-collector/runs",
         json={"market": "VN_STOCK", "symbol": "VCB"},
     )
 
@@ -132,11 +185,11 @@ def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
     assert login_response.status_code == 200
 
     unsupported_market = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
+        "/api/workflows/vn-financial-data-collector/runs",
         json={"market": "BTC", "symbol": "BTC"},
     )
     missing_symbol = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
+        "/api/workflows/vn-financial-data-collector/runs",
         json={"market": "VN_STOCK"},
     )
 
@@ -160,13 +213,14 @@ def test_workflow_agent_runtime_error_returns_service_unavailable(
         )
         assert login_response.status_code == 200
 
-        response = test_client.post(
-            "/api/workflows/vn-financial-data-collector/run",
-            json={"market": "VN_STOCK", "symbol": "VCB"},
+        response, events = _post_workflow_run(
+            test_client,
+            "vn-financial-data-collector",
+            {"market": "VN_STOCK", "symbol": "VCB"},
         )
 
-    assert response.status_code == 503
-    assert "LITELLM_CHAT_MODEL is required" in response.json()["detail"]
+    assert response.status_code == 200
+    assert "LITELLM_CHAT_MODEL is required" in _failed_event_from_events(events)["payload"]["message"]
 
 
 def test_workflow_run_exposes_safe_agent_metadata(client: TestClient) -> None:
@@ -176,18 +230,125 @@ def test_workflow_run_exposes_safe_agent_metadata(client: TestClient) -> None:
     )
     assert login_response.status_code == 200
 
-    response = client.post(
-        "/api/workflows/vn-financial-data-collector/run",
-        json={"market": "VN_STOCK", "symbol": "VCB"},
+    response, events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
     )
-
     assert response.status_code == 200
-    output = response.json()["output"]
+    output = _final_run_from_events(events)["output"]
     assert output["steps"]
     assert any(step["id"] == "collect_data" for step in output["steps"])
     assert any(step["kind"] == "skill" for step in output["steps"])
     assert "reasoning" not in str(output).lower()
     assert "secret" not in str(output).lower()
+
+
+def test_workflow_run_streams_safe_sse_events_and_persists_final_run(
+    client: TestClient,
+) -> None:
+    login_response = client.post(
+        "/api/login",
+        json={"username": "analyst", "password": "secret-pass"},
+    )
+    assert login_response.status_code == 200
+
+    response, events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert [event["kind"] for event in events[:3]] == [
+        "run.started",
+        "run.stage",
+        "run.stage",
+    ]
+    assert any(event["kind"] == "answer.delta" for event in events)
+    assert any(event["kind"] == "run.completed" for event in events)
+    assert events[-1]["kind"] == "run.completed"
+
+    final_run = _final_run_from_events(events)
+    run_response = client.get(f"/api/runs/{final_run['id']}")
+
+    assert run_response.status_code == 200
+    assert run_response.json() == final_run
+
+
+def test_workflow_run_emits_run_stage_before_answer_delta(
+    admin_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
+    monkeypatch.setattr(
+        "finmind_api.platform.build_default_agent_orchestrator",
+        lambda: FakeAgentOrchestrator(),
+    )
+    app = create_app()
+    with TestClient(app) as test_client:
+        login_response = test_client.post(
+            "/api/login",
+            json={"username": "analyst", "password": "secret-pass"},
+        )
+        assert login_response.status_code == 200
+
+        response, events = _post_workflow_run(
+            test_client,
+            "vn-financial-data-collector",
+            {"market": "VN_STOCK", "symbol": "VCB"},
+        )
+
+    answer_delta_indexes = [
+        index for index, event in enumerate(events) if event["kind"] == "answer.delta"
+    ]
+    first_stage_index = next(
+        index for index, event in enumerate(events) if event["kind"] == "run.stage"
+    )
+    assert response.status_code == 200
+    assert len(answer_delta_indexes) >= 2
+    assert all(first_stage_index < index for index in answer_delta_indexes)
+    assert "".join(events[index]["payload"]["text"] for index in answer_delta_indexes)
+
+    skill_running_index = next(
+        index
+        for index, event in enumerate(events)
+        if event["kind"] == "run.stage"
+        and event["payload"].get("stage") == "vn-financial-data-auditor"
+        and event["payload"].get("status") == "running"
+    )
+    assert skill_running_index < answer_delta_indexes[0]
+
+
+def test_workflow_run_returns_429_when_per_user_stream_limit_is_reached(
+    admin_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
+    monkeypatch.setenv("FINMIND_STREAM_PER_USER_LIMIT", "1")
+    monkeypatch.setattr(
+        "finmind_api.platform.build_default_agent_orchestrator",
+        lambda: FakeAgentOrchestrator(),
+    )
+    app = create_app()
+    with TestClient(app) as test_client:
+        login_response = test_client.post(
+            "/api/login",
+            json={"username": "analyst", "password": "secret-pass"},
+        )
+        assert login_response.status_code == 200
+        lease = asyncio.run(app.state.stream_limiter.acquire("analyst"))
+        assert lease is not None
+        response = test_client.post(
+            "/api/workflows/vn-financial-data-collector/runs",
+            json={"market": "VN_STOCK", "symbol": "VCB"},
+            headers={"Accept": "text/event-stream"},
+        )
+        asyncio.run(app.state.stream_limiter.release(lease))
+
+    assert response.status_code == 429
+    assert response.json()["detail"]["error"]["code"] == "concurrency_limit_exceeded"
 
 
 def test_admin_can_login_check_session_and_logout(client: TestClient) -> None:

@@ -28,16 +28,28 @@ def build_chat_model(settings: AgentModelSettings) -> Any:
     if not settings.model:
         raise ValueError("LITELLM_CHAT_MODEL is required")
 
-    from langchain_litellm import ChatLiteLLM
-
-    provider_kwargs = {}
+    # OpenAI-compatible endpoints (LITELLM_API_BASE set) use langchain-openai
+    # directly. langchain-litellm was found to buffer the streamed completion
+    # into a single chunk for these endpoints, defeating token streaming;
+    # ChatOpenAI forwards per-SSE deltas. Provider-routed models without an
+    # explicit api_base (e.g. gemini/..., cohere/...) still go through
+    # langchain-litellm.
     if settings.api_base:
-        provider_kwargs["custom_llm_provider"] = "openai"
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(
+            model=settings.model,
+            api_key=settings.api_key or None,
+            base_url=settings.api_base,
+            streaming=True,
+            temperature=settings.temperature,
+        )
+
+    from langchain_litellm import ChatLiteLLM
 
     return ChatLiteLLM(
         model=settings.model,
         api_key=settings.api_key or None,
         api_base=settings.api_base or None,
         temperature=settings.temperature,
-        **provider_kwargs,
     )
