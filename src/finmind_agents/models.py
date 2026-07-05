@@ -21,15 +21,6 @@ class WorkflowType(StrEnum):
     COMPOSITE = "composite"
 
 
-class WorkflowStepStatus(StrEnum):
-    QUEUED = "queued"
-    RUNNING = "running"
-    SUCCESS = "success"
-    PARTIAL = "partial"
-    FAILED = "failed"
-    UNAVAILABLE = "unavailable"
-
-
 @dataclass(frozen=True)
 class AdminUser:
     username: str
@@ -43,16 +34,6 @@ class Session:
     role: str
     created_at: datetime
     expires_at: datetime
-
-
-@dataclass(frozen=True)
-class MarketInstrument:
-    instrument_id: str
-    symbol: str
-    market: Market
-    display_name: str
-    currency: str
-    status: str = "active"
 
 
 @dataclass(frozen=True)
@@ -110,17 +91,6 @@ class AgentSkill:
     output_contract: str
     citation_policy: str
     safety_rules: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class WorkflowStep:
-    step_id: str
-    title: str
-    kind: str
-    status: WorkflowStepStatus
-    blocking_issues: tuple[str, ...] = ()
-    warnings: tuple[str, ...] = ()
-    output_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

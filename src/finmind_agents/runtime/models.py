@@ -16,13 +16,6 @@ class RuntimeFailureBehavior(StrEnum):
 
 
 @dataclass(frozen=True)
-class RuntimeTool:
-    tool_id: str
-    description: str
-    side_effect_profile: str = "read_only"
-
-
-@dataclass(frozen=True)
 class AgentRuntimePolicy:
     policy_id: str
     mode: RuntimeMode

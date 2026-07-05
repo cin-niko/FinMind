@@ -50,8 +50,6 @@ class FinMindAgentRuntime:
     model_settings: AgentModelSettings
     policy: AgentRuntimePolicy
 
-    runtime_adapter: str = "langchain_litellm"
-
     def ensure_configured(self, mode: RuntimeMode) -> None:
         if mode != self.policy.mode:
             raise RuntimeConfigurationError(

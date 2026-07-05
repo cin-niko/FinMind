@@ -5,7 +5,6 @@ from finmind_agents.runtime.models import (
     AgentRuntimePolicy,
     RuntimeFailureBehavior,
     RuntimeMode,
-    RuntimeTool,
 )
 from finmind_agents.runtime.service import FinMindAgentRuntime, RuntimeConfigurationError
 
@@ -16,7 +15,6 @@ __all__ = [
     "RuntimeConfigurationError",
     "RuntimeFailureBehavior",
     "RuntimeMode",
-    "RuntimeTool",
     "build_chat_model",
 ]
 

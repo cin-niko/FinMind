@@ -1,6 +1,6 @@
 import { EmptyState } from "../../components/layout";
 import type { WorkflowRun } from "../../api/client";
-import { MarketChart } from "../charts/MarketChart";
+import { MarketChart } from "../../features/charts/MarketChart";
 import { Markdown } from "../../components/Markdown";
 
 export function ResultView({ run }: { run: WorkflowRun | null }) {
