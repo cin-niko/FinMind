@@ -40,7 +40,7 @@ class DeepAgent(Protocol):
 
 
 type DeepAgentFactory = Callable[
-    [str, str, Callable[[str], str], bool],
+    [AgentModelSettings, str, Callable[[str], str], bool],
     DeepAgent,
 ]
 
@@ -92,7 +92,7 @@ class AgentOrchestrator:
         answer_parts: list[str] = []
         try:
             agent = factory(
-                settings.model,
+                settings,
                 ANSWER_STREAM_SYSTEM_PROMPT,
                 skill_loader,
                 _supports_agent_tools(settings.model),
@@ -154,14 +154,13 @@ class AgentOrchestrator:
 
 
 def build_deep_agent(
-    model: str,
+    settings: AgentModelSettings,
     system_prompt: str,
     skill_loader: Callable[[str], str],
     use_tools: bool,
 ) -> DeepAgent:
     from deepagents import create_deep_agent
 
-    env_settings = AgentModelSettings.from_env()
     tools = []
     if use_tools:
         from langchain_core.tools import tool
@@ -174,13 +173,7 @@ def build_deep_agent(
         tools.append(load_skill)
 
     return create_deep_agent(
-        model=build_chat_model(
-            AgentModelSettings(
-                model=model,
-                api_key=env_settings.api_key,
-                api_base=env_settings.api_base,
-            )
-        ),
+        model=build_chat_model(settings),
         tools=tools,
         system_prompt=system_prompt,
     )
