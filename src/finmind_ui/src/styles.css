@@ -768,6 +768,7 @@ button:focus-visible {
 .chatMessage {
   display: grid;
   gap: 10px;
+  min-width: 0;
   padding: 14px 16px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
@@ -1334,9 +1335,20 @@ th {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.55;
+}
+
+/* Flex children default to min-width: auto, which lets a wide <pre>/<table>/
+   long URL expand the column and force horizontal scroll. Let them shrink and
+   wrap so content breaks vertically inside the message bubble. */
+.markdown > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .markdown h1,
@@ -1388,6 +1400,7 @@ th {
 
 .markdown .mdCode {
   margin: 0;
+  max-width: 100%;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
@@ -1411,6 +1424,7 @@ th {
 }
 
 .markdown .mdTableWrap {
+  max-width: 100%;
   overflow-x: auto;
 }
 
