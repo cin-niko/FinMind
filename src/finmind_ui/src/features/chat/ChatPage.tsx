@@ -82,12 +82,32 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact }: Props) {
                 }}
               >
                 <div className="messageRole">{message.role === "user" ? "You" : "FinMind"}</div>
+                {message.streamState ? (
+                  <details className="workflowProgress" open={!message.streamState.complete}>
+                    <summary>
+                      <span>{message.streamState.label}</span>
+                      <small>{message.streamState.steps.length ? `${message.streamState.steps.length} step(s)` : "Starting..."}</small>
+                    </summary>
+                    <ul className="workflowProgressList">
+                      {message.streamState.steps.map((step) => (
+                        <li className={`workflowProgressItem ${step.status}`} key={step.id}>
+                          <span>{step.title}</span>
+                          <small>{step.status.replace(/_/g, " ")}</small>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
                 {message.blocks.map((block, index) =>
                   block.kind === "text" ? (
                     message.pending ? (
                       <div className="pendingMessage" key={`${message.id}-text-${index}`}>
                         <span className="typingDots"><span></span><span></span><span></span></span>
-                        {block.content}
+                        {message.streamState?.answer ? (
+                          <Markdown content={message.streamState.answer} />
+                        ) : (
+                          "Waiting for answer..."
+                        )}
                       </div>
                     ) : message.workflowRun ? (
                       <Markdown content={block.content} key={`${message.id}-text-${index}`} />

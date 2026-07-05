@@ -1016,9 +1016,9 @@ button:focus-visible {
 
 .workflowCard {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   align-content: start;
-  min-height: 132px;
+  min-height: 260px;
   padding: 14px;
 }
 
@@ -1030,6 +1030,33 @@ button:focus-visible {
 .workflowCard h2 {
   margin: 0;
   font-size: 17px;
+}
+
+.workflowMeta {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  color: #4f4a42;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.workflowMeta div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.workflowMeta dt {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.workflowMeta dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .workflowDialogOverlay {
@@ -1418,16 +1445,81 @@ th {
 
 
 .pendingMessage {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 10px;
   color: var(--text-secondary);
   font-size: 14px;
 }
 
+.pendingMessage .markdown {
+  color: var(--text-primary);
+}
+
 .typingDots {
   display: inline-flex;
   gap: 4px;
+}
+
+.workflowProgress {
+  margin: 0 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.workflowProgress summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  list-style: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.workflowProgress summary::-webkit-details-marker {
+  display: none;
+}
+
+.workflowProgress summary small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.workflowProgressList {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 12px 12px;
+  list-style: none;
+}
+
+.workflowProgressItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.workflowProgressItem.success,
+.workflowProgressItem.partial {
+  color: var(--text-primary);
+}
+
+.workflowProgressItem.failed {
+  color: var(--danger);
+}
+
+.workflowProgressItem.running small {
+  color: var(--accent-teal);
 }
 
 .typingDots span {

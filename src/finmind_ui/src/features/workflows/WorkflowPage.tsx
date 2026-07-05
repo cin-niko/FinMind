@@ -92,8 +92,7 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
               <X size={16} />
             </button>
             <div className="workflowDialogBody">
-              <h2 id="workflow-dialog-title">{selected.title}</h2>
-              <p>{selected.description}</p>
+              <WorkflowSummary workflow={selected} titleId="workflow-dialog-title" />
             </div>
             {error ? <ErrorAlert message={error} /> : null}
             <div className="workflowRunOptions">
@@ -144,11 +143,49 @@ function WorkflowCard({
   workflow: Workflow;
   onSelect: () => void;
 }) {
-  const summary = summarizeWorkflow(workflow);
   return (
     <button className="workflowCard" onClick={onSelect} type="button">
-      <h2>{summary.title}</h2>
-      <p>{summary.description}</p>
+      <WorkflowSummary workflow={workflow} />
     </button>
+  );
+}
+
+function WorkflowSummary({
+  workflow,
+  titleId,
+}: {
+  workflow: Workflow;
+  titleId?: string;
+}) {
+  const summary = summarizeWorkflow(workflow);
+  return (
+    <>
+      <h2 id={titleId}>{summary.title}</h2>
+      <p>{summary.description}</p>
+      <dl className="workflowMeta">
+        <div>
+          <dt>Markets</dt>
+          <dd>{summary.markets.join(", ")}</dd>
+        </div>
+        <div>
+          <dt>Inputs</dt>
+          <dd>{summary.requiredInputs.join(", ")}</dd>
+        </div>
+        <div>
+          <dt>Stages</dt>
+          <dd>{summary.stages.join(" -> ")}</dd>
+        </div>
+        <div>
+          <dt>Sections</dt>
+          <dd>{summary.sections.join(", ")}</dd>
+        </div>
+        <div>
+          <dt>Evidence</dt>
+          <dd>
+            {summary.citationLabel}; {summary.chartLabel}
+          </dd>
+        </div>
+      </dl>
+    </>
   );
 }

@@ -28,6 +28,22 @@ export type WorkflowRunInput = {
   symbol?: string;
 };
 
+export type WorkflowStreamEvent = {
+  event_id: string;
+  run_id: string;
+  sequence: number;
+  kind:
+    | "run.started"
+    | "run.stage"
+    | "answer.delta"
+    | "citation"
+    | "artifact"
+    | "run.completed"
+    | "run.failed";
+  created_at: string;
+  payload: Record<string, unknown>;
+};
+
 export type WorkflowRun = {
   id: string;
   kind: "workflow";
@@ -129,12 +145,10 @@ export function listWorkflows(): Promise<Workflow[]> {
 
 export function runWorkflow(
   workflowId: string,
-  inputs: WorkflowRunInput
+  inputs: WorkflowRunInput,
+  onEvent?: (event: WorkflowStreamEvent) => void
 ): Promise<WorkflowRun> {
-  return request<WorkflowRun>(`/api/workflows/${workflowId}/run`, {
-    method: "POST",
-    body: JSON.stringify(inputs)
-  });
+  return requestEventStream(`/api/workflows/${workflowId}/runs`, inputs, onEvent);
 }
 
 export function listRuns(): Promise<WorkflowRun[]> {
@@ -158,4 +172,86 @@ export function renameRun(runId: string, title: string): Promise<WorkflowRun> {
 
 export function isUnauthorizedError(caught: unknown): boolean {
   return caught instanceof ApiError && caught.status === 401;
+}
+
+async function requestEventStream<T>(
+  path: string,
+  payload: object,
+  onEvent?: (event: WorkflowStreamEvent) => void
+): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "text/event-stream",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => ({}))) as {
+      detail?: string | { error?: { message?: string } };
+      error?: { message?: string };
+    };
+    const message =
+      typeof errorPayload.detail === "string"
+        ? errorPayload.detail
+        : errorPayload.detail?.error?.message ?? errorPayload.error?.message ?? `Request failed with ${response.status}`;
+    throw new ApiError(message, response.status);
+  }
+
+  if (!response.body) {
+    throw new ApiError("Streaming response body is missing", response.status);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalResult: T | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    const frames = parseSseFrames(buffer);
+    buffer = frames.remainder;
+    for (const frame of frames.frames) {
+      const event = parseSseFrame(frame);
+      if (!event) continue;
+      onEvent?.(event);
+      if (event.kind === "run.completed") {
+        finalResult = event.payload.run as T;
+      }
+      if (event.kind === "run.failed") {
+        throw new ApiError(String(event.payload.message ?? "Workflow failed"), response.status);
+      }
+    }
+    if (done) break;
+  }
+
+  if (finalResult === null) {
+    throw new ApiError("Stream completed without final output", response.status);
+  }
+  return finalResult;
+}
+
+export function parseSseFrames(buffer: string): { frames: string[]; remainder: string } {
+  const frames = buffer.split("\n\n");
+  return {
+    frames: frames.slice(0, -1),
+    remainder: frames.at(-1) ?? ""
+  };
+}
+
+export function parseSseFrame(frame: string): WorkflowStreamEvent | null {
+  const event = { name: "message", data: "" };
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("event:")) {
+      event.name = line.slice("event:".length).trim();
+    } else if (line.startsWith("data:")) {
+      event.data += line.slice("data:".length).trim();
+    }
+  }
+  if (!event.data) return null;
+  return JSON.parse(event.data) as WorkflowStreamEvent;
 }

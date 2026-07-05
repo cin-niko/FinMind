@@ -20,6 +20,21 @@ export type ChatBlock =
       metrics: Array<{ label: string; value: string; tone: "neutral" | "up" | "down" | "warn" }>;
     };
 
+export type WorkflowProgressStep = {
+  id: string;
+  title: string;
+  kind: "collect_data" | "skill";
+  status: string;
+  warnings: string[];
+};
+
+export type WorkflowStreamState = {
+  label: string;
+  complete: boolean;
+  steps: WorkflowProgressStep[];
+  answer: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -28,6 +43,7 @@ export type ChatMessage = {
   artifacts: ChatArtifact[];
   workflowRun?: WorkflowRun;
   pending?: boolean;
+  streamState?: WorkflowStreamState;
 };
 
 export type ChatConversation = {
@@ -168,7 +184,8 @@ export function createWorkflowAssistantMessage(run: WorkflowRun, index: number):
     content: reportContent,
     blocks: [{ kind: "text", content: reportContent }],
     artifacts,
-    workflowRun: run
+    workflowRun: run,
+    streamState: workflowStreamStateFromRun(run)
   };
 }
 
@@ -178,8 +195,47 @@ export function createPendingAssistantMessage(index: number): ChatMessage {
     id: `assistant-pending-${index}`,
     role: "assistant",
     content: "",
-    blocks: [{ kind: "text", content: "Running workflow..." }],
+    blocks: [{ kind: "text", content: "" }],
     artifacts: [],
-    pending: true
+    pending: true,
+    streamState: {
+      label: "Working",
+      complete: false,
+      steps: [],
+      answer: ""
+    }
   };
+}
+
+
+export function workflowStreamStateFromRun(run: WorkflowRun): WorkflowStreamState {
+  return {
+    label: `Completed ${run.output.steps.length} steps`,
+    complete: true,
+    steps: run.output.steps.map((step) => ({
+      id: step.id,
+      title: titleForStep(step.id),
+      kind: step.kind,
+      status: step.status,
+      warnings: step.warnings
+    })),
+    answer: run.output.sections.map((section) => section.content).join("\n\n---\n\n")
+  };
+}
+
+
+function titleForStep(stepId: string): string {
+  if (stepId === "collect_data") {
+    return "Collect the data";
+  }
+  if (stepId.includes("data-auditor")) {
+    return "Audit data";
+  }
+  if (stepId.includes("technical-analysis")) {
+    return "Technical analysis";
+  }
+  if (stepId.includes("fundamental-analysis")) {
+    return "Fundamental analysis";
+  }
+  return stepId;
 }

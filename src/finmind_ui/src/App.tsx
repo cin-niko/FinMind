@@ -8,7 +8,8 @@ import {
   renameRun,
   runWorkflow,
   type SessionState,
-  type WorkflowRun
+  type WorkflowRun,
+  type WorkflowStreamEvent
 } from "./api/client";
 import { LoadingState } from "./components/layout";
 import { LoginPage } from "./features/auth/LoginPage";
@@ -18,6 +19,7 @@ import {
   createMockResponse,
   createNewConversation,
   createPendingAssistantMessage,
+  workflowStreamStateFromRun,
   createWorkflowAssistantMessage,
   createUserMessage,
   getConversationTitle,
@@ -52,7 +54,15 @@ export function App() {
     if (!session?.authenticated) return;
     listRuns()
       .then((runs) => {
-        setConversations(runs.map(runToConversation).reverse());
+        setConversations((items) => {
+          const hydrated = runs.map(runToConversation).reverse();
+          const hydratedIds = new Set(hydrated.map((conversation) => conversation.id));
+          const pending = items.filter((conversation) =>
+            conversation.messages.some((message) => message.pending) &&
+            !hydratedIds.has(conversation.id)
+          );
+          return [...pending, ...hydrated];
+        });
       })
       .catch((caught) => {
         if (isUnauthorizedError(caught)) handleSessionExpired();
@@ -83,6 +93,43 @@ export function App() {
       const run = await runWorkflow(workflowId, {
         market,
         ...(symbol ? { symbol } : {})
+      }, (event: WorkflowStreamEvent) => {
+        if (event.kind !== "answer.delta" && event.kind !== "run.stage" && event.kind !== "run.completed") {
+          return;
+        }
+        setConversations((items) =>
+          items.map((conv) => {
+            if (conv.id !== conversationId) return conv;
+            return {
+              ...conv,
+              messages: conv.messages.map((message) => {
+                if (!message.pending) return message;
+                const currentState = message.streamState ?? {
+                  label: "Working",
+                  complete: false,
+                  steps: [],
+                  answer: ""
+                };
+                const nextState =
+                  event.kind === "answer.delta"
+                    ? {
+                        ...currentState,
+                        answer: `${currentState.answer}${String(event.payload.text ?? "")}`
+                      }
+                    : event.kind === "run.completed"
+                      ? workflowStreamStateFromRun(event.payload.run as WorkflowRun)
+                      : updateStreamState(currentState, event);
+                const nextText = nextState.answer;
+                return {
+                  ...message,
+                  content: nextText,
+                  blocks: [{ kind: "text", content: nextText }],
+                  streamState: nextState
+                };
+              })
+            };
+          })
+        );
       });
       setConversations((items) =>
         items.map((conv) => {
@@ -251,6 +298,32 @@ export function App() {
       </div>
     </AppShell>
   );
+}
+
+function updateStreamState(
+  currentState: NonNullable<ChatConversation["messages"][number]["streamState"]>,
+  event: WorkflowStreamEvent
+): NonNullable<ChatConversation["messages"][number]["streamState"]> {
+  const stageId = String(event.payload.stage ?? "");
+  const nextStep = {
+    id: stageId,
+    title: String(event.payload.title ?? stageId),
+    kind: String(event.payload.kind ?? "skill") === "collect_data" ? "collect_data" as const : "skill" as const,
+    status: String(event.payload.status ?? "running"),
+    warnings: Array.isArray(event.payload.warnings)
+      ? event.payload.warnings.map((warning) => String(warning))
+      : []
+  };
+  const steps = currentState.steps.some((step) => step.id === stageId)
+    ? currentState.steps.map((step) => (step.id === stageId ? nextStep : step))
+    : [...currentState.steps, nextStep];
+  const completedSteps = steps.filter((step) => step.status !== "running").length;
+  return {
+    ...currentState,
+    label: completedSteps > 0 && completedSteps === steps.length ? `Completed ${completedSteps} steps` : "Working",
+    complete: completedSteps > 0 && completedSteps === steps.length,
+    steps
+  };
 }
 
 export function getChatHeaderTitle(conversation: ChatConversation | null): string {
