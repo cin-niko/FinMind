@@ -6,7 +6,8 @@ implements:
   - src/finmind_agents
 validated_by:
   - tests/test_platform_services.py
-adr_refs: []
+adr_refs:
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # System State Model
@@ -158,18 +159,60 @@ Rules:
 
 ### Artifact
 
-Generated chart, table, computed output, or inline visualization.
+Parent model for generated outputs that users can open or download.
 
 - `artifact_id`: unique identifier
-- `artifact_type`: chart, table, computed_result, inline_visualization
+- `artifact_type`: `file` or `chart`
 - `title`: user-facing title
 - `inputs`: linked data and run inputs
-- `payload`: renderable artifact data
 - `source_refs`: linked citation ids
+- `status`: ready, unavailable, or failed
+- `reason`: optional unavailable or failure reason
+
+### FileArtifact
+
+Physical generated asset such as PDF, PPTX, DOCX, XLSX, CSV, PNG, JPG, or SVG.
+
+- `artifact_type`: `file`
+- `file_type`: product-facing file category
+- `mime_type`: technical content type for browser, storage, download, and
+  validation behavior
+- `filename`: user-facing download filename
+- `url`: file location controlled by the authenticated app
+- `size_bytes`: optional file size
+- `downloads`: one or more downloadable representations
+
+### ChartArtifact
+
+Structured chart output rendered by trusted FinMind UI components.
+
+- `artifact_type`: `chart`
+- `chart_intent`: product/runtime intent such as `price_trend`
+- `spec`: renderable chart specification
+- `supported_views`: supported chart views such as line and candlestick
+- `default_view`: initial chart view
+- `downloads`: exported chart formats such as PNG or CSV
 
 Rules:
 
-- Chart and inline visualization artifacts must be traceable to canonical data and execution context.
+- File and chart artifacts must be traceable to canonical data and execution context.
+- Chart artifacts must be rendered by trusted UI components and must not execute
+  arbitrary generated HTML or JavaScript.
+- Citations are not artifacts; source inspection uses citation panel state.
+
+### RightPanelDisplayState
+
+Client-side display state for contextual inspection.
+
+- `mode`: artifact or citations
+- `artifact_id`: selected artifact when `mode=artifact`
+- `citation_id`: selected citation/source when `mode=citations`
+
+Rules:
+
+- Artifact cards open artifact mode and show the full artifact viewer.
+- Inline citation chips open citations mode, show the complete source list for
+  the answer or run, and jump to the selected source.
 
 ### MockChatConversation
 
@@ -179,8 +222,8 @@ responses.
 - `chat_id`: unique identifier
 - `messages`: user and assistant messages
 - `title`: derived from the first user message
-- `artifacts`: trusted mock report, chart, table, evidence, or citation bundle
-  artifacts rendered by local templates
+- `artifacts`: trusted mock report, chart, table, or file-style artifacts
+  rendered by local templates
 
 Rules:
 
@@ -188,3 +231,5 @@ Rules:
   orchestration.
 - Mock chat must not expose raw agent reasoning or execute arbitrary generated
   HTML.
+- Mock citations must render inline or in citation inspection surfaces, not as
+  citation-bundle or evidence-list artifact cards.

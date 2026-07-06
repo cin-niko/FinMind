@@ -9,6 +9,7 @@ validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
   - docs/adr/ADR-002-direct-async-sse-streaming.md
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # Tasks: Workflow
@@ -270,14 +271,56 @@ verification.
 
 ---
 
+## Phase 10: User Story 8 - Inspect Artifacts And Citations In The Right Panel (Priority: P1)
+
+**Goal**: An authenticated internal user can click artifact cards to open full
+file/chart viewers in the right panel, click inline citation chips to open the
+complete source list and jump to the selected source, switch chart views when
+available, and download ready artifacts.
+
+**Independent Test**: Complete a cited workflow run with a chart artifact, click
+the chart artifact card, verify the right-side panel opens the full chart viewer
+with supported view switches and download actions, then click an inline citation
+chip and verify the right-side panel switches to the complete citation list and
+scrolls to the clicked source.
+
+### Tests for User Story 8
+
+- [X] T092 [P] [US8] Add backend artifact contract regression coverage for `artifact_type=file|chart`, `file_type`, `mime_type`, chart `spec`, downloads, status, and `source_refs` in `tests/test_platform_services.py`
+- [X] T093 [P] [US8] Add API stream/run response coverage for `artifact` events and `run.completed` chart artifact payloads using the new chart contract in `tests/test_app.py`
+- [X] T094 [P] [US8] Add frontend API type/normalization tests for FileArtifact and ChartArtifact payloads in `src/finmind_ui/src/api/client.test.ts`
+- [X] T095 [P] [US8] Add chart viewer tests for line/candlestick switching, hidden unsupported views, and no required price table rendering in `src/finmind_ui/src/features/charts/MarketChart.test.tsx`
+- [X] T096 [P] [US8] Add right-panel interaction tests for artifact-card open and citation-chip jump behavior in `src/finmind_ui/src/features/chat/ChatPage.test.tsx`
+
+### Implementation for User Story 8
+
+- [X] T097 [US8] Update shared Artifact, FileArtifact, ChartArtifact, and download models in `src/finmind_agents/models.py`
+- [X] T098 [US8] Update chart artifact construction to emit `artifact_type=chart`, `chart_intent`, chart `spec.supported_views`, `spec.default_view`, downloads, status, and unique artifact ids in `src/finmind_agents/artifacts.py`
+- [X] T099 [US8] Update workflow service artifact and citation serialization for stream events and persisted runs in `src/finmind_agents/workflows/service.py`
+- [X] T100 [US8] Update frontend artifact and citation contract types in `src/finmind_ui/src/api/client.ts`
+- [X] T101 [US8] Replace legacy chart payload/table rendering with chart `spec` rendering and line/candlestick switching in `src/finmind_ui/src/features/charts/MarketChart.tsx`
+- [X] T102 [US8] Add shared right-panel display state for artifact mode and citations mode in `src/finmind_ui/src/App.tsx`
+- [X] T103 [US8] Render artifact cards after workflow answers and wire card clicks to artifact mode in `src/finmind_ui/src/features/chat/ChatPage.tsx`
+- [X] T104 [US8] Render inline citation chips in workflow answers and wire chip clicks to citations mode with selected-source jump in `src/finmind_ui/src/features/chat/ChatPage.tsx`
+- [X] T105 [US8] Add full artifact viewer and citation-list panel content in `src/finmind_ui/src/features/chat/ArtifactPanel.tsx`
+- [X] T106 [US8] Remove main-answer price table affordances and route raw chart data access through declared downloads in `src/finmind_ui/src/features/charts/MarketChart.tsx`
+
+**Checkpoint**: Artifact and citation inspection works from the transcript
+without treating citations as artifacts or requiring chart price tables in the
+main answer.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies.
 - **Foundational (Phase 2)**: Depends on Setup and blocks all user stories.
-- **User Stories (Phases 3-8)**: Depend on Foundational completion.
-- **Polish (Phase 9)**: Depends on all desired user stories being complete.
+- **User Stories (Phases 3-8 and 10)**: Depend on Foundational completion.
+- **Existing Polish (Phase 9)**: Captures previously generated cleanup and
+  verification tasks. Re-run relevant verification after US8 even where earlier
+  checklist items are already marked complete.
 
 ### User Story Dependencies
 
@@ -294,6 +337,9 @@ verification.
 - **US6 Direct Async Workflow Streaming (P1)**: Depends on Foundation and should
   land before UI workflows are considered complete, because stream endpoints are
   the canonical execution APIs for the development branch.
+- **US8 Inspect Artifacts And Citations In The Right Panel (P1)**: Depends on
+  US1 workflow output, US5 run reinspection persistence for restored runs, and
+  US6 stream event reconciliation.
 
 ### Within Each User Story
 
@@ -316,6 +362,7 @@ verification.
 - US4 tests T042-T044 can run in parallel.
 - US5 tests T049-T050 can run in parallel.
 - US6 tests T065-T070 can run in parallel.
+- US8 tests T092-T096 can run in parallel.
 - Polish documentation tasks T081-T086 can run in parallel.
 
 ---
@@ -334,6 +381,14 @@ Task: "Add fail-closed workflow run test when FINMIND_AGENT_MODEL is unset in te
 Task: "Add composite workflow runtime test for stock-brief success in tests/test_platform_services.py"
 Task: "Add composite workflow partial-provider test for blocked news or risk sections in tests/test_platform_services.py"
 Task: "Add API response coverage for visible stage statuses and blocked claim categories in tests/test_app.py"
+```
+
+## Parallel Example: User Story 8
+
+```bash
+Task: "Add backend artifact contract regression coverage for artifact_type=file|chart, file_type, mime_type, chart spec, downloads, status, and source_refs in tests/test_platform_services.py"
+Task: "Add frontend API type/normalization tests for FileArtifact and ChartArtifact payloads in src/finmind_ui/src/api/client.test.ts"
+Task: "Add chart viewer tests for line/candlestick switching, hidden unsupported views, and no required price table rendering in src/finmind_ui/src/features/charts/MarketChart.test.tsx"
 ```
 
 ---
@@ -356,7 +411,9 @@ Task: "Add API response coverage for visible stage statuses and blocked claim ca
 4. Deliver US4 to lock down validation and collection-plan safety.
 5. Deliver US5 to preserve run history and result reinspection.
 6. Deliver US6 direct workflow streaming with separate progress and final-answer areas.
-7. Finish documentation, verification, and quickstart validation in Phase 9.
+7. Deliver US8 right-panel artifact and citation inspection.
+8. Re-run relevant documentation, verification, and quickstart validation from
+   Phase 9 after US8 lands.
 
 ### Notes
 

@@ -757,8 +757,23 @@ Validation:
 - `Citation`: visible source reference for a material claim — `source_id`,
   timestamp, and `dataset_id`. Citations derive directly from collected records;
   there is no separate `EvidenceObject` layer.
-- `Artifact`: traceable chart/table/computed output with accessible fallback data
-  and source references.
+- `Artifact`: parent model for generated outputs users can open or download.
+- `FileArtifact`: physical asset with `artifact_type=file`, `file_type`,
+  `mime_type`, filename, status, download metadata, and source references.
+- `ChartArtifact`: structured chart output with `artifact_type=chart`, chart
+  intent, supported views, default view, renderable chart spec, download
+  metadata, status, and source references.
+- `RightPanelDisplayState`: client inspection state with artifact-viewer mode and
+  citation-list mode.
+
+Rules:
+
+- Citations are not artifacts.
+- Artifact cards open full artifact viewers.
+- Inline citation chips open the full source list and jump to the clicked
+  source.
+- Chart artifacts do not require a price table in the main answer; raw data
+  access uses downloads or a separate file artifact when needed.
 
 ## Run Model
 

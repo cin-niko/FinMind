@@ -214,8 +214,16 @@ npm run build
 7. Confirm visible steps use product-facing labels and optional lighter subtext
    such as `DXG` rather than raw workflow or skill ids.
 8. Confirm the completed visible step list ends with `Done`.
-9. Confirm artifact cards remain rendered with the existing card treatment and
-   still open the same artifact-detail surface.
+9. Confirm artifact cards render after the answer content and open the full
+   artifact viewer in the right-side panel.
+10. Confirm chart artifacts expose only supported view switches, such as `Line`
+   and `Candlestick` when both data shapes exist, and do not require a price
+   table in the main answer.
+11. Confirm ready artifacts expose valid download actions and unavailable
+   artifacts show a reason without broken download actions.
+12. Click an inline citation chip in the answer and confirm the right-side panel
+   switches to the citations list, shows all sources for the answer or run, and
+   scrolls to the clicked source.
 
 ## Scenario 9: Async Chatflow Stream
 

@@ -42,8 +42,9 @@ Acceptance scenarios:
 
 ### User Story 2 - Inspect Chat Artifacts And Citations (Priority: P1)
 
-An authenticated internal user can inspect generated chat artifacts, evidence
-lists, citation bundles, tables, and charts from the answer.
+An authenticated internal user can inspect generated chat artifacts such as
+files, tables, and charts from the answer, while citations remain inline source
+inspection controls.
 
 **Independent Test**: Ask a supported question that produces an artifact, open the
 artifact detail, and verify the artifact links back to evidence and citations.

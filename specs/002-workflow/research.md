@@ -9,9 +9,44 @@ validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
   - docs/adr/ADR-002-direct-async-sse-streaming.md
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # Research: Workflow
+
+## Decision: Use FileArtifact and ChartArtifact as production artifact children
+
+Production workflow artifacts should use `artifact_type=file|chart`. Files cover
+physical assets such as PDF, PPTX, DOCX, XLSX, CSV, PNG, JPG, and SVG through
+`file_type` plus `mime_type`. Charts cover structured chart output through chart
+intent, supported views, default view, renderable spec, downloads, and source
+refs.
+
+Rationale: Most generated outputs are physical files and should not become
+separate top-level artifact categories. The current non-file output is charting,
+which is specific enough to model directly instead of introducing a broad
+`visualization` abstraction. `mime_type` remains necessary for browser,
+download, storage, and security handling even when `file_type` drives product UI.
+
+Alternatives considered: top-level `document`/`spreadsheet`/`image` categories,
+a generic `visualization` type, or treating citation bundles as artifacts.
+Rejected because they either over-expand taxonomy, abstract too early, or blur
+generated outputs with evidence sources.
+
+## Decision: Keep citation inspection separate from artifacts
+
+Inline citations should render as compact chips at the cited answer location.
+Clicking a chip opens the right-side panel in citation-list mode, shows all
+sources for the answer/run, and jumps to the selected source. Internal fetched
+data is inspectable in the panel; external web links are shown as outbound links.
+
+Rationale: Citations prove claims; artifacts are generated outputs users can open
+or download. Keeping them separate preserves grounding semantics and avoids
+turning source inspection into another artifact card type.
+
+Alternatives considered: citation bundle artifacts or separate citation drawer.
+Rejected because the shared right panel already supports contextual inspection,
+and citation bundles would duplicate the evidence model.
 
 ## Decision: VN stocks and US stocks are current workflow scope
 

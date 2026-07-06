@@ -9,6 +9,7 @@ validated_by: []
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
   - docs/adr/ADR-002-direct-async-sse-streaming.md
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # API Contract: Workflow
@@ -42,7 +43,15 @@ Response item shape:
     "risk-review"
   ],
   "requires_citations": true,
-  "chart_requirements": ["price_series"],
+  "chart_requirements": [
+    {
+      "chart_id": "price_trend",
+      "chart_type": "line",
+      "title": "Price trend",
+      "source_types": ["market_price"],
+      "required": true
+    }
+  ],
   "output_sections": [
     "Data Quality",
     "Fundamentals",
@@ -138,25 +147,56 @@ Required catalog ids:
         "timestamp": "2026-06-18T07:00:00+00:00"
       }
     ],
-    "artifacts": {
-      "chart": {
+    "artifacts": [
+      {
         "artifact_id": "artifact_1",
         "artifact_type": "chart",
+        "chart_intent": "price_trend",
         "title": "VCB Price Series",
-        "inputs": ["vn_prices"],
-        "payload": {
-          "series": [{ "time": "2026-06-18", "value": 58200 }],
-          "table": [
+        "status": "ready",
+        "inputs": {
+          "dataset_id": "vn_prices",
+          "record_key": "VCB-2026-06-18"
+        },
+        "spec": {
+          "supported_views": ["line", "candlestick"],
+          "default_view": "line",
+          "x_axis": { "field": "date", "type": "time" },
+          "series": [
             {
-              "record_key": "VCB-2026-06-18",
-              "market_time": "2026-06-18T07:00:00+00:00",
-              "close": 58200
+              "name": "Close",
+              "type": "line",
+              "data": [{ "date": "2026-06-18", "value": 58200 }]
+            }
+          ],
+          "candles": [
+            {
+              "date": "2026-06-18",
+              "open": 58000,
+              "high": 58500,
+              "low": 57800,
+              "close": 58200,
+              "volume": 1000000
             }
           ]
         },
+        "downloads": [
+          {
+            "format": "svg",
+            "url": "/api/artifacts/artifact_1/download?format=svg",
+            "filename": "vcb-price-series.svg",
+            "mime_type": "image/svg+xml"
+          },
+          {
+            "format": "csv",
+            "url": "/api/artifacts/artifact_1/download?format=csv",
+            "filename": "vcb-price-series.csv",
+            "mime_type": "text/csv"
+          }
+        ],
         "source_refs": ["cite_1"]
       }
-    },
+    ],
     "grounding": {
       "grounding_status": "pass",
       "blocked_claims": ["recent_news_impact"],
@@ -169,6 +209,20 @@ Required catalog ids:
   ]
 }
 ```
+
+Artifact rules:
+
+- `artifact_type` is the top-level discriminator. Phase 02 supports `file` and
+  `chart`.
+- `artifacts` is an ordered list of `Artifact` objects rather than a map keyed
+  by type. Multiple files or charts may be attached to one answer.
+- File artifacts include `file_type`, file metadata, `mime_type`, downloads,
+  status, and `source_refs`.
+- Chart artifacts include `chart_intent`, `spec.supported_views`,
+  `spec.default_view`, renderable chart data, downloads, status, and
+  `source_refs`.
+- Chart artifacts do not require a price table in the main answer payload.
+- Citations remain source references and are not returned as artifact cards.
 
 Raw agent reasoning must never appear in responses.
 

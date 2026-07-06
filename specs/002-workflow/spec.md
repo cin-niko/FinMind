@@ -12,6 +12,7 @@ validated_by:
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
   - docs/adr/ADR-002-direct-async-sse-streaming.md
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # Feature Specification: Workflow
@@ -217,13 +218,43 @@ Acceptance scenarios:
 4. Given a chatflow answer includes material financial claims, when the answer is
    shown, then claims have citations or are marked unsupported/unavailable.
 
+### User Story 8 - Inspect Artifacts And Citations In The Right Panel (Priority: P1)
+
+An authenticated internal user can inspect generated workflow artifacts and cited
+sources without losing their place in the transcript. Artifact cards open the
+full artifact in the right panel, while inline citation chips open the complete
+source list and jump to the selected citation.
+
+**Independent Test**: Complete a workflow run that produces cited answer text and
+a chart artifact, click the artifact card, verify the full chart viewer opens in
+the right panel with download actions, then click an inline citation chip and
+verify the right panel switches to the citation list and scrolls to the selected
+source.
+
+Acceptance scenarios:
+
+1. Given a workflow answer includes artifact cards, when the user clicks a file
+   or chart artifact card, then the right panel opens a full artifact viewer
+   rather than a small preview.
+2. Given a chart artifact supports multiple chart views, when the user opens it,
+   then the user can switch between supported chart views such as line and
+   candlestick without using a separate price table in the main answer.
+3. Given an artifact supports download, when the user opens the artifact panel,
+   then the user can download the original file or an exported chart format.
+4. Given a workflow answer includes inline citation chips, when the user clicks a
+   citation, then the right panel opens the complete citation/source list and
+   scrolls to the clicked source.
+5. Given a source is internal fetched data or an external link, when the citation
+   is shown in the panel, then internal data is inspectable in the panel and
+   external links are clearly available as outbound links.
+
 ## Functional Requirements
 
 - **FR-001**: System MUST provide a workflow catalog of fixed system-defined
   trading-support workflows runnable from the UI.
 - **FR-002**: Workflow catalog entries MUST declare supported market scope,
   required inputs, stages, role labels, output sections, citation expectations,
-  and chart requirements.
+  and structured chart requirements.
 - **FR-003**: Current workflow market scope MUST include VN stocks and US stocks
   only.
 - **FR-004**: Workflow suite MUST include, at minimum, fundamental analysis,
@@ -277,7 +308,11 @@ Acceptance scenarios:
 - **FR-021**: Every user-facing material workflow claim MUST expose citations
   (source id, dataset id, timestamp) or be marked unsupported/unavailable.
 - **FR-022**: System MUST generate chart artifacts for workflow outputs requiring
-  visual price, indicator, or trend analysis.
+  visual price, indicator, or trend analysis. Workflow definitions MUST declare
+  chart requirements as structured chart intents, and the runtime MUST resolve
+  those intents through a deterministic chart registry rather than LLM-generated
+  chart code. Phase 02 MUST support `price_trend`; additional chart ids MAY be
+  added by extending the registry.
 - **FR-023**: System MUST record execution runs for workflow submissions,
   generated artifacts, failures, partial results, and user-visible output status.
 - **FR-024**: System MUST expose result views where users can inspect completed
@@ -361,6 +396,33 @@ Acceptance scenarios:
   expansion, collapse, and answer rendering visually stable so the composer
   stays pinned and the latest user message remains aligned to the top of the
   transcript viewport while the answer unfolds below it.
+- **FR-050**: Production workflow artifacts MUST use a parent `Artifact` contract
+  with `artifact_type` as the top-level discriminator. Phase 02 supported
+  artifact types are `file` and `chart`.
+- **FR-051**: File artifacts MUST include a product-facing `file_type`, a
+  technical `mime_type`, filename, downloadable file location, title, status,
+  and linked source refs where applicable.
+- **FR-052**: Chart artifacts MUST include a chart intent, title, status,
+  renderable chart specification, supported chart views, default chart view,
+  download options, and linked source refs. Chart artifacts MUST NOT require a
+  price table to be visible in the main answer.
+- **FR-053**: Artifact cards MUST appear after the relevant answer content and
+  MUST open the full artifact viewer in the right-side panel on desktop or the
+  equivalent full-screen artifact surface on mobile.
+- **FR-054**: Chart artifact viewers MUST support switching among available
+  chart views, including line and candlestick when both are supported by the
+  artifact data.
+- **FR-055**: Artifact download actions MUST be available from the artifact
+  viewer for ready artifacts. File artifacts download the original file; chart
+  artifacts download exported chart formats such as image or data export when
+  provided.
+- **FR-056**: Inline citations MUST render at the cited location in the answer as
+  compact chips keyed by source/citation id. Clicking a citation chip MUST open
+  the right-side citations panel containing the complete source list for the
+  answer or run and jump to the selected source.
+- **FR-057**: Citations MUST remain evidence/source references, not artifacts.
+  The citations panel MUST show internal fetched data and external web links
+  distinctly while preserving source identity, dataset id, and timestamp.
 
 ## Key Entities
 
@@ -373,9 +435,12 @@ Acceptance scenarios:
 - Stream Event
 - Grounding Check
 - Citation
+- Artifact
+- File Artifact
 - Chart Artifact
 - Source Document
 - Workflow Stream Display State
+- Right Panel Display State
 
 See `../system/state-model.md` for canonical entity definitions.
 
@@ -396,6 +461,15 @@ See `../system/state-model.md` for canonical entity definitions.
   marked unavailable with the reason.
 - Technical chart data unavailable: chart artifact is marked unavailable and the
   text result avoids unsupported technical claims.
+- Artifact unavailable or failed: the artifact card and panel show the status
+  and reason, and unavailable artifacts do not expose broken download actions.
+- Chart artifact lacks candlestick data: the chart viewer shows only supported
+  views rather than a disabled or misleading candlestick switch.
+- Citation chip references a source absent from the run source list: grounding is
+  blocked and the chip is not rendered as a trusted citation.
+- External citation link is unavailable or unsafe to open inline: the citation
+  panel still shows source metadata and uses a clear outbound-link affordance
+  instead of embedding unsafe content.
 - Fundamental or valuation inputs are inconsistent across periods: the workflow
   marks the data-quality issue before presenting valuation or peer-comparison
   conclusions.
@@ -439,9 +513,9 @@ See `../system/state-model.md` for canonical entity definitions.
 - User-facing "reasoning" in Phase 02 means safe execution visibility such as
   workflow stages, tool activity summaries, and progress updates; it does not
   mean raw chain-of-thought or hidden internal reasoning.
-- This UI refinement keeps artifact cards and artifact-detail behavior unchanged
-  while updating only transcript-style workflow response presentation and
-  execution-visibility wording.
+- Artifact cards remain the entry point for generated outputs, but artifact
+  details now use the shared right-panel viewer model. Citation chips use the
+  same right panel in citation-list mode and remain distinct from artifacts.
 
 ## Success Criteria
 
@@ -483,6 +557,12 @@ See `../system/state-model.md` for canonical entity definitions.
 - **SC-016**: For 100% of completed workflow-backed assistant responses, the
   execution-visibility block auto-expands during active work, auto-collapses
   after completion, and remains re-openable by the user.
+- **SC-017**: For 100% of ready workflow artifacts in supported runs, users can
+  open the full artifact viewer from the artifact card and access at least one
+  valid download action when a download is declared.
+- **SC-018**: For 100% of rendered inline citation chips, clicking the chip opens
+  the citations panel and positions the selected source within the visible
+  source list.
 
 ## Out Of Scope
 

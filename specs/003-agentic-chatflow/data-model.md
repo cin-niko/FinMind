@@ -18,7 +18,8 @@ Draft expected entities:
 - `ExecutionRun`: chatflow execution status, tools, collection, and artifacts.
 - `Citation`: user-visible source-level references (source id, dataset id, timestamp).
 - `GroundingCheck`: post-answer audit that cited sources are a subset of collected sources.
-- `Artifact`: generated report, chart, table, or citation bundle with source refs.
+- `Artifact`: generated report, chart, table, or file-style output with source
+  refs. Citations are evidence/source references, not artifacts.
 - `SourceDocument`: trusted company, market, macro, or news source.
 - `CanonicalMarketDataRecord`: market data referenced by chat answers.
 

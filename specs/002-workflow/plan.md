@@ -12,6 +12,7 @@ validated_by:
 adr_refs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
   - docs/adr/ADR-002-direct-async-sse-streaming.md
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # Implementation Plan: Workflow
@@ -295,9 +296,23 @@ Transcript-style workflow response rendering:
 - Visible step rows use product-facing action labels, optional input subtext
   such as symbol/period, connector lines, and bounded step-type icons. The list
   appends a terminal `Done` row once the run completes.
-- Artifact cards and artifact-detail behavior remain unchanged in this planning
-  slice; the UI refresh is limited to assistant answer framing and execution
-  visibility.
+
+Artifact and citation inspection:
+
+- Production artifacts use a parent `Artifact` contract with
+  `artifact_type=file|chart`.
+- `FileArtifact` represents a physical asset. It carries `file_type`,
+  `mime_type`, filename, status, file location, downloads, and source refs when
+  applicable.
+- `ChartArtifact` represents structured chart output. It carries chart intent,
+  supported views, default view, renderable chart spec, status, downloads, and
+  source refs. Phase 02 chart viewers support line/candlestick switching when
+  both views are present.
+- Citation/source references are not artifacts. Inline citation chips open the
+  right-side panel in citation-list mode and jump to the selected source.
+- Artifact cards open the same right-side panel in artifact-viewer mode and show
+  the full artifact. Chart artifacts do not need a price table in the main
+  answer; raw data access uses declared downloads or a future file artifact.
 
 Non-blocking boundaries:
 

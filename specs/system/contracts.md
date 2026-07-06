@@ -8,7 +8,8 @@ implements:
 validated_by:
   - tests/test_app.py
   - tests/test_platform_services.py
-adr_refs: []
+adr_refs:
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # System Contracts
@@ -43,12 +44,30 @@ Artifacts are reusable outputs linked to inputs, source refs, and execution cont
 
 Supported artifact types:
 
+- `file`
 - `chart`
-- `table`
-- `computed_result`
-- `inline_visualization`
 
-Chart artifacts must include renderable payload data and an accessible table fallback. Inline artifacts in chat must follow the same traceability rules as workflow chart artifacts.
+All production artifacts share `artifact_id`, `artifact_type`, title, status,
+optional reason, and `source_refs`.
+
+File artifacts represent physical assets and must include `file_type`,
+`mime_type`, filename, file location, and download metadata. The product UI uses
+`file_type` for labels, icons, and viewer choice; transport, storage, download,
+and content validation use `mime_type`.
+
+Workflow chart artifacts are deterministic runtime outputs selected through
+structured chart requirements such as `price_trend`, not arbitrary LLM-generated
+HTML or JavaScript. Chart artifacts must include chart intent, supported chart
+views, default view, renderable chart spec, linked source refs, status, and
+download metadata. Chart artifacts should not require a price table in the main
+answer; raw chart data access should use downloads or a separate file artifact
+when specified.
+
+Citations are evidence/source references, not artifacts. Inline citation chips
+open citation inspection and must not be modeled as citation-bundle artifacts.
+
+Inline artifacts in chat must follow the same traceability and safe-rendering
+rules as workflow artifacts.
 
 `001-mvp-ui` mock chat artifacts are trusted local-template UI artifacts, not API
 execution artifacts. Production chat artifact contracts require a future bounded

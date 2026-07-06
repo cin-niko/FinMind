@@ -5,7 +5,8 @@ last_review: 2026-06-26
 implements:
   - src/finmind_ui
 validated_by: []
-adr_refs: []
+adr_refs:
+  - docs/adr/ADR-003-artifact-and-citation-inspection-contract.md
 ---
 
 # UI/UX Guidelines
@@ -144,15 +145,26 @@ Navigation is roadmap-aware:
   should read like editorial research notes in the transcript instead of
   stacked generic cards.
 - Chat messages may show trusted mock inline visual blocks generated from local templates
-- Report, chart, table, evidence list, and citation bundle artifacts appear as cards inside messages
-- Clicking an artifact card opens the artifact in the right-side detail panel on desktop or full-screen artifact view on mobile
-- `001-mvp-ui` chat citation/evidence cards are mock UI patterns only
+- File and chart artifacts appear as cards after the relevant answer content.
+- Clicking an artifact card opens the full artifact viewer in the right-side
+  panel on desktop or equivalent full-screen artifact view on mobile.
+- Inline citation chips appear at the cited answer location. Clicking a citation
+  chip opens the citations view in the same right-side panel, shows the complete
+  source list for the answer or run, and scrolls to the selected source.
+- Citations are not artifact cards; they are source/evidence inspection controls.
+- Chat must not render citation bundle or evidence list artifact cards when
+  inline citation chips and citation-panel inspection are available.
 
 ### Artifact Detail
 
-- Clicking a mock chat artifact card opens the artifact in a right-side detail
-  panel on desktop or a full-screen artifact view on mobile.
+- Clicking an artifact card opens the artifact in a right-side detail panel on
+  desktop or a full-screen artifact view on mobile.
 - Artifact detail headers are compact and pinned inside the detail panel.
+- The artifact panel shows the full artifact viewer, not a small preview.
+- Chart artifact panels may expose view switches such as `Line` and
+  `Candlestick` when the artifact declares both views.
+- Artifact panels expose download actions only when the artifact is ready and a
+  valid download is declared.
 - Artifact detail must never execute arbitrary generated HTML.
 
 ## Accessibility
@@ -164,4 +176,5 @@ Navigation is roadmap-aware:
 - Loading states use skeletons or progress indicators
 - Empty states explain what happened and offer the next action
 - Respect `prefers-reduced-motion`
-- Charts include accessible table fallbacks
+- Charts include accessible descriptions and a non-visual data access path, such
+  as a declared CSV download, without requiring a price table in the main answer
