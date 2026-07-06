@@ -2,7 +2,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from finmind_agents.models import Market, WorkflowSpecification, WorkflowType
+from finmind_agents.models import (
+    ChartRequirement,
+    Market,
+    WorkflowSpecification,
+    WorkflowType,
+)
 
 
 class WorkflowDefinitionError(ValueError):
@@ -53,7 +58,10 @@ def _workflow_from_mapping(
         skill_refs=tuple(_required_list(data, "skill_refs", path)),
         output_sections=tuple(_required_list(data, "output_sections", path)),
         citation_policy=_required_str(data, "citation_policy", path),
-        chart_requirements=tuple(_optional_list(data, "chart_requirements", path)),
+        chart_requirements=tuple(
+            _chart_requirement(item, path)
+            for item in _optional_list(data, "chart_requirements", path)
+        ),
         step_sequence=tuple(_optional_list(data, "step_sequence", path)),
     )
 
@@ -77,3 +85,31 @@ def _optional_list(data: dict[str, Any], key: str, path: Path) -> list[Any]:
     if not isinstance(value, list):
         raise WorkflowDefinitionError(f"{path.name} invalid list {key}")
     return value
+
+
+def _chart_requirement(value: Any, path: Path) -> ChartRequirement:
+    if not isinstance(value, dict):
+        raise WorkflowDefinitionError(
+            f"{path.name} chart_requirements entries must be objects"
+        )
+    source_types = value.get("source_types")
+    if not isinstance(source_types, list) or not source_types:
+        raise WorkflowDefinitionError(
+            f"{path.name} chart_requirements entries require source_types"
+        )
+    if not all(isinstance(item, str) and item for item in source_types):
+        raise WorkflowDefinitionError(
+            f"{path.name} chart_requirements source_types must be strings"
+        )
+    required = value.get("required", True)
+    if not isinstance(required, bool):
+        raise WorkflowDefinitionError(
+            f"{path.name} chart_requirements required must be boolean"
+        )
+    return ChartRequirement(
+        chart_id=_required_str(value, "chart_id", path),
+        chart_type=_required_str(value, "chart_type", path),
+        title=_required_str(value, "title", path),
+        source_types=tuple(source_types),
+        required=required,
+    )

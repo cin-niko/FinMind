@@ -16,6 +16,14 @@
   ],
   "output_sections": ["Fundamental Analysis"],
   "citation_policy": "material_claims_require_citations",
-  "chart_requirements": ["price_series"],
+  "chart_requirements": [
+    {
+      "chart_id": "price_trend",
+      "chart_type": "line",
+      "title": "Price trend",
+      "source_types": ["market_price"],
+      "required": true
+    }
+  ],
   "step_sequence": ["collect_data", "vn-financial-data-auditor", "vn-fundamental-analysis"]
 }

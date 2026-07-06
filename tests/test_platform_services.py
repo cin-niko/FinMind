@@ -176,7 +176,15 @@ def test_workflow_catalog_entries_expose_required_metadata(
         assert workflow["stages"]
         assert workflow["output_sections"]
         assert workflow["requires_citations"] is True
-        assert isinstance(workflow["chart_requirements"], list)
+        assert workflow["chart_requirements"] == [
+            {
+                "chart_id": "price_trend",
+                "chart_type": "line",
+                "title": "Price trend",
+                "source_types": ["market_price"],
+                "required": True,
+            }
+        ]
         serialized = json.dumps(workflow).lower()
         assert "alpha_vantage" not in serialized
         assert "vnstock" not in serialized
@@ -412,6 +420,49 @@ def test_workflow_uses_agent_skill_output(
     assert collected["status"] == "success"
     assert result["output"]["steps"][-1]["kind"] == "skill"
     assert result["output"]["steps"][-1]["status"] == "success"
+
+
+def test_workflow_chart_artifact_uses_structured_price_trend_contract(
+    client: TestClient,
+) -> None:
+    response, result, events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
+    )
+
+    assert response.status_code == 200
+    artifacts = result["output"]["artifacts"]
+    assert isinstance(artifacts, list)
+    chart = artifacts[0]
+    assert chart["artifact_type"] == "chart"
+    assert chart["chart_intent"] == "price_trend"
+    assert chart["status"] == "ready"
+    assert chart["spec"]["supported_views"] == ["line", "candlestick"]
+    assert chart["spec"]["default_view"] == "line"
+    assert chart["spec"]["x_axis"] == {"field": "date", "type": "time"}
+    assert chart["spec"]["series"][0]["name"] == "Close"
+    assert chart["spec"]["series"][0]["type"] == "line"
+    assert chart["spec"]["series"][0]["data"]
+    assert chart["spec"]["candles"]
+    assert "table" not in chart
+    assert chart["downloads"] == [
+        {
+            "format": "svg",
+            "url": f"/api/artifacts/{chart['artifact_id']}/download?format=svg",
+            "filename": "vcb-price-series.svg",
+            "mime_type": "image/svg+xml",
+        },
+        {
+            "format": "csv",
+            "url": f"/api/artifacts/{chart['artifact_id']}/download?format=csv",
+            "filename": "vcb-price-series.csv",
+            "mime_type": "text/csv",
+        },
+    ]
+    assert chart["source_refs"]
+    artifact_event = next(event for event in events if event["kind"] == "artifact")
+    assert artifact_event["payload"] == chart
 
 
 def test_fundamental_analysis_workflow_runs_collector_audit_and_analysis_steps(
@@ -1148,9 +1199,9 @@ def test_workflow_run_returns_cited_chart_result(
     assert collection["provider_results"]
     assert "raw" not in str(collection).lower()
     assert "secret" not in str(collection).lower()
-    chart = result["output"]["artifacts"]["chart"]
+    chart = result["output"]["artifacts"][0]
     assert chart["artifact_type"] == "chart"
-    assert chart["payload"]["series"]
+    assert chart["spec"]["series"]
     assert chart["source_refs"]
     assert "reasoning" not in str(result).lower()
 
@@ -1180,13 +1231,20 @@ def test_single_symbol_workflow_targets_requested_symbol(
         for item in result["output"]["sections"]
         if item["title"] == "Collected Data"
     )
-    chart = result["output"]["artifacts"]["chart"]
+    chart = result["output"]["artifacts"][0]
 
     assert result["inputs"]["symbol"] == "VCB"
     assert "Agent-collected VCB data package" in section["content"]
     assert "VNINDEX" not in section["content"]
-    assert chart["payload"]["table"] == [
-        {"date": "2026-06-18", "close": 58200, "volume": 4920000},
+    assert chart["spec"]["candles"] == [
+        {
+            "date": "2026-06-18",
+            "open": 58200,
+            "high": 58200,
+            "low": 58200,
+            "close": 58200,
+            "volume": 4920000,
+        },
     ]
 
 

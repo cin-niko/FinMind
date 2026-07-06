@@ -22,6 +22,24 @@ class WorkflowType(StrEnum):
 
 
 @dataclass(frozen=True)
+class ChartRequirement:
+    chart_id: str
+    chart_type: str
+    title: str
+    source_types: tuple[str, ...]
+    required: bool = True
+
+    def to_output(self) -> dict[str, Any]:
+        return {
+            "chart_id": self.chart_id,
+            "chart_type": self.chart_type,
+            "title": self.title,
+            "source_types": list(self.source_types),
+            "required": self.required,
+        }
+
+
+@dataclass(frozen=True)
 class AdminUser:
     username: str
     role: str = "admin"
@@ -75,7 +93,7 @@ class WorkflowSpecification:
     skill_refs: tuple[str, ...]
     output_sections: tuple[str, ...]
     citation_policy: str
-    chart_requirements: tuple[str, ...]
+    chart_requirements: tuple[ChartRequirement, ...]
     step_sequence: tuple[str, ...] = ()
 
 
@@ -108,8 +126,15 @@ class Artifact:
     artifact_type: str
     title: str
     inputs: dict[str, Any]
-    payload: dict[str, Any]
     source_refs: tuple[str, ...]
+    status: str = "ready"
+    reason: str | None = None
+    file_type: str | None = None
+    file: dict[str, Any] | None = None
+    mime_type: str | None = None
+    chart_intent: str | None = None
+    spec: dict[str, Any] | None = None
+    downloads: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass

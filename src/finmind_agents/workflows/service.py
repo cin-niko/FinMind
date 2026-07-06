@@ -8,7 +8,7 @@ from finmind_agents.agents.models import (
     AgentRunRequest,
     AgentRunResult,
 )
-from finmind_agents.artifacts import build_chart_artifact
+from finmind_agents.artifacts import build_chart_artifacts
 from finmind_agents.dataflows.service import DataflowService
 from finmind_agents.runtime.offload import run_sync
 from finmind_agents.runtime.service import AgentOrchestratorError
@@ -72,7 +72,10 @@ class WorkflowService:
                 "required_inputs": list(workflow.required_inputs),
                 "stages": list(workflow.stages),
                 "requires_citations": True,
-                "chart_requirements": list(workflow.chart_requirements),
+                "chart_requirements": [
+                    requirement.to_output()
+                    for requirement in workflow.chart_requirements
+                ],
                 "output_sections": list(workflow.output_sections),
             }
             for workflow in self.workflows.list()
@@ -298,11 +301,13 @@ class WorkflowService:
             chart_records = [
                 record for record in records if record.dataset_id.endswith("_prices")
             ]
-            chart = (
-                build_chart_artifact(prepared.workflow.workflow_id, chart_records, list(citations))
-                if prepared.workflow.chart_requirements and chart_records
-                else None
+            chart_artifacts = build_chart_artifacts(
+                prepared.workflow.workflow_id,
+                prepared.workflow.chart_requirements,
+                chart_records,
+                list(citations),
             )
+            chart = chart_artifacts[0] if chart_artifacts else None
 
             grounding = GroundingResult(
                 grounding_status=("blocked" if grounding_uncited else "pass"),
@@ -330,9 +335,9 @@ class WorkflowService:
                         for citation in citations
                         if citation.citation_id in used_citation_ids
                     ],
-                    "artifacts": {
-                        "chart": _chart_payload(chart) if chart is not None else None,
-                    },
+                    "artifacts": [
+                        _chart_payload(artifact) for artifact in chart_artifacts
+                    ],
                     "grounding": {
                         "grounding_status": grounding.grounding_status,
                         "blocked_claims": list(grounding.blocked_claims),
@@ -378,7 +383,7 @@ class WorkflowService:
                     "steps": steps,
                     "collection": prior_outputs.get(COLLECT_STEP, {}),
                     "citations": [],
-                    "artifacts": {"chart": None},
+                    "artifacts": [],
                     "grounding": {
                         "grounding_status": "blocked",
                         "blocked_claims": list(grounding_blocked),
@@ -623,11 +628,17 @@ def _citation_payload(citation: Citation) -> dict[str, object]:
 
 
 def _chart_payload(chart: object) -> dict[str, object]:
-    return {
+    payload = {
         "artifact_id": chart.artifact_id,
         "artifact_type": chart.artifact_type,
+        "chart_intent": chart.chart_intent,
         "title": chart.title,
         "inputs": chart.inputs,
-        "payload": chart.payload,
+        "spec": chart.spec,
+        "downloads": list(chart.downloads),
         "source_refs": list(chart.source_refs),
+        "status": chart.status,
     }
+    if chart.reason is not None:
+        payload["reason"] = chart.reason
+    return payload

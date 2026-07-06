@@ -267,14 +267,52 @@ def test_workflow_run_streams_safe_sse_events_and_persists_final_run(
         "run.stage",
     ]
     assert any(event["kind"] == "answer.delta" for event in events)
+    artifact_event = next(event for event in events if event["kind"] == "artifact")
+    assert artifact_event["payload"]["artifact_type"] == "chart"
+    assert artifact_event["payload"]["chart_intent"] == "price_trend"
+    assert artifact_event["payload"]["spec"]["supported_views"] == [
+        "line",
+        "candlestick",
+    ]
+    assert artifact_event["payload"]["downloads"]
+    assert "table" not in artifact_event["payload"]
     assert any(event["kind"] == "run.completed" for event in events)
     assert events[-1]["kind"] == "run.completed"
 
     final_run = _final_run_from_events(events)
+    assert final_run["output"]["artifacts"] == [artifact_event["payload"]]
     run_response = client.get(f"/api/runs/{final_run['id']}")
 
     assert run_response.status_code == 200
     assert run_response.json() == final_run
+
+
+def test_chart_artifact_downloads_export_csv_and_svg(
+    client: TestClient,
+) -> None:
+    login_response = client.post(
+        "/api/login",
+        json={"username": "analyst", "password": "secret-pass"},
+    )
+    assert login_response.status_code == 200
+
+    _response, events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
+    )
+    artifact = _final_run_from_events(events)["output"]["artifacts"][0]
+
+    csv_response = client.get(f"/api/artifacts/{artifact['artifact_id']}/download?format=csv")
+    svg_response = client.get(f"/api/artifacts/{artifact['artifact_id']}/download?format=svg")
+
+    assert csv_response.status_code == 200
+    assert csv_response.headers["content-type"].startswith("text/csv")
+    assert "date,open,high,low,close,volume" in csv_response.text
+    assert "2026-06-18,58200,58200,58200,58200,4920000" in csv_response.text
+    assert svg_response.status_code == 200
+    assert svg_response.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in svg_response.text
 
 
 def test_workflow_run_emits_run_stage_before_answer_delta(
