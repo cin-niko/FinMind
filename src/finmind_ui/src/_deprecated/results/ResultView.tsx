@@ -7,6 +7,7 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
   if (!run) {
     return <EmptyState message="No workflow run selected." />;
   }
+  const chartArtifact = run.output.artifacts.find((artifact) => artifact.artifact_type === "chart");
 
   return (
     <div className="resultGrid">
@@ -77,7 +78,7 @@ export function ResultView({ run }: { run: WorkflowRun | null }) {
           ))}
         </ul>
       </section>
-      {run.output.artifacts.chart ? <MarketChart artifact={run.output.artifacts.chart} /> : null}
+      {chartArtifact?.artifact_type === "chart" ? <MarketChart artifact={chartArtifact} /> : null}
     </div>
   );
 }

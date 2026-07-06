@@ -1,5 +1,6 @@
 import { strict as assert } from "node:assert";
 import { renderToStaticMarkup } from "react-dom/server";
+import { ArtifactPanel } from "./ArtifactPanel";
 import { ChatPage } from "./ChatPage";
 import {
   createPendingAssistantMessage,
@@ -20,8 +21,8 @@ const workflowRun: WorkflowRun = {
       {
         title: "Technical Analysis",
         status: "success",
-        content: "DXG remains range-bound with mixed momentum.",
-        citations: ["cite_1"],
+        content: "DXG remains range-bound with mixed momentum. [citation_vn_indicators_VIX-indicators]",
+        citations: ["cite_1", "citation_vn_indicators_VIX-indicators"],
         warnings: [],
         allowed_claims: ["trend"],
         blocked_claims: []
@@ -51,9 +52,49 @@ const workflowRun: WorkflowRun = {
         dataset_id: "vn_prices",
         label: "VN Prices",
         timestamp: "2026-07-05T00:00:00+00:00"
+      },
+      {
+        citation_id: "citation_vn_indicators_VIX-indicators",
+        source_id: "vnstock_indicators",
+        dataset_id: "vn_indicators",
+        label: "VIX indicators",
+        timestamp: "2026-07-05T00:00:00+00:00"
       }
     ],
-    artifacts: {},
+    artifacts: [
+      {
+        artifact_id: "art_chart_1",
+        artifact_type: "chart",
+        chart_intent: "price_trend",
+        title: "DXG price chart",
+        status: "ready",
+        inputs: { dataset_id: "vn_prices", record_key: "DXG-prices" },
+        spec: {
+          supported_views: ["line", "candlestick"],
+          default_view: "line",
+          x_axis: { field: "date", type: "time" },
+          series: [
+            {
+              name: "Close",
+              type: "line",
+              data: [{ date: "2026-07-05", value: 18200 }]
+            }
+          ],
+          candles: [
+            {
+              date: "2026-07-05",
+              open: 18200,
+              high: 18400,
+              low: 18000,
+              close: 18200,
+              volume: 1000
+            }
+          ]
+        },
+        downloads: [],
+        source_refs: ["cite_1"]
+      }
+    ],
     grounding: {
       grounding_status: "pass",
       blocked_claims: [],
@@ -74,6 +115,7 @@ const completedMarkup = renderToStaticMarkup(
   <ChatPage
     conversation={completedConversation}
     onSelectArtifact={() => undefined}
+    onSelectCitation={() => undefined}
     onSubmit={() => undefined}
   />
 );
@@ -81,8 +123,16 @@ const completedMarkup = renderToStaticMarkup(
 assert.doesNotMatch(completedMarkup, />You</);
 assert.doesNotMatch(completedMarkup, />FinMind</);
 assert.match(completedMarkup, /Completed 2 steps/);
-assert.doesNotMatch(completedMarkup, />DXG</);
 assert.match(completedMarkup, />Done</);
+assert.match(completedMarkup, /DXG price chart/);
+assert.match(completedMarkup, /data-citation-id="citation_vn_indicators_VIX-indicators"/);
+assert.match(completedMarkup, /VIX indicators/);
+assert.doesNotMatch(completedMarkup, /VN Prices/);
+assert.doesNotMatch(completedMarkup, /\[citation_vn_indicators_VIX-indicators\]/);
+assert.doesNotMatch(completedMarkup, /\[cite:cite_1\]/);
+assert.doesNotMatch(completedMarkup, />citation_vn_indicators_VIX-indicators</);
+assert.doesNotMatch(completedMarkup, /citationBundle/);
+assert.doesNotMatch(completedMarkup, /Evidence &amp; Grounding/);
 assert.doesNotMatch(completedMarkup, /<details[^>]*workflowProgress[^>]*open/);
 assert.doesNotMatch(completedMarkup, /step\(s\)/);
 
@@ -112,6 +162,7 @@ const pendingMarkup = renderToStaticMarkup(
   <ChatPage
     conversation={pendingConversation}
     onSelectArtifact={() => undefined}
+    onSelectCitation={() => undefined}
     onSubmit={() => undefined}
   />
 );
@@ -119,3 +170,16 @@ const pendingMarkup = renderToStaticMarkup(
 assert.match(pendingMarkup, /Working/);
 assert.match(pendingMarkup, /<details[^>]*workflowProgress[^>]*open/);
 assert.doesNotMatch(pendingMarkup, /step\(s\)/);
+
+const citationPanelMarkup = renderToStaticMarkup(
+  <ArtifactPanel
+    artifact={null}
+    selectedCitationId="cite_1"
+    run={workflowRun}
+    onClose={() => undefined}
+  />
+);
+
+assert.match(citationPanelMarkup, /Citations/);
+assert.match(citationPanelMarkup, /VN Prices/);
+assert.match(citationPanelMarkup, /selected/);

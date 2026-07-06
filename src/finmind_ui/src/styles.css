@@ -860,6 +860,48 @@ button:focus-visible {
   font-size: 12px;
 }
 
+.citationChips,
+.downloadRow,
+.chartToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.citationChips {
+  margin-top: 10px;
+}
+
+.citationChip,
+.downloadChip,
+.chartToggle {
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 450;
+  padding: 5px 9px;
+  text-decoration: none;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.citationChip:hover,
+.downloadChip:hover,
+.chartToggle:hover,
+.chartToggle.active {
+  border-color: var(--accent-teal);
+  color: var(--text-primary);
+  background: #eef7f2;
+}
+
+.citationChip.inline {
+  display: inline-flex;
+  margin: 0 2px;
+  vertical-align: baseline;
+}
+
 .chatComposer {
   width: min(820px, 100%);
   display: grid;
@@ -1226,6 +1268,11 @@ button:focus-visible {
   border-radius: 7px;
 }
 
+.citationList li.selected {
+  border-color: var(--accent-teal);
+  background: #eef7f2;
+}
+
 .sectionBlock,
 .freshness,
 .citationRefs {
@@ -1243,6 +1290,19 @@ button:focus-visible {
 .chartBox {
   width: 100%;
   min-height: 260px;
+}
+
+.fileViewer {
+  display: grid;
+  gap: 12px;
+}
+
+.fileFrame {
+  width: 100%;
+  min-height: 520px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-1);
 }
 
 table {

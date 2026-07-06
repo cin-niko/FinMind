@@ -19,7 +19,13 @@ export type Workflow = {
   required_inputs: Array<{ name: string; type: string; required: boolean }>;
   stages: string[];
   requires_citations: boolean;
-  chart_requirements: string[];
+  chart_requirements: Array<{
+    chart_id: string;
+    chart_type: string;
+    title: string;
+    source_types: string[];
+    required: boolean;
+  }>;
   output_sections: string[];
 };
 
@@ -89,18 +95,7 @@ export type WorkflowRun = {
       label: string;
       timestamp: string;
     }>;
-    artifacts: {
-      chart?: {
-        artifact_id: string;
-        artifact_type: "chart";
-        title: string;
-        payload: {
-          series: Array<{ time: string; value: number; change_percent?: number }>;
-          table: Array<{ date: string; close: number; volume?: number }>;
-        };
-        source_refs: string[];
-      };
-    };
+    artifacts: Artifact[];
     grounding: {
       grounding_status: "pass" | "blocked";
       blocked_claims: string[];
@@ -108,6 +103,63 @@ export type WorkflowRun = {
     };
   };
 };
+
+export type ArtifactDownload = {
+  format?: string;
+  url: string;
+  filename: string;
+  mime_type: string;
+};
+
+export type FileArtifact = {
+  artifact_id: string;
+  artifact_type: "file";
+  file_type: "pdf" | "pptx" | "docx" | "xlsx" | "csv" | "png" | "jpg" | "svg" | string;
+  title: string;
+  status: "ready" | "unavailable" | "failed";
+  reason?: string;
+  inputs?: Record<string, unknown>;
+  file: {
+    url: string;
+    filename: string;
+    mime_type: string;
+    size_bytes?: number;
+  };
+  downloads: ArtifactDownload[];
+  source_refs: string[];
+};
+
+export type ChartArtifact = {
+  artifact_id: string;
+  artifact_type: "chart";
+  chart_intent: string;
+  title: string;
+  status: "ready" | "unavailable" | "failed";
+  reason?: string;
+  inputs: Record<string, unknown>;
+  spec: {
+    supported_views: Array<"line" | "candlestick" | string>;
+    default_view: "line" | "candlestick" | string;
+    x_axis: { field: string; type: string };
+    series: Array<{
+      name: string;
+      type: "line" | "bar" | string;
+      data: Array<{ date: string; value: number; change_percent?: number }>;
+    }>;
+    candles: Array<{
+      date: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume?: number;
+    }>;
+  };
+  downloads: ArtifactDownload[];
+  source_refs: string[];
+};
+
+export type Artifact = FileArtifact | ChartArtifact;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {

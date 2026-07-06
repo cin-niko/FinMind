@@ -22,7 +22,7 @@ export function summarizeWorkflow(workflow: Workflow): WorkflowCatalogSummary {
     stages: workflow.stages,
     sections: workflow.output_sections,
     citationLabel: workflow.requires_citations ? "Citations required" : "Citations optional",
-    chartLabel: workflow.chart_requirements.length ? "Price chart" : "No chart",
+    chartLabel: workflow.chart_requirements[0]?.title ?? "No chart",
   };
 }
 

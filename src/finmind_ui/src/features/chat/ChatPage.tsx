@@ -18,6 +18,7 @@ type Props = {
   conversation: ChatConversation | null;
   onSubmit: (message: string) => void;
   onSelectArtifact: (artifact: ChatArtifact, run?: WorkflowRun) => void;
+  onSelectCitation: (citationId: string, run?: WorkflowRun) => void;
 };
 
 const prompts = [
@@ -27,7 +28,7 @@ const prompts = [
   "What risks should I watch before market close?"
 ];
 
-export function ChatPage({ conversation, onSubmit, onSelectArtifact }: Props) {
+export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCitation }: Props) {
   const [draft, setDraft] = useState("");
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const messageRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -131,13 +132,22 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact }: Props) {
                       <div className="pendingMessage" key={`${message.id}-text-${index}`}>
                         <span className="typingDots"><span></span><span></span><span></span></span>
                         {message.streamState?.answer ? (
-                          <Markdown content={message.streamState.answer} />
+                          <Markdown
+                            content={message.streamState.answer}
+                            citations={message.workflowRun?.output.citations ?? []}
+                            onCitationClick={(citationId) => onSelectCitation(citationId, message.workflowRun)}
+                          />
                         ) : (
                           "Waiting for answer..."
                         )}
                       </div>
                     ) : message.workflowRun ? (
-                      <Markdown content={block.content} key={`${message.id}-text-${index}`} />
+                      <Markdown
+                        content={block.content}
+                        citations={message.workflowRun.output.citations}
+                        key={`${message.id}-text-${index}`}
+                        onCitationClick={(citationId) => onSelectCitation(citationId, message.workflowRun)}
+                      />
                     ) : (
                       <p key={`${message.id}-text-${index}`}>{block.content}</p>
                     )

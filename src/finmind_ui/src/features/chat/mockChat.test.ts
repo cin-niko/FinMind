@@ -26,7 +26,7 @@ const response = createMockResponse("Show a VCB report with citations");
 assert.equal(response.role, "assistant");
 assert.ok(response.blocks.some((block) => block.kind === "inlineVisual"));
 assert.ok(response.artifacts.some((artifact) => artifact.kind === "report"));
-assert.ok(response.artifacts.some((artifact) => artifact.kind === "citationBundle"));
+assert.ok(!response.artifacts.map((artifact) => artifact.kind).includes("citationBundle" as never));
 
 const followUp = createUserMessage("What are the risks?", 3);
 assert.equal(followUp.id, "user-3");

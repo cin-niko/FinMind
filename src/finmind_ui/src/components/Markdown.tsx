@@ -9,9 +9,23 @@ function escapeHtml(input: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function inlineMd(raw: string): string {
+export type CitationDisplay = {
+  citation_id: string;
+  label: string;
+};
+
+function inlineMd(raw: string, citationsById: Map<string, CitationDisplay>): string {
   const escaped = escapeHtml(raw);
+  const citationChip = (match: string, citationId: string) => {
+    const citation = citationsById.get(citationId);
+    if (!citation) {
+      return match;
+    }
+    return `<button class="citationChip inline" data-citation-id="${escapeHtml(citationId)}" type="button">${escapeHtml(citation.label)}</button>`;
+  };
   return escaped
+    .replace(/\[cite:([A-Za-z0-9_.:-]+)\]/g, citationChip)
+    .replace(/\[(citation_[A-Za-z0-9_.:-]+)\]/g, citationChip)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
@@ -30,7 +44,8 @@ function isSeparatorRow(line: string): boolean {
   return /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(line) && line.includes("-");
 }
 
-function renderMarkdown(source: string): string {
+function renderMarkdown(source: string, citations: CitationDisplay[] = []): string {
+  const citationsById = new Map(citations.map((citation) => [citation.citation_id, citation]));
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let i = 0;
@@ -66,12 +81,12 @@ function renderMarkdown(source: string): string {
         i++;
       }
       const head = header
-        .map((cell) => `<th>${inlineMd(cell)}</th>`)
+        .map((cell) => `<th>${inlineMd(cell, citationsById)}</th>`)
         .join("");
       const body = rows
         .map(
           (row) =>
-            `<tr>${row.map((cell) => `<td>${inlineMd(cell)}</td>`).join("")}</tr>`
+            `<tr>${row.map((cell) => `<td>${inlineMd(cell, citationsById)}</td>`).join("")}</tr>`
         )
         .join("");
       out.push(
@@ -84,7 +99,7 @@ function renderMarkdown(source: string): string {
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
       const level = heading[1].length;
-      out.push(`<h${level}>${inlineMd(heading[2])}</h${level}>`);
+      out.push(`<h${level}>${inlineMd(heading[2], citationsById)}</h${level}>`);
       i++;
       continue;
     }
@@ -96,7 +111,7 @@ function renderMarkdown(source: string): string {
         quote.push(lines[i].replace(/^>\s?/, ""));
         i++;
       }
-      out.push(`<blockquote>${inlineMd(quote.join(" "))}</blockquote>`);
+      out.push(`<blockquote>${inlineMd(quote.join(" "), citationsById)}</blockquote>`);
       continue;
     }
 
@@ -108,7 +123,7 @@ function renderMarkdown(source: string): string {
         i++;
       }
       out.push(
-        `<ul>${items.map((item) => `<li>${inlineMd(item)}</li>`).join("")}</ul>`
+        `<ul>${items.map((item) => `<li>${inlineMd(item, citationsById)}</li>`).join("")}</ul>`
       );
       continue;
     }
@@ -121,7 +136,7 @@ function renderMarkdown(source: string): string {
         i++;
       }
       out.push(
-        `<ol>${items.map((item) => `<li>${inlineMd(item)}</li>`).join("")}</ol>`
+        `<ol>${items.map((item) => `<li>${inlineMd(item, citationsById)}</li>`).join("")}</ol>`
       );
       continue;
     }
@@ -147,13 +162,36 @@ function renderMarkdown(source: string): string {
       para.push(lines[i]);
       i++;
     }
-    out.push(`<p>${inlineMd(para.join(" "))}</p>`);
+    out.push(`<p>${inlineMd(para.join(" "), citationsById)}</p>`);
   }
 
   return out.join("\n");
 }
 
-export function Markdown({ content }: { content: string }) {
-  const html = useMemo(() => renderMarkdown(content ?? ""), [content]);
-  return <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+export function Markdown({
+  content,
+  citations = [],
+  onCitationClick
+}: {
+  content: string;
+  citations?: CitationDisplay[];
+  onCitationClick?: (citationId: string) => void;
+}) {
+  const html = useMemo(() => renderMarkdown(content ?? "", citations), [content, citations]);
+  return (
+    <div
+      className="markdown"
+      dangerouslySetInnerHTML={{ __html: html }}
+      onClick={(event) => {
+        if (!onCitationClick) {
+          return;
+        }
+        const target = event.target as HTMLElement;
+        const citationButton = target.closest<HTMLButtonElement>("[data-citation-id]");
+        if (citationButton?.dataset.citationId) {
+          onCitationClick(citationButton.dataset.citationId);
+        }
+      }}
+    />
+  );
 }

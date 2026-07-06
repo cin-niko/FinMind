@@ -1,9 +1,10 @@
 import type { WorkflowRun } from "../../api/client";
 
-export type ChatArtifactKind = "report" | "chart" | "table" | "evidenceList" | "citationBundle";
+export type ChatArtifactKind = "report" | "chart" | "file" | "table";
 
 export type ChatArtifact = {
   id: string;
+  artifactId?: string;
   kind: ChatArtifactKind;
   title: string;
   summary: string;
@@ -135,18 +136,6 @@ export function createMockResponse(prompt: string): ChatMessage {
         kind: "report",
         title: `${subject} mock report`,
         summary: "Open the full deterministic report in the right-side panel."
-      },
-      {
-        id: "artifact-citations",
-        kind: "citationBundle",
-        title: "Mock citation bundle",
-        summary: "Shows the citation UX pattern without real chat evidence plumbing."
-      },
-      {
-        id: "artifact-evidence",
-        kind: "evidenceList",
-        title: "Mock evidence list",
-        summary: "Demonstrates how detailed evidence lists will open later."
       }
     ]
   };
@@ -156,29 +145,16 @@ export function createMockResponse(prompt: string): ChatMessage {
 export function createWorkflowAssistantMessage(run: WorkflowRun, index: number): ChatMessage {
   const sections = run.output.sections;
   const reportContent = sections.map((section) => section.content).join("\n\n---\n\n");
-  const artifacts: ChatArtifact[] = [];
-  if (run.output.artifacts.chart) {
-    artifacts.push({
-      id: `${run.id}-chart`,
-      kind: "chart",
-      title: run.output.artifacts.chart.title,
-      summary: "Price chart from collected data"
-    });
-  }
-  if (run.output.citations.length) {
-    artifacts.push({
-      id: `${run.id}-citations`,
-      kind: "citationBundle",
-      title: "Citations",
-      summary: `${run.output.citations.length} source citation(s)`
-    });
-  }
-  artifacts.push({
-    id: `${run.id}-evidence`,
-    kind: "evidenceList",
-    title: "Evidence & Grounding",
-    summary: `Grounding: ${run.output.grounding.grounding_status}`
-  });
+  const artifacts: ChatArtifact[] = run.output.artifacts.map((artifact) => ({
+    id: `${run.id}-${artifact.artifact_id}`,
+    artifactId: artifact.artifact_id,
+    kind: artifact.artifact_type,
+    title: artifact.title,
+    summary:
+      artifact.artifact_type === "chart"
+        ? "Open the full chart viewer"
+        : `Open ${artifact.file_type.toUpperCase()} file`
+  }));
   return {
     id: `assistant-wf-${index}`,
     role: "assistant",

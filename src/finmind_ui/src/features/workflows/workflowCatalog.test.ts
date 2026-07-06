@@ -14,7 +14,15 @@ const workflow: Workflow = {
   ],
   stages: ["data-collector", "data-quality-check"],
   requires_citations: true,
-  chart_requirements: ["price_series"],
+  chart_requirements: [
+    {
+      chart_id: "price_trend",
+      chart_type: "line",
+      title: "Price trend",
+      source_types: ["market_price"],
+      required: true
+    }
+  ],
   output_sections: ["Data Quality", "Collected Data"],
 };
 
@@ -28,4 +36,4 @@ assert.deepEqual(summary.requiredInputs, ["market", "symbol"]);
 assert.deepEqual(summary.stages, ["data-collector", "data-quality-check"]);
 assert.deepEqual(summary.sections, ["Data Quality", "Collected Data"]);
 assert.equal(summary.citationLabel, "Citations required");
-assert.equal(summary.chartLabel, "Price chart");
+assert.equal(summary.chartLabel, "Price trend");

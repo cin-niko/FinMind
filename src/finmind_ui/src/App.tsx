@@ -41,6 +41,7 @@ export function App() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<ChatArtifact | null>(null);
   const [selectedArtifactRun, setSelectedArtifactRun] = useState<WorkflowRun | null>(null);
+  const [selectedCitationId, setSelectedCitationId] = useState<string | null>(null);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession({ authenticated: false }));
@@ -49,6 +50,7 @@ export function App() {
   const handleSessionExpired = useCallback(() => {
     setSession({ authenticated: false });
     setSelectedArtifact(null);
+    setSelectedCitationId(null);
     setView("chat");
   }, []);
 
@@ -78,6 +80,7 @@ export function App() {
     const next = await logout().catch(() => ({ authenticated: false }) as const);
     setSession(next);
     setSelectedArtifact(null);
+    setSelectedCitationId(null);
     setView("chat");
   }
 
@@ -239,12 +242,20 @@ export function App() {
     if (currentConversationId === conversationId) {
       setCurrentConversationId(null);
       setSelectedArtifact(null);
+      setSelectedCitationId(null);
     }
   }
 
   function handleSelectArtifact(artifact: ChatArtifact, run?: WorkflowRun) {
     setSelectedArtifact(artifact);
     setSelectedArtifactRun(run ?? null);
+    setSelectedCitationId(null);
+  }
+
+  function handleSelectCitation(citationId: string, run?: WorkflowRun) {
+    setSelectedArtifact(null);
+    setSelectedArtifactRun(run ?? null);
+    setSelectedCitationId(citationId);
   }
 
   const currentConversation =
@@ -268,10 +279,11 @@ export function App() {
       onSelectChat={(conversationId) => {
         setCurrentConversationId(conversationId);
         setSelectedArtifact(null);
+        setSelectedCitationId(null);
         setView("chat");
       }}
     >
-      <div className={selectedArtifact ? "contentWithArtifact" : "contentWithArtifact noArtifact"}>
+      <div className={selectedArtifact || selectedCitationId ? "contentWithArtifact" : "contentWithArtifact noArtifact"}>
         <div className="primaryPane">
           <header className="topBar">
             <h1>{titleByView[view]}</h1>
@@ -282,6 +294,7 @@ export function App() {
               <ChatPage
                 conversation={currentConversation}
                 onSelectArtifact={handleSelectArtifact}
+                onSelectCitation={handleSelectCitation}
                 onSubmit={handleChatSubmit}
               />
             ) : null}
@@ -295,8 +308,12 @@ export function App() {
         </div>
         <ArtifactPanel
           artifact={selectedArtifact}
+          selectedCitationId={selectedCitationId}
           run={selectedArtifactRun}
-          onClose={() => setSelectedArtifact(null)}
+          onClose={() => {
+            setSelectedArtifact(null);
+            setSelectedCitationId(null);
+          }}
         />
       </div>
     </AppShell>
