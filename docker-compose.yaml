@@ -1,22 +1,44 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: finmind
+      POSTGRES_PASSWORD: finmind
+      POSTGRES_DB: finmind
+    volumes:
+      - finmind_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finmind -d finmind"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
     build:
       context: .
-      dockerfile: src/api/Dockerfile
+      dockerfile: src/finmind_api/Dockerfile
+    env_file:
+      - .env
     environment:
-      FINMIND_ADMIN_USERNAME: ${FINMIND_ADMIN_USERNAME:-admin}
-      FINMIND_ADMIN_PASSWORD: ${FINMIND_ADMIN_PASSWORD:-admin}
-      FINMIND_SESSION_SECRET: ${FINMIND_SESSION_SECRET:-session-secret-with-length}
+      FINMIND_DATABASE_URL: postgresql://finmind:finmind@postgres:5432/finmind
     ports:
       - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   ui:
     build:
       context: .
-      dockerfile: src/ui/Dockerfile
+      dockerfile: src/finmind_ui/Dockerfile
     environment:
       VITE_API_PROXY_TARGET: http://api:8000
     ports:
       - "5173:5173"
     depends_on:
       - api
+
+volumes:
+  finmind_pgdata:

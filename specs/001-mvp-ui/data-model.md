@@ -5,7 +5,7 @@ status: active
 owner: solo
 created: 2026-06-26
 implements:
-  - src/ui
+  - src/finmind_ui
 validated_by: []
 adr_refs: []
 ---
@@ -20,8 +20,9 @@ Feature-owned usage:
 - `Session`: authenticated shell access.
 - `MockChatConversation`: deterministic client-side conversation.
 - `ChatMessage`: user and deterministic assistant messages.
-- `ChatArtifact`: trusted mock report, chart, table, evidence list, or citation
-  bundle rendered by local templates.
+- `ChatArtifact`: trusted mock report, chart, table, or file-style artifact
+  rendered by local templates. Citations render inline or in citation inspection
+  surfaces, not as chat artifact cards.
 
 Workflow execution state belongs to `../002-workflow/`. Production chat execution
 state belongs to `../003-agentic-chatflow/`.

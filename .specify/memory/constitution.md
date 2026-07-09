@@ -50,7 +50,7 @@ still matches the spec and existing behavior has not regressed.
 
 User-facing changes MUST follow `specs/system/ui-ux-guidelines.md` and preserve a
 consistent workbench experience across navigation, controls, status messaging,
-citations, freshness, artifacts, and error states. UI surfaces MUST show grounded
+citations, artifacts, and error states. UI surfaces MUST show grounded
 evidence and execution state, not raw agent reasoning. New UX patterns MUST be
 specified before implementation and reused when they become shared behavior.
 
@@ -61,7 +61,7 @@ UI behavior reduces trust in research output and slows repeated use.
 
 FinMind MUST preserve human control over financial interpretation, workflow
 execution, and any user-visible recommendation. User-facing surfaces MUST show
-evidence, citations, freshness, tool/artifact status, and bounded outputs; they
+evidence, citations, tool/artifact status, and bounded outputs; they
 MUST NOT expose raw agent reasoning, hidden prompts, provider secrets, credentials,
 or unsafe internal diagnostics. Unsupported markets, missing evidence, stale data,
 failed tools, and unavailable providers MUST be blocked or clearly marked before

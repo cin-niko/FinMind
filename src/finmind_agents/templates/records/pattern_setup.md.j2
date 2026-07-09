@@ -1,0 +1,7 @@
+Pattern setups for {{ instrument_id }}.
+{% if payload.archetype -%}
+- Archetype: {{ payload.archetype }}
+{% endif -%}
+{% for setup in payload.setups -%}
+- {{ setup.pattern_name }}: {{ setup.setup_status }}, score {{ setup.completion_score }}, confirmation {{ setup.confirmation_price }} - {{ setup.reader_note }}
+{% endfor %}

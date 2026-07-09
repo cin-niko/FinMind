@@ -5,7 +5,7 @@ status: active
 owner: solo
 created: 2026-06-26
 implements:
-  - src/ui
+  - src/finmind_ui
 validated_by: []
 adr_refs: []
 ---
@@ -20,7 +20,7 @@ Unsupported roadmap surfaces must not be active navigation entries.
 ## Mock Chat
 
 Mock chat responses are deterministic and UI-local. They may show trusted local
-inline visuals and artifact cards. They do not run tools, retrieve live data,
+inline visuals and artifact cards. They do not run tools, collect live data,
 execute generated HTML, or represent production evidence-backed chatflow.
 
 ## Artifact Detail

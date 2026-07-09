@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "required": [
+    {
+      "dataset": "ohlcv",
+      "interval": "1d",
+      "lookback": "3y",
+      "purpose": "daily OHLCV series for indicator computation (MA/RSI/MACD/Bollinger/ATR/drawdown/support-resistance) and chart artifact"
+    },
+    {
+      "dataset": "company_profile",
+      "fields": ["industry", "sector", "shares_outstanding", "market_cap"],
+      "purpose": "issuer identity, market-cap context, and benchmark selection"
+    }
+  ]
+}

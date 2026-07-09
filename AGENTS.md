@@ -4,9 +4,15 @@ This file orients any AI coding agent working in this repository. Read it before
 
 ## 1. What This Repo Is
 
-FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated finance advice platform for VN stocks and US stocks, with evidence-backed outputs, citations, freshness, canonical contracts, chart artifacts, fixed workflow planning, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with evidence/citations, not hallucination.
+FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated, workflow-first finance advice workbench for VN stocks and US stocks, with evidence-backed outputs, citations, canonical contracts, chart artifacts, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with citations and source provenance, not hallucination.
 
-The reusable agent substrate lives under `src/agent_core`. Finance product APIs, UI, data workflows, and orchestration are specified under `specs/` before implementation.
+The target repo split is `src/finmind_agents` for the shared agentic and
+finance orchestration layer, `src/finmind_api` for the backend API layer, and
+`src/finmind_ui` for the frontend layer. Phase 02 planning uses the LangChain
+ecosystem with `langchain-litellm` as the default model adapter and defers
+LangGraph until graph state or multi-agent branching is required. Finance
+product APIs, UI, data workflows, and orchestration are specified under
+`specs/` before implementation.
 
 ## 2. Single Source Of Truth
 
@@ -19,7 +25,7 @@ Every piece of information should have one canonical location. Link to it instea
 | Platform-wide state, contracts, runtime, security, UI rules | [`specs/system/`](specs/system/) |
 | Per-feature specs | [`specs/NNN-slug/`](specs/README.md) |
 | Local agent skills | [`.agents/skills/`](.agents/skills/) |
-| Existing agent substrate code | [`src/agent_core/`](src/agent_core/) |
+| Planned shared agent runtime | [`specs/002-workflow/plan.md`](specs/002-workflow/plan.md) |
 | Existing tests | [`tests/`](tests/) |
 | Product source ideas | [`ideas/`](ideas/) |
 
@@ -35,7 +41,8 @@ Every piece of information should have one canonical location. Link to it instea
 8. **Provider details stay abstract at product-contract level.** Implementation may validate providers, licensing, credentials, and schemas behind source connector contracts.
 9. **Do not duplicate schemas or tables.** Pick the canonical spec and link to it.
 10. **Do not hand-edit generated/cache files.** Local agent skills live under `.agents/skills/`; generated runtime caches and virtualenv artifacts should be ignored.
-11. **Run relevant verification before completion.** For Python work, use `uv run pytest`; for frontend work, use the commands defined by `src/ui/package.json` once that app exists.
+11. **Run relevant verification before completion.** For Python work, use `uv run pytest`; for frontend work, use the commands defined by `src/finmind_ui/package.json` once that app exists.
+12. **Use semantic commit messages.** Commits must follow the Conventional Commits format, such as `feat(ui): add workflow picker`, `fix(api): block unsupported markets`, or `docs(agents): document commit rules`.
 
 ## 4. Standard Loops
 
@@ -94,7 +101,7 @@ uv run pytest
 When UI exists:
 
 ```bash
-cd src/ui
+cd src/finmind_ui
 npm install
 npm run build
 ```
@@ -135,14 +142,16 @@ specs/system/            shared state, contracts, runtime, security, UI
 specs/NNN-slug/          bounded feature specs
 .agents/skills/          local agent workflows and guidance
 .specify/                Spec Kit scripts, templates, and memory
-src/agent_core/          reusable agent substrate
+src/finmind_agents/       planned shared agentic runtime, skills, and dataflows
+src/finmind_api/          planned backend API layer
+src/finmind_ui/           planned frontend layer
 tests/                   current test suite
 ```
 
 ## 9. Current Feature State
 
 1. `001-mvp-ui`: active implemented feature covering auth, app shell, deterministic mock chat UI, artifact detail, navigation, grouped history layout, and UI foundations.
-2. `002-workflow`: draft phase 02 feature for fixed workflow catalog/execution, VN stock and US stock scope, citations, freshness, chart artifacts, execution status, and workflow run inspection.
+2. `002-workflow`: draft phase 02 feature for a guarded async workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock and US stock scope, citations, chart artifacts, execution status, separate workflow/chatflow stream transport, and run inspection.
 3. `003-agentic-chatflow`: draft phase 03 feature for future evidence-backed flexible Q&A chatflow over trusted sources.
 
 Deleted roadmap folders such as data operations and extension hardening are not canonical. Recreate future capabilities through a fresh Spec Kit cycle only when scope, data access, safety, and contracts are ready.

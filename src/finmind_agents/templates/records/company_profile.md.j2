@@ -1,0 +1,16 @@
+Company profile for {{ instrument_id }}.
+{% if company_name is defined and company_name -%}
+- Company: {{ company_name }}
+{% endif -%}
+{% if exchange is defined and exchange -%}
+- Exchange: {{ exchange }}
+{% endif -%}
+{% if industry is defined and industry -%}
+- Industry: {{ industry }}
+{% endif -%}
+{% if sector is defined and sector -%}
+- Sector: {{ sector }}
+{% endif -%}
+{% if description is defined and description -%}
+- Description: {{ description }}
+{% endif %}

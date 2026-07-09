@@ -32,7 +32,7 @@ source access, and implementation scope are ready.
 | `system/` | Platform-wide specs: state model, contracts, runtime behavior, config, security, safety, and UI foundations. |
 | `NNN-slug/` | Per-feature specs, plans, tasks, and supporting artifacts for one bounded capability. Managed by Spec Kit slash commands: `/speckit-specify`, `/speckit-plan`, `/speckit-tasks`, and `/speckit-implement`. |
 | `001-mvp-ui/` | Implemented MVP app shell, auth, deterministic mock chat UI, artifact detail, navigation, history layout, and UI foundations. |
-| `002-workflow/` | Draft phase 02 fixed workflow catalog/execution, VN stock and US stock market scope, evidence/citations, freshness, chart artifacts, and run inspection. |
+| `002-workflow/` | Draft phase 02 workflow suite for UI-runnable fundamental analysis, technical analysis, optional combined stock briefs, VN/US stock scope, evidence/citations, chart artifacts, and run inspection. |
 | `003-agentic-chatflow/` | Draft future evidence-backed flexible Q&A chatflow over trusted sources. |
 
 Future feature folders must be created append-only with Spec Kit only when their
@@ -90,8 +90,8 @@ status: active
 owner: solo
 created: 2026-06-18
 implements:
-  - src/api
-  - src/ui
+  - src/finmind_api
+  - src/finmind_ui
 validated_by:
   - tests/test_app.py
   - tests/test_platform_services.py

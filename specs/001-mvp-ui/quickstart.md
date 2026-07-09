@@ -5,8 +5,8 @@ status: active
 owner: solo
 created: 2026-06-26
 implements:
-  - src/ui
-  - src/api
+  - src/finmind_ui
+  - src/finmind_api
 validated_by:
   - tests/test_app.py
 adr_refs: []
@@ -21,7 +21,7 @@ UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest t
 ```
 
 ```bash
-cd src/ui
+cd src/finmind_ui
 npm run build
 ```
 

@@ -1,0 +1,28 @@
+{
+  "workflow_id": "vn-technical-analysis",
+  "version": "1.0.0",
+  "title": "VN Technical Analysis",
+  "description": "Collects VN stock OHLCV data, then performs technical analysis (indicators, patterns, verdict or price-volume profile) from real price data.",
+  "workflow_type": "atomic",
+  "market_scope": ["VN_STOCK"],
+  "required_inputs": [
+    {"name": "market", "type": "string", "required": true},
+    {"name": "symbol", "type": "string", "required": true}
+  ],
+  "stages": ["collect_data", "technical-analysis"],
+  "skill_refs": [
+    "src/finmind_agents/workflows/skills/vn-technical-analysis/SKILL.md"
+  ],
+  "output_sections": ["Technical Analysis"],
+  "citation_policy": "material_claims_require_citations",
+  "chart_requirements": [
+    {
+      "chart_id": "price_trend",
+      "chart_type": "line",
+      "title": "Price trend",
+      "source_types": ["market_price"],
+      "required": true
+    }
+  ],
+  "step_sequence": ["collect_data", "vn-technical-analysis"]
+}

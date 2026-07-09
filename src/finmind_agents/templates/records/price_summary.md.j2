@@ -1,0 +1,4 @@
+Price summary for {{ instrument_id }}.
+{% for bar in payload.year_end_prices -%}
+- {{ bar.date }}: close {{ bar.close }}{% if bar.volume is not none %}, volume {{ bar.volume }}{% endif %}
+{% endfor %}

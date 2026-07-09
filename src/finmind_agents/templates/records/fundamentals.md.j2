@@ -1,0 +1,19 @@
+Fundamental metrics for {{ instrument_id }} for {{ period }}.
+{% if is_audited is defined -%}
+- Audited: {{ is_audited }}
+{% endif -%}
+{% if eps is defined and eps is not none -%}
+- EPS: {{ eps }}
+{% endif -%}
+{% if bvps is defined and bvps is not none -%}
+- BVPS: {{ bvps }}
+{% endif -%}
+{% if roe_percent is defined and roe_percent is not none -%}
+- ROE: {{ roe_percent }}%
+{% endif -%}
+{% if revenue_growth_percent is defined and revenue_growth_percent is not none -%}
+- Revenue growth: {{ revenue_growth_percent }}%
+{% endif -%}
+{% if audit_warnings is defined and audit_warnings -%}
+- Audit warnings: {{ audit_warnings | join(", ") }}
+{% endif %}

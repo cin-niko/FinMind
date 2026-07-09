@@ -14,8 +14,9 @@ adr_refs: []
 Draft contract requirements:
 
 - Every material claim has citations or unsupported/unavailable marking.
-- Every answer includes relevant freshness status where data is time-sensitive.
-- Tool, retrieval, citation, and artifact failures are visible to the user.
+- Every answer includes citation provenance (source id, dataset id, timestamp)
+  where data is time-sensitive; cited sources must be a subset of collected sources.
+- Tool, collection, citation, and artifact failures are visible to the user.
 - Raw agent reasoning, hidden prompts, secrets, and unsafe diagnostics are never
   user-visible.
 - Trade execution, order placement, and broker actions are not supported.

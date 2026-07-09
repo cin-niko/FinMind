@@ -25,7 +25,7 @@ adr_refs: []
 
 - [x] No [NEEDS CLARIFICATION] markers remain
 - [ ] Trusted source list is finalized
-- [ ] Retrieval strategy is finalized
+- [ ] Collection strategy is finalized
 - [ ] Citation policy is finalized
 - [ ] Performance targets are finalized
 - [ ] Evaluation set is finalized
