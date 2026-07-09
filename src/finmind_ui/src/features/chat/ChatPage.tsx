@@ -9,16 +9,16 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ChatArtifact, ChatConversation } from "./mockChat";
-import type { WorkflowRun } from "../../api/client";
-import { getLatestUserMessageId } from "./mockChat";
+import type { ChatArtifact, ChatConversation, LiveEvidence } from "./mockChat";
+import type { Artifact, WorkflowRun } from "../../api/client";
+import { getLatestUserMessageId, mapArtifactsToCards, orderCitationsByAppearance } from "./mockChat";
 import { Markdown } from "../../components/Markdown";
 
 type Props = {
   conversation: ChatConversation | null;
   onSubmit: (message: string) => void;
-  onSelectArtifact: (artifact: ChatArtifact, run?: WorkflowRun) => void;
-  onSelectCitation: (citationId: string, run?: WorkflowRun) => void;
+  onSelectArtifact: (artifact: ChatArtifact, run?: WorkflowRun, live?: LiveEvidence) => void;
+  onSelectCitation: (citationId: string, run?: WorkflowRun, live?: LiveEvidence) => void;
 };
 
 const prompts = [
@@ -27,6 +27,35 @@ const prompts = [
   "Compare banking and retail momentum.",
   "What risks should I watch before market close?"
 ];
+
+
+function messageSource(message: ChatConversation["messages"][number]): string {
+  if (message.workflowRun) {
+    return message.workflowRun.output.sections
+      .map((section) => section.content)
+      .join("\n\n---\n\n");
+  }
+  return message.streamState?.answer ?? "";
+}
+
+export function evidenceFor(message: ChatConversation["messages"][number]): LiveEvidence {
+  const source = messageSource(message);
+  const rawCitations = message.workflowRun
+    ? message.workflowRun.output.citations
+    : (message.streamState?.citations ?? []);
+  const artifacts = message.workflowRun
+    ? message.workflowRun.output.artifacts
+    : (message.streamState?.artifacts ?? []);
+  const { citations, ordinals } = orderCitationsByAppearance(source, rawCitations);
+  return { citations, citationOrdinals: ordinals, artifacts };
+}
+
+function visibleArtifacts(message: ChatConversation["messages"][number]): ChatArtifact[] {
+  if (message.pending && message.streamState && !message.workflowRun) {
+    return mapArtifactsToCards(message.streamState.artifacts, message.id);
+  }
+  return message.artifacts;
+}
 
 export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCitation }: Props) {
   const [draft, setDraft] = useState("");
@@ -134,8 +163,14 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                         {message.streamState?.answer ? (
                           <Markdown
                             content={message.streamState.answer}
-                            citations={message.workflowRun?.output.citations ?? []}
-                            onCitationClick={(citationId) => onSelectCitation(citationId, message.workflowRun)}
+                            citations={message.streamState?.citations ?? message.workflowRun?.output.citations ?? []}
+                            onCitationClick={(citationId) =>
+                              onSelectCitation(
+                                citationId,
+                                message.workflowRun,
+                                evidenceFor(message)
+                              )
+                            }
                           />
                         ) : (
                           "Waiting for answer..."
@@ -146,7 +181,9 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                         content={block.content}
                         citations={message.workflowRun.output.citations}
                         key={`${message.id}-text-${index}`}
-                        onCitationClick={(citationId) => onSelectCitation(citationId, message.workflowRun)}
+                        onCitationClick={(citationId) =>
+                          onSelectCitation(citationId, message.workflowRun, evidenceFor(message))
+                        }
                       />
                     ) : (
                       <p key={`${message.id}-text-${index}`}>{block.content}</p>
@@ -165,13 +202,15 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                     </div>
                   )
                 )}
-                {message.artifacts.length ? (
+                {visibleArtifacts(message).length ? (
                   <div className="artifactCards">
-                    {message.artifacts.map((artifact) => (
+                    {visibleArtifacts(message).map((artifact) => (
                       <button
                         className="artifactCard"
                         key={artifact.id}
-                        onClick={() => onSelectArtifact(artifact, message.workflowRun)}
+                        onClick={() =>
+                          onSelectArtifact(artifact, message.workflowRun, evidenceFor(message))
+                        }
                         type="button"
                       >
                         <span>{artifact.kind}</span>

@@ -1,4 +1,4 @@
-import type { WorkflowRun } from "../../api/client";
+import type { Artifact, WorkflowRun } from "../../api/client";
 
 export type ChatArtifactKind = "report" | "chart" | "file" | "table";
 
@@ -9,6 +9,64 @@ export type ChatArtifact = {
   title: string;
   summary: string;
 };
+
+export type LiveCitation = {
+  citation_id: string;
+  record_id: string;
+  record_type: string;
+  source_id: string;
+  dataset_id: string;
+  label: string;
+  timestamp: string;
+  instrument_id?: string | null;
+  display_content?: string | null;
+  payload_snapshot: Record<string, unknown>;
+  methodology_version?: string | null;
+};
+
+export type LiveEvidence = {
+  citations: LiveCitation[];
+  citationOrdinals: Map<string, number>;
+  artifacts: Artifact[];
+};
+
+const CITATION_TOKEN_RE = /\[cite:([A-Za-z0-9_.:-]+)\]|\[(citation_[A-Za-z0-9_.:-]+)\]/g;
+
+export function orderCitationsByAppearance(
+  source: string,
+  citations: LiveCitation[]
+): { citations: LiveCitation[]; ordinals: Map<string, number> } {
+  const byId = new Map(citations.map((citation) => [citation.citation_id, citation]));
+  const ordered: LiveCitation[] = [];
+  const ordinals = new Map<string, number>();
+  const seen = new Set<string>();
+  CITATION_TOKEN_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = CITATION_TOKEN_RE.exec(source)) !== null) {
+    const id = match[1] ?? match[2];
+    if (!id || seen.has(id) || !byId.has(id)) continue;
+    seen.add(id);
+    ordinals.set(id, ordered.length + 1);
+    ordered.push(byId.get(id) as LiveCitation);
+  }
+  for (const citation of citations) {
+    if (!seen.has(citation.citation_id)) ordered.push(citation);
+  }
+  return { citations: ordered, ordinals };
+}
+
+export function mapArtifactsToCards(artifacts: Artifact[], runId: string): ChatArtifact[] {
+  return artifacts.map((artifact) => ({
+    id: `${runId}-${artifact.artifact_id}`,
+    artifactId: artifact.artifact_id,
+    kind: artifact.artifact_type,
+    title: artifact.title,
+    summary:
+      artifact.artifact_type === "chart"
+        ? "Open the full chart viewer"
+        : `Open ${artifact.file_type.toUpperCase()} file`
+  }));
+}
 
 export type ChatBlock =
   | {
@@ -35,6 +93,8 @@ export type WorkflowStreamState = {
   complete: boolean;
   steps: WorkflowProgressStep[];
   answer: string;
+  citations: LiveCitation[];
+  artifacts: Artifact[];
 };
 
 export type ChatMessage = {
@@ -145,16 +205,7 @@ export function createMockResponse(prompt: string): ChatMessage {
 export function createWorkflowAssistantMessage(run: WorkflowRun, index: number): ChatMessage {
   const sections = run.output.sections;
   const reportContent = sections.map((section) => section.content).join("\n\n---\n\n");
-  const artifacts: ChatArtifact[] = run.output.artifacts.map((artifact) => ({
-    id: `${run.id}-${artifact.artifact_id}`,
-    artifactId: artifact.artifact_id,
-    kind: artifact.artifact_type,
-    title: artifact.title,
-    summary:
-      artifact.artifact_type === "chart"
-        ? "Open the full chart viewer"
-        : `Open ${artifact.file_type.toUpperCase()} file`
-  }));
+  const artifacts: ChatArtifact[] = mapArtifactsToCards(run.output.artifacts, run.id);
   return {
     id: `assistant-wf-${index}`,
     role: "assistant",
@@ -190,7 +241,9 @@ export function createPendingAssistantMessage(index: number, inputContext?: stri
             }
           ]
         : [],
-      answer: ""
+      answer: "",
+      citations: [],
+      artifacts: []
     }
   };
 }
@@ -209,7 +262,9 @@ export function workflowStreamStateFromRun(run: WorkflowRun): WorkflowStreamStat
       warnings: step.warnings,
       inputContext
     })),
-    answer: run.output.sections.map((section) => section.content).join("\n\n---\n\n")
+    answer: run.output.sections.map((section) => section.content).join("\n\n---\n\n"),
+    citations: run.output.citations,
+    artifacts: run.output.artifacts
   };
 }
 

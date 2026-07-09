@@ -14,14 +14,31 @@ export type CitationDisplay = {
   label: string;
 };
 
-function inlineMd(raw: string, citationsById: Map<string, CitationDisplay>): string {
+function buildOrdinalById(source: string, validIds: Set<string>): Map<string, number> {
+  const ordinals = new Map<string, number>();
+  const tokenRe = /\[cite:([A-Za-z0-9_.:-]+)\]|\[(citation_[A-Za-z0-9_.:-]+)\]/g;
+  let match: RegExpExecArray | null;
+  while ((match = tokenRe.exec(source)) !== null) {
+    const id = match[1] ?? match[2];
+    if (id && validIds.has(id) && !ordinals.has(id)) {
+      ordinals.set(id, ordinals.size + 1);
+    }
+  }
+  return ordinals;
+}
+
+function inlineMd(
+  raw: string,
+  validIds: Set<string>,
+  ordinalsById: Map<string, number>
+): string {
   const escaped = escapeHtml(raw);
   const citationChip = (match: string, citationId: string) => {
-    const citation = citationsById.get(citationId);
-    if (!citation) {
+    const ordinal = ordinalsById.get(citationId);
+    if (!validIds.has(citationId) || ordinal === undefined) {
       return match;
     }
-    return `<button class="citationChip inline" data-citation-id="${escapeHtml(citationId)}" type="button">${escapeHtml(citation.label)}</button>`;
+    return `<button class="citationChip inline" data-citation-id="${escapeHtml(citationId)}" type="button">${ordinal}</button>`;
   };
   return escaped
     .replace(/\[cite:([A-Za-z0-9_.:-]+)\]/g, citationChip)
@@ -45,7 +62,8 @@ function isSeparatorRow(line: string): boolean {
 }
 
 function renderMarkdown(source: string, citations: CitationDisplay[] = []): string {
-  const citationsById = new Map(citations.map((citation) => [citation.citation_id, citation]));
+  const validIds = new Set(citations.map((citation) => citation.citation_id));
+  const ordinalsById = buildOrdinalById(source, validIds);
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let i = 0;
@@ -81,12 +99,12 @@ function renderMarkdown(source: string, citations: CitationDisplay[] = []): stri
         i++;
       }
       const head = header
-        .map((cell) => `<th>${inlineMd(cell, citationsById)}</th>`)
+        .map((cell) => `<th>${inlineMd(cell, validIds, ordinalsById)}</th>`)
         .join("");
       const body = rows
         .map(
           (row) =>
-            `<tr>${row.map((cell) => `<td>${inlineMd(cell, citationsById)}</td>`).join("")}</tr>`
+            `<tr>${row.map((cell) => `<td>${inlineMd(cell, validIds, ordinalsById)}</td>`).join("")}</tr>`
         )
         .join("");
       out.push(
@@ -99,7 +117,7 @@ function renderMarkdown(source: string, citations: CitationDisplay[] = []): stri
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
       const level = heading[1].length;
-      out.push(`<h${level}>${inlineMd(heading[2], citationsById)}</h${level}>`);
+      out.push(`<h${level}>${inlineMd(heading[2], validIds, ordinalsById)}</h${level}>`);
       i++;
       continue;
     }
@@ -111,7 +129,7 @@ function renderMarkdown(source: string, citations: CitationDisplay[] = []): stri
         quote.push(lines[i].replace(/^>\s?/, ""));
         i++;
       }
-      out.push(`<blockquote>${inlineMd(quote.join(" "), citationsById)}</blockquote>`);
+      out.push(`<blockquote>${inlineMd(quote.join(" "), validIds, ordinalsById)}</blockquote>`);
       continue;
     }
 
@@ -123,7 +141,7 @@ function renderMarkdown(source: string, citations: CitationDisplay[] = []): stri
         i++;
       }
       out.push(
-        `<ul>${items.map((item) => `<li>${inlineMd(item, citationsById)}</li>`).join("")}</ul>`
+        `<ul>${items.map((item) => `<li>${inlineMd(item, validIds, ordinalsById)}</li>`).join("")}</ul>`
       );
       continue;
     }
@@ -136,7 +154,7 @@ function renderMarkdown(source: string, citations: CitationDisplay[] = []): stri
         i++;
       }
       out.push(
-        `<ol>${items.map((item) => `<li>${inlineMd(item, citationsById)}</li>`).join("")}</ol>`
+        `<ol>${items.map((item) => `<li>${inlineMd(item, validIds, ordinalsById)}</li>`).join("")}</ol>`
       );
       continue;
     }
@@ -162,7 +180,7 @@ function renderMarkdown(source: string, citations: CitationDisplay[] = []): stri
       para.push(lines[i]);
       i++;
     }
-    out.push(`<p>${inlineMd(para.join(" "), citationsById)}</p>`);
+    out.push(`<p>${inlineMd(para.join(" "), validIds, ordinalsById)}</p>`);
   }
 
   return out.join("\n");

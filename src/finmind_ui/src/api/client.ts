@@ -90,10 +90,16 @@ export type WorkflowRun = {
     };
     citations: Array<{
       citation_id: string;
+      record_id: string;
+      record_type: string;
       source_id: string;
       dataset_id: string;
       label: string;
       timestamp: string;
+      instrument_id?: string | null;
+      display_content?: string | null;
+      payload_snapshot: Record<string, unknown>;
+      methodology_version?: string | null;
     }>;
     artifacts: Artifact[];
     grounding: {

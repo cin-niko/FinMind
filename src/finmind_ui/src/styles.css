@@ -898,8 +898,29 @@ button:focus-visible {
 
 .citationChip.inline {
   display: inline-flex;
-  margin: 0 2px;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  margin: 0 1px;
+  padding: 0 4px;
   vertical-align: baseline;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 999px;
+  border-color: var(--text-primary);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.citationChip.inline:hover,
+.citationChip.inline:focus-visible {
+  border-color: var(--text-primary);
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  box-shadow: none;
 }
 
 .chatComposer {
@@ -1256,21 +1277,131 @@ button:focus-visible {
 }
 
 .citationList {
+  --citation-card-height: 118px;
   display: grid;
+  align-content: start;
+  grid-auto-rows: var(--citation-card-height);
   list-style: none;
+  gap: 2px;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
-.citationList li {
+.citationList > li {
   display: grid;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid var(--border-subtle);
+  align-content: start;
+  gap: 6px;
+  height: var(--citation-card-height);
+  padding: 10px 12px;
+  border: 1px solid transparent;
   border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
-.citationList li.selected {
-  border-color: var(--accent-teal);
-  background: #eef7f2;
+.citationList > li:hover {
+  background: var(--surface-selected);
+}
+
+.citationList > li:focus-visible {
+  outline: 2px solid var(--accent-teal);
+  outline-offset: 2px;
+}
+
+.citationList > li.selected.flashEven {
+  animation: citationFlashEven 1100ms ease-out;
+}
+
+.citationList > li.selected.flashOdd {
+  animation: citationFlashOdd 1100ms ease-out;
+}
+
+@keyframes citationFlashEven {
+  0%,
+  42% {
+    border-color: var(--border-subtle);
+    background: var(--surface-selected);
+    box-shadow: 0 1px 2px rgba(25, 25, 23, 0.06);
+  }
+  100% {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes citationFlashOdd {
+  0%,
+  42% {
+    border-color: var(--border-subtle);
+    background: var(--surface-selected);
+    box-shadow: 0 1px 2px rgba(25, 25, 23, 0.06);
+  }
+  100% {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.citationCardTitle {
+  display: block;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.citationContent {
+  min-width: 0;
+  overflow: hidden;
+  display: block;
+  max-height: calc((13px * 1.5 * 3) + 2px);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.citationModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 40;
+}
+
+.citationModal {
+  width: min(720px, 100%);
+  max-height: min(80vh, 760px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+}
+
+.citationModalHeader {
+  position: relative;
+  padding: 16px 48px 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.citationModalHeader h3 {
+  margin: 0;
+}
+
+.citationModalBody {
+  overflow: auto;
+  padding: 16px;
 }
 
 .sectionBlock,
@@ -1444,6 +1575,37 @@ th {
 }
 
 .markdown li { margin: 0; }
+
+.citationContent .markdown {
+  gap: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.citationContent .markdown h1,
+.citationContent .markdown h2,
+.citationContent .markdown h3,
+.citationContent .markdown h4,
+.citationContent .markdown h5,
+.citationContent .markdown h6 {
+  font-size: 13px;
+  margin: 0;
+}
+
+.citationContent .markdown ul,
+.citationContent .markdown ol {
+  gap: 0;
+  padding-left: 18px;
+}
+
+.citationContent .markdown p {
+  display: inline;
+}
+
+.citationContent .markdown p + p::before {
+  content: " ";
+}
 
 .markdown a {
   color: var(--accent-teal);

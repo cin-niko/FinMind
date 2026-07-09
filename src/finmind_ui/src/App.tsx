@@ -7,6 +7,7 @@ import {
   logout,
   renameRun,
   runWorkflow,
+  type Artifact,
   type SessionState,
   type WorkflowRun,
   type WorkflowStreamEvent
@@ -26,7 +27,9 @@ import {
   createUserMessage,
   getConversationTitle,
   type ChatArtifact,
-  type ChatConversation
+  type ChatConversation,
+  type LiveCitation,
+  type LiveEvidence
 } from "./features/chat/mockChat";
 import { AppShell } from "./features/shell/AppShell";
 import { WorkflowPage } from "./features/workflows/WorkflowPage";
@@ -42,6 +45,8 @@ export function App() {
   const [selectedArtifact, setSelectedArtifact] = useState<ChatArtifact | null>(null);
   const [selectedArtifactRun, setSelectedArtifactRun] = useState<WorkflowRun | null>(null);
   const [selectedCitationId, setSelectedCitationId] = useState<string | null>(null);
+  const [citationFlashKey, setCitationFlashKey] = useState(0);
+  const [selectedLive, setSelectedLive] = useState<LiveEvidence | null>(null);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession({ authenticated: false }));
@@ -51,6 +56,7 @@ export function App() {
     setSession({ authenticated: false });
     setSelectedArtifact(null);
     setSelectedCitationId(null);
+    setSelectedLive(null);
     setView("chat");
   }, []);
 
@@ -100,7 +106,13 @@ export function App() {
     setView("chat");
     try {
       const run = await runWorkflow(workflowId, streamInputs, (event: WorkflowStreamEvent) => {
-        if (event.kind !== "answer.delta" && event.kind !== "run.stage" && event.kind !== "run.completed") {
+        if (
+          event.kind !== "answer.delta" &&
+          event.kind !== "run.stage" &&
+          event.kind !== "run.completed" &&
+          event.kind !== "citation" &&
+          event.kind !== "artifact"
+        ) {
           return;
         }
         setConversations((items) =>
@@ -114,17 +126,39 @@ export function App() {
                   label: "Working",
                   complete: false,
                   steps: [],
-                  answer: ""
+                  answer: "",
+                  citations: [],
+                  artifacts: []
                 };
-                const nextState =
-                  event.kind === "answer.delta"
-                    ? {
-                        ...currentState,
-                        answer: `${currentState.answer}${String(event.payload.text ?? "")}`
-                      }
-                    : event.kind === "run.completed"
-                      ? workflowStreamStateFromRun(event.payload.run as WorkflowRun)
-                      : updateStreamState(currentState, event, streamInputs);
+                let nextState;
+                if (event.kind === "answer.delta") {
+                  nextState = {
+                    ...currentState,
+                    answer: `${currentState.answer}${String(event.payload.text ?? "")}`
+                  };
+                } else if (event.kind === "run.completed") {
+                  nextState = workflowStreamStateFromRun(event.payload.run as WorkflowRun);
+                } else if (event.kind === "citation") {
+                  const citation = event.payload as unknown as LiveCitation;
+                  const exists = currentState.citations.some(
+                    (item) => item.citation_id === citation.citation_id
+                  );
+                  nextState = {
+                    ...currentState,
+                    citations: exists ? currentState.citations : [...currentState.citations, citation]
+                  };
+                } else if (event.kind === "artifact") {
+                  const artifact = event.payload as unknown as Artifact;
+                  const exists = currentState.artifacts.some(
+                    (item) => item.artifact_id === artifact.artifact_id
+                  );
+                  nextState = {
+                    ...currentState,
+                    artifacts: exists ? currentState.artifacts : [...currentState.artifacts, artifact]
+                  };
+                } else {
+                  nextState = updateStreamState(currentState, event, streamInputs);
+                }
                 const nextText = nextState.answer;
                 return {
                   ...message,
@@ -169,6 +203,7 @@ export function App() {
 
   function handleNavigate(nextView: View) {
     setSelectedArtifact(null);
+    setSelectedLive(null);
     if (nextView === "chat") {
       if (view === "chat" && currentConversationId === null) {
         return;
@@ -180,6 +215,7 @@ export function App() {
 
   function handleChatSubmit(message: string) {
     setSelectedArtifact(null);
+    setSelectedLive(null);
     if (!currentConversationId) {
       const conversation = createNewConversation(message);
       const response = createMockResponse(message);
@@ -243,19 +279,23 @@ export function App() {
       setCurrentConversationId(null);
       setSelectedArtifact(null);
       setSelectedCitationId(null);
+      setSelectedLive(null);
     }
   }
 
-  function handleSelectArtifact(artifact: ChatArtifact, run?: WorkflowRun) {
+  function handleSelectArtifact(artifact: ChatArtifact, run?: WorkflowRun, live?: LiveEvidence) {
     setSelectedArtifact(artifact);
     setSelectedArtifactRun(run ?? null);
+    setSelectedLive(live ?? null);
     setSelectedCitationId(null);
   }
 
-  function handleSelectCitation(citationId: string, run?: WorkflowRun) {
+  function handleSelectCitation(citationId: string, run?: WorkflowRun, live?: LiveEvidence) {
     setSelectedArtifact(null);
     setSelectedArtifactRun(run ?? null);
+    setSelectedLive(live ?? null);
     setSelectedCitationId(citationId);
+    setCitationFlashKey((current) => current + 1);
   }
 
   const currentConversation =
@@ -280,6 +320,7 @@ export function App() {
         setCurrentConversationId(conversationId);
         setSelectedArtifact(null);
         setSelectedCitationId(null);
+        setSelectedLive(null);
         setView("chat");
       }}
     >
@@ -309,10 +350,15 @@ export function App() {
         <ArtifactPanel
           artifact={selectedArtifact}
           selectedCitationId={selectedCitationId}
+          citationFlashKey={citationFlashKey}
           run={selectedArtifactRun}
+          citations={selectedLive?.citations}
+          citationOrdinals={selectedLive?.citationOrdinals}
+          artifacts={selectedLive?.artifacts}
           onClose={() => {
             setSelectedArtifact(null);
             setSelectedCitationId(null);
+            setSelectedLive(null);
           }}
         />
       </div>
