@@ -9,6 +9,16 @@ from finmind_agents.agents.models import (
     AgentRunResult,
 )
 from finmind_agents.artifacts import build_chart_artifacts
+from finmind_agents.data_records import (
+    CompanyProfileRecord,
+    DataBundle,
+    DataRecord,
+    FundamentalRecord,
+    IndicatorsRecord,
+    PriceSeriesRecord,
+    PriceSummaryRecord,
+    build_data_bundle,
+)
 from finmind_agents.dataflows.service import DataflowService
 from finmind_agents.runtime.offload import run_sync
 from finmind_agents.runtime.service import AgentOrchestratorError
@@ -124,8 +134,9 @@ class WorkflowService:
         grounding_uncited: list[str] = []
 
         collected = None
-        citations: tuple[Citation, ...] = ()
+        citations_by_id: dict[str, Citation] = {}
         records: tuple[CanonicalMarketDataRecord, ...] = ()
+        data_bundle = DataBundle(records=())
         prior_outputs: dict[str, object] = {}
         used_citation_ids: set[str] = set()
 
@@ -173,7 +184,14 @@ class WorkflowService:
                     )
                     records = collected.records
                     records = _enrich_with_indicators(records, prepared.workflow)
-                    citations = build_citations(records)
+                    data_bundle = build_data_bundle(records)
+                    citations_by_id.update(
+                        {
+                            citation.citation_id: citation
+                            for citation in build_citations(data_bundle.records)
+                        }
+                    )
+                    self.runs.save_price_series(_price_series_records(records))
                     collection_output = collected.collection.to_output()
                     prior_outputs[COLLECT_STEP] = collection_output
                     steps.append(
@@ -200,12 +218,14 @@ class WorkflowService:
                 skill_ref = skill_ref_for_id(prepared.workflow, skill_id)
                 skill_requirements = data_requirements_for_skill(prepared.workflow, skill_id)
 
-                skill_record_payloads = _skill_record_payloads(skill_id, records)
-                skill_citation_ids = tuple(
-                    payload["citation_id"]
-                    for payload in skill_record_payloads
-                    if payload.get("citation_id")
+                skill_records = _skill_records(skill_id, data_bundle)
+                skill_citations = build_citations(skill_records)
+                citations_by_id.update(
+                    {citation.citation_id: citation for citation in skill_citations}
                 )
+                allowed_citation_ids = {
+                    citation.citation_id for citation in skill_citations
+                }
                 request = AgentRunRequest(
                     workflow_id=prepared.workflow.workflow_id,
                     skill_id=skill_id,
@@ -214,10 +234,10 @@ class WorkflowService:
                     context={
                         "inputs": prepared.run_inputs,
                         "collection": prior_outputs.get(COLLECT_STEP, {}),
-                        "records": skill_record_payloads,
+                        "records": [record.to_prompt_record() for record in skill_records],
                         "prior_outputs": prior_outputs,
                     },
-                    citation_ids=skill_citation_ids,
+                    citation_ids=tuple(citation.citation_id for citation in skill_citations),
                 )
                 yield emit(
                     StreamEventKind.RUN_STAGE,
@@ -257,10 +277,14 @@ class WorkflowService:
                     raise AgentOrchestratorError(
                         f"Workflow agent stream completed without a final result for {skill_id}"
                     )
-                used_citation_ids.update(skill_citation_ids)
+                used_citation_ids.update(
+                    citation_id
+                    for citation_id in agent_result.citations
+                    if citation_id in allowed_citation_ids
+                )
                 uncited = uncited_citations(
                     agent_result.citations,
-                    tuple(citation.citation_id for citation in citations),
+                    tuple(citation.citation_id for citation in skill_citations),
                 )
                 grounding_uncited.extend(uncited)
                 grounding_blocked.extend(agent_result.blocked_claims)
@@ -281,10 +305,7 @@ class WorkflowService:
                 )
                 prior_outputs[skill_id] = agent_result.content
                 for citation_id in agent_result.citations:
-                    citation = next(
-                        (item for item in citations if item.citation_id == citation_id),
-                        None,
-                    )
+                    citation = citations_by_id.get(citation_id)
                     if citation is not None:
                         yield emit(StreamEventKind.CITATION, _citation_payload(citation))
                 yield emit(
@@ -305,7 +326,7 @@ class WorkflowService:
                 prepared.workflow.workflow_id,
                 prepared.workflow.chart_requirements,
                 chart_records,
-                list(citations),
+                list(citations_by_id.values()),
             )
             chart = chart_artifacts[0] if chart_artifacts else None
 
@@ -331,9 +352,9 @@ class WorkflowService:
                     "steps": steps,
                     "collection": prior_outputs.get(COLLECT_STEP, {}),
                     "citations": [
-                        _citation_payload(citation)
-                        for citation in citations
-                        if citation.citation_id in used_citation_ids
+                        _citation_payload(citations_by_id[citation_id])
+                        for citation_id in sorted(used_citation_ids)
+                        if citation_id in citations_by_id
                     ],
                     "artifacts": [
                         _chart_payload(artifact) for artifact in chart_artifacts
@@ -360,6 +381,14 @@ class WorkflowService:
                 ],
             )
             self.runs.save(run)
+            self.runs.save_citations(
+                run.run_id,
+                tuple(
+                    citations_by_id[citation_id]
+                    for citation_id in sorted(used_citation_ids)
+                    if citation_id in citations_by_id
+                ),
+            )
             serialized = serialize_run(run)
             yield emit(
                 StreamEventKind.RUN_COMPLETED,
@@ -410,6 +439,12 @@ class WorkflowService:
 
     def list_runs(self) -> list[dict[str, object]]:
         return [serialize_run(run) for run in self.runs.list()]
+
+    def list_citations(self, run_id: str) -> list[dict[str, object]]:
+        return [
+            _citation_payload(citation)
+            for citation in self.runs.list_citations(run_id)
+        ]
 
     def delete_run(self, run_id: str) -> bool:
         return self.runs.delete(run_id)
@@ -510,18 +545,6 @@ def _stage_title(workflow: WorkflowSpecification, stage_id: str) -> str:
     return _section_title_for_skill(workflow, stage_id)
 
 
-def _record_payload(record: CanonicalMarketDataRecord) -> dict[str, object]:
-    return {
-        "citation_id": f"citation_{record.dataset_id}_{record.record_key}",
-        "dataset_id": record.dataset_id,
-        "record_key": record.record_key,
-        "instrument_id": record.instrument_id,
-        "market_time": record.market_time.isoformat(),
-        "source_id": record.source_id,
-        "payload": record.payload,
-    }
-
-
 def _enrich_with_indicators(
     records: tuple[CanonicalMarketDataRecord, ...],
     workflow: WorkflowSpecification,
@@ -550,44 +573,35 @@ def _enrich_with_indicators(
     return (*records, indicator_record)
 
 
-def _skill_record_payloads(
+def _skill_records(
     skill_id: str,
-    records: tuple[CanonicalMarketDataRecord, ...],
-) -> list[dict[str, object]]:
-    """Build the record context for a skill step.
-
-    Technical-analysis receives computed indicators + company profile (no raw
-    price series). Other skills (auditor, fundamental) receive a year-end price
-    summary + fundamentals + company profile.
-    """
+    bundle: DataBundle,
+) -> tuple[DataRecord, ...]:
     if skill_id == "vn-technical-analysis":
-        return [
-            _record_payload(record)
-            for record in records
-            if record.dataset_id in ("vn_indicators", "vn_company_profile")
-        ]
+        return tuple(
+            record
+            for record in bundle.records
+            if isinstance(record, (IndicatorsRecord, CompanyProfileRecord))
+        )
     price_record = next(
-        (r for r in records if r.dataset_id.endswith("_prices")),
+        (record for record in bundle.records if isinstance(record, PriceSeriesRecord)),
         None,
     )
-    other_records = [
+    payloads: list[DataRecord] = [
         record
-        for record in records
-        if not record.dataset_id.endswith("_prices")
-        and record.dataset_id != "vn_indicators"
+        for record in bundle.records
+        if isinstance(record, (FundamentalRecord, CompanyProfileRecord))
     ]
-    payloads = [_record_payload(record) for record in other_records]
-    if price_record and price_record.payload.get("series"):
-        summary = _year_end_price_summary_payload(price_record)
-        if summary:
+    if price_record:
+        summary = _year_end_price_summary_record(price_record)
+        if summary is not None:
             payloads.append(summary)
-    return payloads
+    return tuple(payloads)
 
 
-def _year_end_price_summary_payload(
-    price_record: CanonicalMarketDataRecord,
-) -> dict[str, object] | None:
-    """Extract one price bar per calendar year from the series."""
+def _year_end_price_summary_record(
+    price_record: PriceSeriesRecord,
+) -> PriceSummaryRecord | None:
     series = price_record.payload.get("series", [])
     by_year: dict[int, dict[str, object]] = {}
     for bar in series:
@@ -601,29 +615,45 @@ def _year_end_price_summary_payload(
     year_end_bars = sorted(by_year.values(), key=lambda b: b["date"])
     if not year_end_bars:
         return None
-    return {
-        "citation_id": f"citation_{price_record.dataset_id}_{price_record.record_key}",
-        "dataset_id": price_record.dataset_id,
-        "record_key": f"{price_record.instrument_id}-year-end",
-        "instrument_id": price_record.instrument_id,
-        "market_time": price_record.market_time.isoformat(),
-        "source_id": price_record.source_id,
-        "payload": {
+    return PriceSummaryRecord(
+        record_id=f"{price_record.dataset_id}:{price_record.instrument_id}-year-end",
+        record_type="price_summary",
+        dataset_id=price_record.dataset_id,
+        instrument_id=price_record.instrument_id,
+        market_time=price_record.market_time,
+        collected_at=price_record.collected_at,
+        source_id=price_record.source_id,
+        citation_id=price_record.citation_id,
+        label=price_record.label,
+        source_record_key=price_record.source_record_key,
+        payload={
             "year_end_prices": [
                 {"date": b["date"], "close": b["close"], "volume": b.get("volume")}
                 for b in year_end_bars
             ],
         },
-    }
+    )
+
+
+def _price_series_records(
+    records: tuple[CanonicalMarketDataRecord, ...],
+) -> tuple[CanonicalMarketDataRecord, ...]:
+    return tuple(record for record in records if record.dataset_id.endswith("_prices"))
 
 
 def _citation_payload(citation: Citation) -> dict[str, object]:
     return {
         "citation_id": citation.citation_id,
+        "record_id": citation.record_id,
+        "record_type": citation.record_type,
         "source_id": citation.source_id,
         "dataset_id": citation.dataset_id,
         "label": citation.label,
         "timestamp": citation.timestamp.isoformat(),
+        "instrument_id": citation.instrument_id,
+        "display_content": citation.display_content,
+        "payload_snapshot": citation.payload_snapshot,
+        "methodology_version": citation.methodology_version,
     }
 
 

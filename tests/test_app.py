@@ -164,6 +164,7 @@ def test_process_env_overrides_local_dotenv(
 def test_protected_workflow_routes_require_login(client: TestClient) -> None:
     workflows_response = client.get("/api/workflows")
     runs_response = client.get("/api/runs")
+    citations_response = client.get("/api/runs/run_missing/citations")
     run_response = client.post(
         "/api/workflows/vn-financial-data-collector/runs",
         json={"market": "VN_STOCK", "symbol": "VCB"},
@@ -172,7 +173,37 @@ def test_protected_workflow_routes_require_login(client: TestClient) -> None:
     assert workflows_response.status_code == 401
     assert workflows_response.json()["detail"] == "Authentication required"
     assert runs_response.status_code == 401
+    assert citations_response.status_code == 401
     assert run_response.status_code == 401
+
+
+def test_run_citations_endpoint_returns_saved_citation_snapshots(
+    client: TestClient,
+) -> None:
+    login_response = client.post(
+        "/api/login",
+        json={"username": "analyst", "password": "secret-pass"},
+    )
+    assert login_response.status_code == 200
+
+    response, events = _post_workflow_run(
+        client,
+        "vn-financial-data-collector",
+        {"market": "VN_STOCK", "symbol": "VCB"},
+    )
+    assert response.status_code == 200
+    run = _final_run_from_events(events)
+
+    citations_response = client.get(f"/api/runs/{run['id']}/citations")
+
+    assert citations_response.status_code == 200
+    citations = citations_response.json()
+    assert len(citations) == 1
+    citation = citations[0]
+    assert citation["citation_id"] == "citation_vn_prices_VCB-prices"
+    assert citation["record_type"] == "price_summary"
+    assert citation["display_content"]
+    assert citation["payload_snapshot"]["payload"]["year_end_prices"]
 
 
 def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(

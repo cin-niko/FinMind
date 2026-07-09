@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
+    Citation,
     ExecutionRun,
     Market,
     SourceDocument,
@@ -144,9 +145,24 @@ class InMemoryMarketDataRepository(MarketDataRepository):
 class InMemoryRunRepository(RunRepository):
     def __init__(self) -> None:
         self._runs: dict[str, ExecutionRun] = {}
+        self._citations: dict[str, list[Citation]] = {}
+        self._price_series: dict[tuple[str, str], CanonicalMarketDataRecord] = {}
 
     def save(self, run: ExecutionRun) -> None:
         self._runs[run.run_id] = run
+
+    def save_citations(self, run_id: str, citations: tuple[Citation, ...]) -> None:
+        self._citations[run_id] = list(citations)
+
+    def list_citations(self, run_id: str) -> list[Citation]:
+        return list(self._citations.get(run_id, ()))
+
+    def save_price_series(
+        self,
+        records: tuple[CanonicalMarketDataRecord, ...],
+    ) -> None:
+        for record in records:
+            self._price_series[(record.dataset_id, record.record_key)] = record
 
     def get(self, run_id: str) -> ExecutionRun | None:
         return self._runs.get(run_id)
@@ -161,6 +177,7 @@ class InMemoryRunRepository(RunRepository):
     def delete(self, run_id: str) -> bool:
         existed = run_id in self._runs
         self._runs.pop(run_id, None)
+        self._citations.pop(run_id, None)
         return existed
 
     def update_title(self, run_id: str, title: str) -> ExecutionRun | None:

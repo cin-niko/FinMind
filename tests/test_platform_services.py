@@ -62,6 +62,28 @@ class FakeAgentOrchestrator:
         )
 
 
+class CapturingAgentOrchestrator:
+    def __init__(self) -> None:
+        self.requests: list[object] = []
+
+    async def stream_skill(self, request: object) -> object:
+        from finmind_agents.agents.models import AgentRunResult, AgentStreamEvent
+
+        self.requests.append(request)
+        yield AgentStreamEvent(
+            kind="result",
+            result=AgentRunResult(
+                status="success",
+                section_title="Collected Data",
+                content="Captured request.",
+                citations=("citation_vn_prices_VCB-prices",),
+                allowed_claims=("data_availability",),
+                blocked_claims=(),
+                warnings=(),
+            ),
+        )
+
+
 def _collect_sse_events(response: object) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
     event_name = "message"
@@ -420,6 +442,46 @@ def test_workflow_uses_agent_skill_output(
     assert collected["status"] == "success"
     assert result["output"]["steps"][-1]["kind"] == "skill"
     assert result["output"]["steps"][-1]["status"] == "success"
+
+
+def test_workflow_passes_rendered_data_records_without_raw_price_series(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    orchestrator = CapturingAgentOrchestrator()
+    monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
+    monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
+    monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
+    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
+    monkeypatch.setattr(
+        "finmind_api.platform.build_default_agent_orchestrator",
+        lambda: orchestrator,
+    )
+    app = create_app()
+    with TestClient(app) as test_client:
+        login = test_client.post(
+            "/api/login",
+            json={"username": "analyst", "password": "secret-pass"},
+        )
+        assert login.status_code == 200
+        response, result, _events = _post_workflow_run(
+            test_client,
+            "vn-financial-data-collector",
+            {"market": "VN_STOCK", "symbol": "VCB"},
+        )
+
+    assert response.status_code == 200
+    assert result is not None
+    assert len(orchestrator.requests) == 1
+    request = orchestrator.requests[0]
+    records = request.context["records"]
+    assert records
+    assert all("context" in record for record in records)
+    assert any(record["record_type"] == "price_summary" for record in records)
+    assert not any(record["record_type"] == "price_series" for record in records)
+    price_summary = next(
+        record for record in records if record["record_type"] == "price_summary"
+    )
+    assert "year_end_prices" in price_summary["fields"]
 
 
 def test_workflow_chart_artifact_uses_structured_price_trend_contract(

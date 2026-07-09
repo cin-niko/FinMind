@@ -114,10 +114,16 @@ class AgentSkill:
 @dataclass(frozen=True)
 class Citation:
     citation_id: str
+    record_id: str
+    record_type: str
     source_id: str
     dataset_id: str
     label: str
     timestamp: datetime
+    instrument_id: str | None = None
+    display_content: str | None = None
+    payload_snapshot: dict[str, Any] = field(default_factory=dict)
+    methodology_version: str | None = None
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@ from typing import Protocol
 
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
+    Citation,
     ExecutionRun,
     Market,
     SourceDocument,
@@ -24,6 +25,15 @@ class MarketDataRepository(Protocol):
 
 class RunRepository(Protocol):
     def save(self, run: ExecutionRun) -> None: ...
+
+    def save_citations(self, run_id: str, citations: tuple[Citation, ...]) -> None: ...
+
+    def list_citations(self, run_id: str) -> list[Citation]: ...
+
+    def save_price_series(
+        self,
+        records: tuple[CanonicalMarketDataRecord, ...],
+    ) -> None: ...
 
     def get(self, run_id: str) -> ExecutionRun | None: ...
 

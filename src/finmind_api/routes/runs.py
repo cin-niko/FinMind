@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from finmind_api.dependencies import require_session
 from finmind_agents.models import Session
+from finmind_api.schemas import CitationResponse
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
@@ -34,6 +35,21 @@ def get_run(
             detail="Run not found",
         )
     return run
+
+
+@router.get("/runs/{run_id}/citations", response_model=list[CitationResponse])
+def list_run_citations(
+    run_id: str,
+    request: Request,
+    _session: Annotated[Session, Depends(require_session)],
+) -> list[dict[str, object]]:
+    run = request.app.state.platform.workflow_service.get_run(run_id)
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+        )
+    return request.app.state.platform.workflow_service.list_citations(run_id)
 
 
 @router.delete("/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
