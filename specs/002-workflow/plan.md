@@ -28,7 +28,10 @@ and finance orchestration layer, `src/finmind_api` for the FastAPI delivery
 layer, and `src/finmind_ui` for the frontend. The workflow contract remains
 hybrid: YAML definitions declare inputs, skill refs, stages, output schemas,
 runtime policy, and safety gates; Agent Skills own governed analyst procedure
-and skill-level data requirements. The MVP runtime should rely on LangChain
+and skill-level data requirements. The runtime, not the skill, owns the
+deterministic data path described in `../system/data-record-flow.md`. The
+skill reads those records and narrates from them; it does not decide what to
+fetch or call providers directly. The MVP runtime should rely on LangChain
 Deep Agents via `deepagents.create_deep_agent`, use `langchain-openai` for OpenAI-compatible endpoints (`LITELLM_API_BASE` set) and `langchain-litellm` for provider-routed models as the
 default multi-provider model adapter, and defer LangGraph until workflow or
 chatflow complexity actually requires graph state, checkpointing, or multi-agent
@@ -54,7 +57,7 @@ that is open while work is running and collapsed after completion.
 - Market-data providers: `vnstock` (4.x unified API) adapter for VN stock
   latest price and fundamentals, using the `vci` source (the legacy `kbs`
   endpoints reset connections); US provider adapter using Alpha Vantage for current/daily
-  prices and market news when an API key is configured; SEC EDGAR company facts
+  prices when an API key is configured; SEC EDGAR company facts
   adapter for public-company fundamentals; deterministic offline fallback for
   tests and provider outage paths.
 - Frontend dependencies: React/Vite, existing app shell, existing workflow/result
@@ -62,9 +65,13 @@ that is open while work is running and collapsed after completion.
 - Storage: in-memory canonical record cache for Phase 02 provider results
   plus deterministic offline fallback records; completed workflow and chatflow runs
   persist to PostgreSQL via async `psycopg` support (one `runs` table,
-  `kind` discriminator), bootstrapped with idempotent DDL. Development uses
-  the `postgres` service in `docker-compose.yaml`; tests inject an async
-  in-memory run repository via the `build_run_store` seam.
+  `kind` discriminator), bootstrapped with idempotent DDL. Reusable
+  `price_series` base data and cited citation snapshots should be persisted in
+  first-class tables while retaining run JSON citation metadata for
+  backward-compatible result rendering. Intermediate derived records remain
+  runtime objects by default and are recalculated from base data when needed.
+  Development uses the `postgres` service in `docker-compose.yaml`; tests inject
+  an async in-memory run repository via the `build_run_store` seam.
 - Testing: `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest`
   and `npm run build` in `src/finmind_ui`.
 - Target platform: internal browser app backed by FastAPI JSON APIs.
@@ -142,9 +149,13 @@ Gate result: pass. No constitution violations require exception.
   reporting so the event loop is not blocked.
 - `src/finmind_agents/domain/`: own shared finance domain models and canonical
   workflow/dataflow entities.
+- `src/finmind_agents/evidence/`: own deterministic data record builders,
+  record rendering/templates, citation allowlist creation, data bundle
+  packaging, and grounding helpers that operate before the LLM call.
 - `src/finmind_api/`: own FastAPI app setup, auth, dependencies, routes,
-  schemas, request-scoped SSE stream endpoints, async final-run persistence, and
-  API-facing error mapping. It should call into `finmind_agents` and stay thin.
+  schemas, request-scoped SSE stream endpoints, async final-run persistence,
+  evidence/citation persistence, and API-facing error mapping. It should call
+  into `finmind_agents` and stay thin.
 - `src/finmind_ui/`: own workflow forms, result views, app shell integration,
   transcript-style workflow response rendering, and API client bindings for
   workflow contracts.
@@ -155,8 +166,6 @@ Atomic user-facing workflows:
 
 - `fundamental-analysis`
 - `technical-analysis`
-- `news-digest`
-- `risk-review`
 
 Deterministic step:
 
@@ -173,8 +182,6 @@ stock-brief
   -> vn-financial-data-auditor
   -> fundamental-analysis
   -> technical-analysis
-  -> news-digest
-  -> risk-review
 ```
 
 Execution rules:
@@ -208,13 +215,15 @@ Execution rules:
 - Workflow mode is a constrained agent run: fixed skill selection from YAML,
   skill-owned data requirements, strict output schema, low iteration budget,
   dataflows-only tool access, no provider-direct access, and fail-closed
-  behavior.
+  behavior. The workflow runtime follows the product-wide data-record
+  boundary in `../system/data-record-flow.md` before the LLM call; the skill
+  consumes those records only.
 - Future chatflow mode should reuse the same runtime with a flexible research
   policy: dynamic skill loading, dynamic data requirements, broader approved
   tool access, larger iteration budget, clarification/partial-answer behavior,
   and chat-specific answer schemas.
 - Sub-agents may be used per data domain, such as VN market data, fundamentals,
-  technical data, news/source documents, and risk review. Their outputs remain
+  and technical data. Their outputs remain
   intermediate and must pass FinMind grounding/citation validators before being
   shown.
 - Internal steps may contribute progress events and later validation context,
@@ -224,21 +233,135 @@ Execution rules:
   before claim-generating synthesis, even if the UI selected an atomic workflow.
   `collect_data` is a deterministic, FinMind-validated collection through the
   dataflows tool boundary driven by each raw-data skill's `DATA_REQUIREMENTS.yaml`.
+- After collection, the runtime must transform raw provider output into stable
+  deterministic records before the LLM sees the context bundle, following
+  `../system/data-record-flow.md`.
+- Data packaging order is fixed:
+  `collect_data -> normalize -> build data records -> render record context ->
+  persist reusable base data -> assign/persist citations -> build data bundle -> LLM -> validate
+  citations -> persist final output`.
+- The first implementation keeps existing `CanonicalMarketDataRecord` as the
+  normalized source layer and adds `DataRecord` as the compact model-visible
+  layer. `price_series_record` is stored for charts/reuse and excluded from the
+  default LLM bundle.
+- Each `DataRecord` keeps structured fields as the canonical representation and
+  exposes a deterministic rendered `context` projection for LLM input and
+  human-readable display. The default implementation uses a class-owned template
+  with cached rendering; subclasses may override `context` for custom logic.
+- `fundamental_record` is the canonical audited financial record. Use
+  `is_audited: boolean` as the audit gate; audit warnings, allowed claims, and
+  blocked claims live inside the same record instead of a separate flags record.
+- Technical-pattern calculation is also split into two deterministic record
+  builders before the LLM call:
+  - `pattern_evidence_record`: ports strict verdict detectors from
+    `src/finmind_agents/workflows/skills/vn-technical-analysis/references/pattern_detection.md`
+    and stores only patterns that have clear evidence or explicit
+    `not_detected` verdicts.
+  - `pattern_setup_record`: ports heuristic bullish setup scoring from
+    `equity-research-vn/vn-technical-analysis/references/pattern_scoring.md`
+    and stores ranked forming/near-confirmation setups with watch zones,
+    confirmation price, and deterministic score/status.
 - The agent runtime reads the skill before collection planning. Required data
   declared by the skill must be attempted; optional data may be attempted when
   allowed by policy and timeout budget.
 - Agent-planned collection is only a request. FinMind validates market, symbol,
   dataset ids, required/optional status, fallback permission, and tool policy
   before executing the collection.
+- SKILL.md may define how to interpret the deterministic records, cite them,
+  and label unsupported claims, but it must not define a tool-driven dataflow
+  path or request raw provider payloads.
 - There is no pre-skill fail-fast. A skill step runs on whatever `collect_data`
   returned and resolves which claims it can support, reporting `blocked_claims`
   for categories it cannot ground. Run status is `failed` if any skill step
   failed, else `partial` if any skill step is `partial`, else `success`.
+
+## Data Record And Citation Implementation Design
+
+Deterministic packaging order:
+
+```text
+collect_data
+  -> normalize canonical market records
+  -> build stored price_series_record
+  -> build llm-facing data records
+  -> render record context
+  -> assign and persist citation ids
+  -> build data bundle
+  -> LLM analysis
+  -> grounding validation
+  -> persist final answer and cited rows
+```
+
+Record builders in Phase 2A:
+
+- `price_summary_record`: compact latest price action, change, volume context,
+  and support/resistance summary.
+- `indicator_record`: deterministic technical indicators computed from the
+  stored price series.
+- `pattern_evidence_record`: strict evidence verdicts from
+  `pattern_detection.md`.
+- `pattern_setup_record`: ranked heuristic setups from
+  `pattern_scoring.md`.
+- `company_profile_record`: compact issuer identity and sector/business facts.
+- `fundamental_record`: audited financial metrics and warnings.
+- `price_series_record`: stored separately for chart rendering and reuse, not
+  included in normal LLM payloads.
+
+Record rendering contract in Phase 2A:
+
+- Each record type defines structured fields plus a deterministic `context`
+  projection.
+- The default `context` path is template-backed and suitable for both LLM input
+  and UI display.
+- Templates stay presentation-only; all calculation and validation logic
+  remains in Python before rendering.
+- Rendered `context` may be cached on the record instance during a run, so
+  record instances should be treated as immutable after construction.
+
+Pattern implementation boundary:
+
+- `pattern_detection.md` is used when FinMind needs a direct yes/no verdict
+  backed by explicit evidence. These outputs become
+  `pattern_evidence_record.detected_patterns[]`.
+- `pattern_scoring.md` is used when FinMind needs to summarize forming setups,
+  ranked opportunities, watch zones, and confirmation distance. These outputs
+  become `pattern_setup_record.setups[]`.
+- The LLM receives the compact verdict/setup records, not the full candle
+  series.
+
+Phase 2A implementation scope for pattern logic:
+
+1. Port the shared numeric helpers required by the reference logic into
+   `src/finmind_agents/evidence/`.
+2. Port strict detectors from `pattern_detection.md` for:
+   double bottom/top, ascending/descending channel, candlestick patterns, and
+   RSI divergence.
+3. Port the 8 bullish heuristic setup detectors from `pattern_scoring.md`.
+4. Port setup status mapping, reader-note generation, and pattern-family
+   classification required by `pattern_setup_record`.
+5. Keep archetype optional in Phase 2A. It may be stored in
+   `pattern_setup_record` only if the required deterministic inputs are already
+   available inside the same bounded implementation.
+
+Runtime shape:
+
+```text
+DataflowService.collect(...)
+  -> CanonicalMarketDataRecord[]
+  -> PriceSeriesRepository.upsert(...)
+  -> DataRecordBuilder.build(...)
+  -> DataRecord.context render
+  -> CitationBuilder.build_allowlist(...)
+  -> CitationRepository.upsert_many(...)
+  -> DataBundle
+  -> FinMindAgentRuntime.run(data_bundle, citation_ids)
+  -> GroundingCheck.validate(...)
+```
 - The post-skill `GroundingCheck` is `pass` or `blocked`. It is `blocked` only
-  when claims cite sources not in the returned citations (`uncited_claims`);
-  blocked claims are surfaced for transparency and affected sections are
-  caveated. Data age is conveyed by citation `timestamp`; there is no separate
-  freshness concept.
+  when claims cite ids outside the data bundle citation allowlist
+  (`uncited_claims`); blocked claims are surfaced for transparency and affected
+  sections are caveated. Data age is conveyed by citation `timestamp`; there is
+  no separate freshness concept.
 - Composite workflows preserve completed sections even when later stages are
   partial.
 
@@ -377,8 +500,7 @@ Dataset groups:
 
 - `market_price`: latest quote/history/volume for charts and technical analysis.
 - `fundamental`: EPS, BVPS, revenue, profit, ratios, and company facts.
-- `news`: recent market/company source documents.
-- Future groups may include `macro`, `peer`, `filings`, and `events`.
+- Future groups may include `news`, `macro`, `peer`, `filings`, and `events`.
 
 Execution boundary:
 
@@ -411,6 +533,9 @@ Rules:
   successful evidence.
 - Fallback records are labeled as fallback and remain distinguishable from live
   provider data.
+- The LLM-facing bundle is intentionally smaller than the raw collection result;
+  the runtime should chunk records for evidence use, not expose full provider
+  dumps to the skill.
 
 ## Phase 0 Research Output
 
@@ -437,6 +562,8 @@ Resolved in `research.md`:
 - Use latest real provider data for VN and US stocks, with deterministic
   seeded/offline fallback for tests and degraded provider paths.
 - Keep data collection and quality checks internal but visible through status.
+- Keep data packaging deterministic so the same raw inputs produce the same
+  derived records, citation ids, and model-visible claims.
 - Incorporate useful TradingAgents and equity-research-vn workflow ideas while
   rejecting autonomous trading/order execution and broad ingestion.
 

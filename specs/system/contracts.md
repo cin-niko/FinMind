@@ -1,7 +1,7 @@
 ---
 id: SPEC-SYSTEM-CONTRACTS-FINMIND
 status: active
-last_review: 2026-06-18
+last_review: 2026-07-09
 implements:
   - src/finmind_agents
   - src/finmind_api
@@ -22,7 +22,8 @@ The authenticated app shell consumes JSON APIs for:
 
 - Session state: `GET /api/session`, `POST /api/login`, `POST /api/logout`
 - Workflow catalog and runs: `GET /api/workflows`, `POST /api/workflows/{workflow_id}/run`
-- Result inspection: `GET /api/runs`, `GET /api/runs/{run_id}`
+- Result inspection: `GET /api/runs`, `GET /api/runs/{run_id}`,
+  `GET /api/runs/{run_id}/citations`
 
 All protected APIs require an active cookie-backed session. Raw agent reasoning is never returned.
 
@@ -31,12 +32,23 @@ All protected APIs require an active cookie-backed session. Raw agent reasoning 
 Material user-facing claims must be backed by at least one citation or be explicitly marked unsupported or unavailable. A citation must include:
 
 - `citation_id`: unique identifier
+- `record_id`: deterministic data record id
+- `record_type`: data record type
 - `source_id`: source connector or demo source identity
 - `dataset_id`: dataset the claim draws from
 - User-facing label
 - Source or market timestamp (conveys data age)
+- Optional cited fields or payload paths
 
-Cited sources must be a subset of sources returned by collection. Claims citing sources not in the returned set are `uncited_claims` and force grounding to `blocked`. Data age is conveyed by citation timestamps; there is no separate freshness-status concept.
+Cited ids must be a subset of the run's citation allowlist. Claims citing ids
+not in the returned set are `uncited_claims` and force grounding to `blocked`.
+Data age is conveyed by citation timestamps; there is no separate
+freshness-status concept.
+
+The product-wide data-record boundary is defined in
+[`specs/system/data-record-flow.md`](data-record-flow.md).
+That note defines the general fetch -> normalize -> derive -> package -> cite ->
+LLM flow used across FinMind surfaces.
 
 ## Artifact Contract
 

@@ -41,7 +41,7 @@ Normalized market data item used by collection, charts, indicators, and evidence
 Fields:
 
 - `dataset_id`: `vn_prices`, `us_prices`, `vn_fundamentals`,
-  `us_fundamentals`, `source_documents`, or equivalent bounded demo dataset.
+  `us_fundamentals`, or equivalent bounded demo dataset.
 - `record_key`: unique logical key.
 - `instrument_id`: linked instrument.
 - `market_time`: effective market timestamp.
@@ -64,6 +64,249 @@ Validation:
 - Deterministic fallback records must use source ids that make fallback status
   visible, not pretend to be live provider data.
 
+## DataRecord
+
+Deterministic LLM-facing record produced after collection and normalization.
+`CanonicalMarketDataRecord` remains the provider-normalized source layer;
+`DataRecord` is the compact analysis layer used for citations and prompt
+context.
+
+Fields:
+
+- `record_id`: deterministic id built from `record_type`, market, symbol, period,
+  source ids, and `methodology_version`.
+- `record_type`: one of `price_summary_record`, `indicator_record`,
+  `pattern_evidence_record`, `pattern_setup_record`, `company_profile_record`,
+  or `fundamental_record`.
+- `market`: `VN_STOCK` or `US_STOCK`.
+- `symbol`
+- `period`: date, reporting period, or lookback window represented.
+- `source_record_ids`: canonical market data record ids used to produce this
+  record.
+- `citation_source_ids`: source ids that can be exposed through citations.
+- `payload`: compact deterministic facts sent to the LLM when selected for the
+  data bundle.
+- `context`: deterministic rendered content derived from the record fields for
+  LLM input and human-readable display.
+- `allowed_claims`
+- `blocked_claims`
+- `warnings`
+- `methodology_version`
+- `created_at`
+
+Validation:
+
+- Data record generation must be deterministic for the same source records
+  and methodology version.
+- Raw provider payloads must not be stored inside `payload`.
+- `payload` remains the canonical representation; `context` is a deterministic
+  rendered projection.
+- The default rendering contract is a class-owned template-backed `context`
+  property. Subclasses may override the rendering logic for custom display
+  needs.
+- Records must be reusable across runs only when market, symbol, period,
+  source ids, and methodology version match.
+- Phase 02 does not define `news_record`, `risk_record`, or
+  `fundamental_flags_record`.
+
+## PatternEvidenceRecord
+
+Specialized `DataRecord` with `record_type=pattern_evidence_record`.
+
+Purpose:
+
+- Store strict technical-pattern verdicts that can be claimed directly because
+  the evidence rule was satisfied.
+- Replace raw price-series prompting for common pattern checks.
+- Feed the LLM a compact verdict table plus evidence points instead of full
+  candles.
+
+Inputs:
+
+- `price_series_record`
+- `indicator_record` when a detector needs RSI or similar confirmation
+
+Fields:
+
+- All `DataRecord` fields.
+- `detected_patterns`: ordered list of strict evidence verdicts.
+- `lookback_window`: window used for the scan, such as `6mo_daily`.
+
+Each `detected_patterns[]` item contains:
+
+- `pattern_id`: stable detector id such as `double_bottom`,
+  `descending_channel`, `bullish_rsi_divergence`.
+- `pattern_name`: human-readable label.
+- `direction`: bullish, bearish, or neutral.
+- `verdict`: `detected` or `not_detected`.
+- `strength`: optional compact strength label when the detector provides one.
+- `evidence_points`: compact numeric facts used by the verdict, such as swing
+  lows, neckline, slope, or RSI comparison.
+- `confirmation_level`: optional price level used to confirm or invalidate the
+  pattern.
+- `reader_note`: deterministic short explanation of why the verdict was given.
+
+Validation:
+
+- This record is built from strict detectors only; it must not include
+  speculative or forming setups.
+- Phase 02 ports the bounded detectors documented in
+  `src/finmind_agents/workflows/skills/vn-technical-analysis/references/pattern_detection.md`.
+- Initial detector scope is:
+  `double_bottom_top`, `ascending_descending_channel`,
+  `candlestick_patterns`, and `rsi_divergence`.
+
+## PatternSetupRecord
+
+Specialized `DataRecord` with `record_type=pattern_setup_record`.
+
+Purpose:
+
+- Store heuristic bullish setup candidates that are still forming or waiting
+  for confirmation.
+- Give the LLM a ranked setup table without exposing the full price series.
+
+Inputs:
+
+- `price_series_record`
+- `indicator_record` when setup scoring needs derived context
+
+Fields:
+
+- All `DataRecord` fields.
+- `setups`: ranked list of setup candidates that passed the minimum score.
+- `lookback_window`: window used for the scan, such as `6mo_daily`.
+- `archetype`: optional stock-behavior summary derived from the surviving
+  setups.
+
+Each `setups[]` item contains:
+
+- `pattern_id`
+- `pattern_name`
+- `family`: compact classification such as `trend_following` or
+  `accumulation_breakout`.
+- `setup_status`: compact readiness label derived from score and distance to
+  confirmation.
+- `completion_score`: bounded deterministic score.
+- `confirmation_price`
+- `watch_zone`: object with `low` and `high`.
+- `current_price`
+- `distance_to_confirmation_pct`
+- `reader_note`: deterministic explanation.
+
+Validation:
+
+- This record contains heuristic setup candidates, not hard evidence verdicts.
+- Phase 02 ports the bounded setup-scoring logic documented in
+  `equity-research-vn/vn-technical-analysis/references/pattern_scoring.md`.
+- Initial setup scope is the documented 8 bullish setup heuristics:
+  `bull_flags`, `bull_pennants`, `triangles_ascending`, `wedges_falling`,
+  `cup_with_handle`, `rectangle_bottoms`, `double_bottoms`, and
+  `measured_move_up`.
+- Only setups meeting the configured score threshold are stored.
+
+## FundamentalRecord
+
+Specialized `DataRecord` with `record_type=fundamental_record`.
+
+Fields:
+
+- All `DataRecord` fields.
+- `metrics`: normalized financial/fundamental metrics by period.
+- `is_audited`: boolean; true only after deterministic audit/refinement
+  completes.
+- `audit_warnings`: unit, period, split/share-count, EPS/BVPS, source coverage,
+  or consistency warnings.
+- `data_quality_risk`: compact quality label or code derived by the audit step.
+
+Validation:
+
+- Confident fundamental claims require `is_audited=true`.
+- If audit cannot complete, keep `is_audited=false`, populate warnings and
+  blocked claims, and mark unsupported claim categories unavailable.
+- Audit flags are embedded in `fundamental_record`; there is no separate
+  `fundamental_flags_record`.
+
+## PriceSeriesRecord
+
+Stored price series used for chart rendering, downloads, reuse, and future
+internal data-platform needs.
+
+Fields:
+
+- `record_id`
+- `market`
+- `symbol`
+- `period`
+- `source_record_ids`
+- `series_payload`: OHLCV or close/volume series needed by chart renderers.
+- `methodology_version`
+- `created_at`
+
+Validation:
+
+- This record is not normally included in the LLM data bundle.
+- Chart artifacts may link to this record through `source_refs` or download
+  metadata.
+
+## DataBundle
+
+Runtime-selected compact package sent to the LLM.
+
+Fields:
+
+- `bundle_id`
+- `run_id`
+- `record_ids`: selected LLM-visible data records.
+- `citation_ids`: citation allowlist generated from selected records.
+- `excluded_record_ids`: records available to runtime but intentionally omitted,
+  such as full price series.
+- `methodology_versions`: calculation/audit versions included in the bundle.
+- `created_at`
+
+Validation:
+
+- The bundle must include only records safe for model context.
+- The bundle may use each selected record's rendered `context` as the compact
+  LLM-visible form, while retaining structured record fields in memory for
+  validation and citation extraction.
+- The bundle must include citation ids before the model call.
+- The LLM may cite only ids in `citation_ids`.
+
+## Citation
+
+Citation generated by the LLM from allowed data records and validated by runtime
+grounding rules. Persistence is implementation detail, not a separate product
+concept.
+
+Fields:
+
+- `citation_id`
+- `run_id`
+- `record_id`
+- `record_type`
+- `source_id`
+- `dataset_id`
+- `label`
+- `timestamp`
+- `cited_fields`: optional payload fields or paths this citation supports.
+- `display_content`: optional rendered snippet or markdown derived from the
+  cited record for UI display.
+- `created_at`
+
+Validation:
+
+- `(run_id, citation_id)` is unique.
+- `record_id` must point to an existing data record selected for the run's
+  data bundle.
+- Citation ids must be generated before the LLM call and supplied as an
+  allowlist.
+- Stored citations should include enough structured snapshot data and display
+  content to support UI inspection even when the intermediate `DataRecord` is
+  not persisted durably.
+- Citations are not artifacts and must not point directly to raw provider
+  payloads.
+
 ## DataflowCollectionRequest
 
 Input contract for retrieving evidence-ready finance data.
@@ -72,8 +315,8 @@ Fields:
 
 - `market`: `VN_STOCK` or `US_STOCK`.
 - `symbol`
-- `dataset_groups`: `market_price`, `fundamental`, `news`.
-- `lookback`: optional period/window for price history or news.
+- `dataset_groups`: `market_price`, `fundamental`.
+- `lookback`: optional period/window for price history.
 - `allow_fallback`: whether deterministic fallback may be used when live
   providers are unavailable.
 - `requested_by`: workflow id or future chatflow request id.
@@ -94,10 +337,11 @@ Fields:
 - `collection_id`
 - `market`: `VN_STOCK` or `US_STOCK`.
 - `symbol`
-- `requested_dataset_groups`: `market_price`, `fundamental`, `news`.
+- `requested_dataset_groups`: `market_price`, `fundamental`.
 - `provider_results`: provider status records.
 - `records`: canonical market data records.
-- `source_documents`: source documents/news records.
+- `source_documents`: reserved for future source-document contracts; not used
+  for Phase 02 standalone news records.
 - `started_at`
 - `completed_at`
 - `status`: success, partial, failed, fallback.
@@ -159,7 +403,9 @@ Validation:
 
 ## SourceDocument
 
-Trusted source material for news digest and fundamental context.
+Reserved trusted source material for future source-document workflows and
+fundamental source verification. Phase 02 does not define `news_record` or a
+standalone news digest contract.
 
 Fields:
 
@@ -172,11 +418,11 @@ Fields:
 - `content_excerpt`
 - `market_scope`
 - `instrument_ids`
-- `sentiment_hint` when available
+- `sentiment_hint` when available in a future source contract
 
 Validation:
 
-- Missing or stale documents block or qualify news digest claims.
+- Missing documents block current-news, catalyst, and event-impact claims.
 - Source excerpts must respect source constraints.
 
 ## WorkflowStreamDisplayState
@@ -322,7 +568,7 @@ Fields:
 - `optional`: optional dataset requests the agent may request when policy and
   timeout budget allow.
 - `dataset_id`
-- `dataset_group`: `market_price`, `fundamental`, `news`, or approved future
+- `dataset_group`: `market_price`, `fundamental`, or approved future
   groups.
 - `fields`
 - `lookback`
@@ -370,8 +616,8 @@ Optional domain-specific agent used by the runtime for bounded delegation.
 
 Fields:
 
-- `sub_agent_id`: e.g. `vn_market_data_agent`, `fundamental_data_agent`,
-  `technical_data_agent`, `news_source_agent`, or `risk_review_agent`.
+- `sub_agent_id`: e.g. `vn_market_data_agent`, `fundamental_data_agent`, or
+  `technical_data_agent`.
 - `purpose`
 - `allowed_tools`
 - `allowed_skills`
@@ -399,7 +645,9 @@ Fields:
 - `data_requirements`
 - `collection_plan`: proposed or approved `AgentCollectionPlan`.
 - `collection_results`: populated after validated `collect_dataflow` calls.
-- `citation_ids`: citation ids returned by the preceding `collect_data` step.
+- `data_bundle`: deterministic `DataBundle` produced before the LLM
+  call.
+- `citation_ids`: citation ids from the data bundle allowlist.
 - `prior_outputs`: outputs of earlier steps in the `step_sequence`.
 - `output_schema`
 - `policy_id`
@@ -413,6 +661,8 @@ Validation:
 - Workflow skill steps run after the `collect_data` step; an upstream-dependent
   skill step runs after the skill it depends on. Claim-generating synthesis must
   wait until the required collected records or upstream skill output are available.
+- Runtime must derive and package data records before calling the LLM; skills
+  consume `data_bundle`, not raw provider payloads.
 - Missing required LLM configuration blocks execution instead of producing
   deterministic prose disguised as analysis.
 - Request execution must be async. Any unavoidable sync tool/provider/model call
@@ -524,7 +774,7 @@ Machine-readable YAML workflow definition.
 Fields:
 
 - `workflow_id`: e.g. `fundamental-analysis`, `technical-analysis`,
-  `news-digest`, `risk-review`, `stock-brief`.
+  `stock-brief`.
 - `definition_path`: project-relative YAML definition path.
 - `version`: workflow contract version.
 - `title`
@@ -599,7 +849,7 @@ Fields:
 
 - `step_id`
 - `title`
-- `kind`: collector, quality_gate, analysis, artifact, risk
+- `kind`: collector, quality_gate, analysis, artifact
 - `status`: running, success, partial, failed, unavailable
 - `started_at`
 - `completed_at`
@@ -625,8 +875,9 @@ the skill's output, it does not pre-block the skill.
 
 Checks:
 
-- Cited sources must be a subset of sources returned by `collect_data`.
-- Any agent-cited citation id not in the returned citation set is an
+- Cited citation ids must be a subset of the data bundle citation allowlist.
+- Cited records must be derived from sources returned by `collect_data`.
+- Any agent-cited citation id not in the data bundle citation allowlist is an
   `uncited_claim` (a hallucinated or unavailable source).
 
 Output:
@@ -671,7 +922,10 @@ Additional Phase 02 output expectations:
 - `steps`: ordered `step_sequence` execution trace (`collect_data` and skill
   steps with status and warnings).
 - `collection`: `DataflowCollectionResult` output from the `collect_data` step.
-- `citations`: visible source-level citations (source id, dataset id, timestamp).
+- `data_records`: deterministic records selected or produced for the run.
+- `data_bundle`: compact model-visible evidence package.
+- `citations`: visible persisted citation records (record id, source id, dataset
+  id, timestamp).
 - `artifacts`: charts/tables/computed outputs with `source_refs`.
 - `grounding`: post-skill grounding check (`grounding_status`, `blocked_claims`,
   `uncited_claims`).
@@ -693,6 +947,9 @@ Validation:
 - Active request-scoped streams are not resumable after server restart; only
   completed/persisted final runs are inspectable.
 - Final run output is the source of truth for result reinspection.
+- Citation inspection may fetch persisted citation records independently, but
+  run output must still carry enough citation metadata for backward-compatible
+  result rendering.
 
 ## StreamEvent
 
@@ -754,9 +1011,9 @@ Validation:
 
 ## Citation / Artifact
 
-- `Citation`: visible source reference for a material claim — `source_id`,
-  timestamp, and `dataset_id`. Citations derive directly from collected records;
-  there is no separate `EvidenceObject` layer.
+- `Citation`: visible source reference for a material claim — `record_id`,
+  `source_id`, timestamp, and `dataset_id`. Citations derive from deterministic
+  data records, not raw provider payloads.
 - `Artifact`: parent model for generated outputs users can open or download.
 - `FileArtifact`: physical asset with `artifact_type=file`, `file_type`,
   `mime_type`, filename, status, download metadata, and source references.
@@ -769,6 +1026,7 @@ Validation:
 Rules:
 
 - Citations are not artifacts.
+- Citations are persisted pointers to data records.
 - Artifact cards open full artifact viewers.
 - Inline citation chips open the full source list and jump to the clicked
   source.
@@ -797,8 +1055,12 @@ Step kinds:
   (switching tools on failure) is not implemented yet; a failed tool yields a
   missing dataset. Agent-driven tool selection in chatflow mode is owned by
   `../003-agentic-chatflow/`.
-- `skill`: agent. Receives collected records plus prior step outputs, reasons,
-  writes its output section, cites sources, and declares
+- `build_data_bundle`: deterministic packaging phase. Converts collected
+  canonical records and prior deterministic outputs into data records,
+  assigns citation ids, persists records/citations, and selects the compact
+  model-visible bundle.
+- `skill`: agent. Receives the data bundle plus prior step outputs, writes
+  its output section, cites only allowed citation ids, and declares
   `allowed_claims`/`blocked_claims`.
 
 Guardrails:
@@ -806,15 +1068,16 @@ Guardrails:
 - There is no pre-skill fail-fast gate. A skill step runs on whatever
   `collect_data` returned and resolves which claims it can support, reporting
   `blocked_claims` for categories it cannot ground on the available data.
-- After each skill step, a deterministic grounding check verifies cited sources
-  are a subset of sources returned by `collect_data`; agent-cited ids not in the
-  returned set become `uncited_claims` and force `grounding_status` to `blocked`.
+- After each skill step, a deterministic grounding check verifies cited ids are a
+  subset of the data bundle citation allowlist; agent-cited ids outside the
+  allowlist become `uncited_claims` and force `grounding_status` to `blocked`.
 - `collect_data` is the only hard floor: zero records and zero source documents
   fails the run before any skill step.
-- Citations are source-level: a citation references a source (`source_id`,
-  timestamp, `dataset_id`), not a tool-call graph or a separate evidence object.
-  Data age is conveyed by the citation `timestamp`; there is no separate
-  freshness-status concept.
+- Citations are record-backed source references: a citation references an
+  data record plus source metadata (`record_id`, `source_id`, timestamp,
+  `dataset_id`), not a tool-call graph or raw provider payload. Data age is
+  conveyed by the citation `timestamp`; there is no separate freshness-status
+  concept.
 
 Example step sequences:
 

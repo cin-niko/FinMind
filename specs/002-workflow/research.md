@@ -254,6 +254,42 @@ run events, or final-only JSON. The queue model was rejected because the user
 expects direct completion streaming. Final-only JSON was rejected because it does
 not support progressive UI rendering.
 
+## Decision: Persist `price_series` base data and cited citation snapshots by default
+
+Phase 02 should persist reusable `price_series` data, final run output, and the
+citation snapshots actually cited by the LLM answer. Intermediate derived
+records such as indicators, pattern setups, and price summaries should remain
+runtime objects by default and be recalculated from the persisted base data when
+needed.
+
+Rationale: This keeps the data store lean while preserving the durable product
+surfaces users need today: charting, run history, and citation inspection. It
+avoids storing every intermediate deterministic record before there is a proven
+audit/debug requirement for full snapshot persistence.
+
+Alternatives considered: persist every derived record used by the LLM, or
+persist only final answer text with no citation snapshot details. Rejected
+because full derived-record persistence adds storage and repository complexity
+too early, while answer-only persistence is too weak for citation inspection.
+
+## Decision: Use structured record payload plus deterministic rendered `context`
+
+Each deterministic record should keep structured fields as the canonical data
+representation and expose a deterministic human-readable `context` rendering.
+That `context` output may be reused for LLM input, citation snippet generation,
+and UI display. The default path should use a class-owned template-backed
+renderer, while subclasses may override rendering when they need custom logic.
+
+Rationale: Structured fields remain testable, filterable, and stable as the
+source of truth, while one deterministic rendered projection keeps LLM and UI
+presentation aligned. This avoids coupling product meaning to markdown strings
+alone and keeps content changes separate from calculation logic.
+
+Alternatives considered: make markdown the canonical record representation, or
+inline long templates directly in every record class. Rejected because markdown
+as the source of truth weakens validation/reuse, and large inline templates make
+schema classes harder to read and maintain.
+
 ## Decision: Bound concurrency even with async execution
 
 Async-native FastAPI handlers and SSE streams can hold many idle or waiting
@@ -318,14 +354,38 @@ a financial setting.
 Phase 02 workflows should be reusable steps that can be run alone or as part of a
 larger composite workflow. `stock-brief` is the first composite workflow and runs
 `collect_data`, `vn-financial-data-auditor`, `fundamental-analysis`,
-`technical-analysis`, `news-digest`, and `risk-review` as ordered `step_sequence`.
+and `technical-analysis` as ordered `step_sequence`.
 
 Rationale: Composition avoids duplicating collection, quality checks, citations,
-citation handling, and step status across each user-facing workflow.
+citation handling, and step status across each user-facing workflow. Standalone
+news digest and risk review are intentionally deferred until deterministic
+`news_record` or `risk_record` contracts exist.
 
 Alternatives considered: independent monolithic workflow implementations.
 Rejected because they make evidence, quality gating, partial failure, and future
 workflow reuse harder to keep consistent.
+
+## Decision: Use deterministic data records before LLM citation
+
+Runtime should transform collected canonical records into deterministic evidence
+records, assign citation ids to those records, persist reusable `price_series`
+base data plus cited citation snapshots, and then send only the compact data
+bundle plus citation allowlist to the LLM. The model may write narrative and
+reference allowed citation ids, but it does not inspect full raw provider
+payloads or invent citation ids.
+
+Rationale: This makes the data path reproducible, limits prompt size, keeps raw
+provider data out of model context, and gives the UI stable cited snapshots for
+inspection without forcing durable storage of every intermediate record.
+`fundamental_record.is_audited` is the simple boolean gate for confident
+fundamental claims; audit warnings and blocked claims live in the same record
+rather than a separate flags record.
+
+Alternatives considered: direct citation from raw provider records, a separate
+`fundamental_flags_record`, or LLM-selected tool/data flow. Direct raw citations
+make prompt context too large and blur provenance. A separate flags record
+duplicates the fundamental audit state. LLM-selected data flow weakens
+determinism and conflicts with the workflow-first safety model.
 
 ## Decision: Use hybrid YAML workflow definitions and Markdown agent skills
 
@@ -457,8 +517,8 @@ Source: https://github.com/tauricresearch/tradingagents
 
 Useful ideas for Phase 02:
 
-- Split workflow outputs into analyst-style sections: fundamentals, sentiment or
-  news, technical analysis, and risk management.
+- Split workflow outputs into analyst-style sections: fundamentals, technical
+  analysis, and clearly labeled unavailable categories when evidence is missing.
 - Preserve a debate-like balance through bull/bear or upside/downside framing
   without implementing autonomous trading decisions.
 - Keep a visible run/progress model so users can see which analysis stages are
@@ -476,8 +536,7 @@ Source: https://github.com/Thanhtran-165/equity-research-vn
 Useful ideas for Phase 02:
 
 - Treat the workflow suite as a repeatable pipeline: data collection, fundamental
-  analysis, valuation, technical analysis, news digest, and report/dashboard
-  presentation.
+  analysis, valuation, technical analysis, and report/dashboard presentation.
 - Include VN-specific data-quality checks such as split-adjusted price handling,
   changed share counts, stale ratio data, source period mismatches, and
   inconsistent EPS/BVPS bases.

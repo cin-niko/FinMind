@@ -37,8 +37,8 @@ adr_refs: []
 
 - [x] Workflow scope is separated from MVP UI and agentic chatflow
 - [x] Current market scope is VN stocks and US stocks only
-- [x] Workflow suite includes fundamental analysis, technical analysis, and news
-  digest as required phase 02 capabilities
+- [x] Workflow suite includes fundamental analysis and technical analysis as
+  required phase 02 capabilities
 - [x] Streaming scope distinguishes immediate progress visibility from
   incremental final answer text
 - [x] "Reasoning" visibility is specified as safe progress summaries, not raw

@@ -30,7 +30,7 @@ adr_refs:
     gateways or provider deployments that require a custom base URL.
   - `FINMIND_VNSTOCK_API_KEY` optionally registers the backend runtime with
     vnstock before VN provider fetches. Leave it empty for guest access.
-  - `FINMIND_US_ALPHA_VANTAGE_API_KEY` for US price/news collection.
+  - `FINMIND_US_ALPHA_VANTAGE_API_KEY` for US price collection.
   - SEC EDGAR requests must use a configured User-Agent/contact setting before
     live US fundamentals collection is enabled.
   - VN collection uses the `vnstock` adapter.
@@ -86,8 +86,6 @@ npm run build
 3. Confirm catalog includes:
    - `fundamental-analysis`
    - `technical-analysis`
-   - `news-digest`
-   - `risk-review`
    - `stock-brief`
 4. Confirm each catalog card shows purpose, markets, required inputs, stages, and
    chart/citation expectations.
@@ -105,8 +103,6 @@ npm run build
    - `data-audit`
    - `fundamental-analysis`
    - `technical-analysis`
-   - `news-digest`
-   - `risk-review`
 5. Confirm result includes steps, grounding status, collection status, sections,
    citations, chart artifact, and source refs.
 
@@ -125,11 +121,11 @@ npm run build
 5. Confirm the skill audits already-collected records through `dataflows`
    rather than importing or calling `vnstock` directly from the skill
    instructions; collection is owned by the `collect_data` step.
-6. Confirm collected price, fundamentals, company profile, and source-document
-   coverage is shown with citations (source id, dataset id, timestamp) where
+6. Confirm collected price, fundamentals, and company profile coverage is shown
+   with citations (source id, dataset id, timestamp) where
    available.
-7. Confirm missing statements, ratios, peer data, or news documents cause
-   partial/unavailable sections rather than fabricated analysis.
+7. Confirm missing statements, ratios, peer data, or unsupported news/catalyst
+   requests cause partial/unavailable sections rather than fabricated analysis.
 8. Confirm no raw model reasoning, hidden prompts, provider secrets, or raw
    provider payloads appear in the exported report or API response.
 
@@ -138,7 +134,7 @@ npm run build
 1. Run `technical-analysis` or `stock-brief` with `market=US_STOCK` and a
    supported symbol such as `AAPL`.
 2. Confirm `collect_data` requests data through `dataflows`, and `dataflows`
-   attempts latest US provider collection through Alpha Vantage for prices/news
+   attempts latest US provider collection through Alpha Vantage for prices
    when configured and SEC EDGAR company facts for fundamentals where available.
 3. Confirm output uses US stock records, not VN stock defaults.
 4. Confirm citations reference US datasets and provider/fallback source identity.
@@ -162,6 +158,32 @@ npm run build
    `grounding.grounding_status` is `blocked`.
 3. Confirm blocked claim categories are omitted or marked unavailable.
 4. Confirm unaffected sections remain inspectable for partial results.
+
+## Scenario 5A: Data Records And Citation Persistence
+
+1. Run `vn-technical-analysis` or `vn-fundamental-analysis` for a supported
+   symbol.
+2. Confirm collection returns canonical source records, then runtime builds
+   deterministic data records before the LLM call.
+3. Confirm the normal LLM bundle includes compact records such as
+   `price_summary_record`, `indicator_record`, `pattern_evidence_record`,
+   `pattern_setup_record`, `company_profile_record`, or `fundamental_record`,
+   and excludes full `price_series_record` data by default.
+4. Confirm each record exposes a deterministic rendered `context` used for LLM
+   input, while structured fields remain the canonical in-memory representation.
+5. Confirm citation ids are created before the LLM call and every model-cited id
+   exists in the data bundle allowlist.
+6. Confirm `price_series_record` is persisted for charting/reuse, while
+   intermediate derived records are not required to be stored durably by
+   default.
+7. Confirm final run output embeds citation summaries and
+   `GET /api/runs/{run_id}/citations` returns the persisted citation records with
+   `record_id`, `record_type`, source id, dataset id, timestamp,
+   `payload_snapshot`, and `display_content`.
+8. Confirm a `fundamental_record` with `is_audited=false` blocks confident
+   fundamental claims or marks them unavailable.
+9. Confirm no raw provider payload, full price series, hidden prompt, or raw
+   reasoning is included in the LLM payload or citation response.
 
 ## Scenario 6: Unsupported Asset
 

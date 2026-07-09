@@ -38,9 +38,7 @@ Response item shape:
     "collect_data",
     "data-audit",
     "fundamental-analysis",
-    "technical-analysis",
-    "news-digest",
-    "risk-review"
+    "technical-analysis"
   ],
   "requires_citations": true,
   "chart_requirements": [
@@ -55,9 +53,7 @@ Response item shape:
   "output_sections": [
     "Data Quality",
     "Fundamentals",
-    "Technical Analysis",
-    "News Digest",
-    "Risk Review"
+    "Technical Analysis"
   ]
 }
 ```
@@ -66,8 +62,6 @@ Required catalog ids:
 
 - `fundamental-analysis`
 - `technical-analysis`
-- `news-digest`
-- `risk-review`
 - `stock-brief`
 
 ## Final Workflow Run Shape
@@ -98,23 +92,23 @@ Required catalog ids:
       {
         "title": "Fundamentals",
         "status": "partial",
-        "content": "Fundamental analysis on available statements; news-dependent claims blocked.",
+        "content": "Fundamental analysis on available statements; catalyst claims unavailable.",
         "citations": ["cite_1"],
-        "warnings": ["news_missing"],
+        "warnings": ["unsupported_news_scope"],
         "allowed_claims": ["financial_history"],
-        "blocked_claims": ["recent_news_impact"]
+        "blocked_claims": ["recent_news_impact", "catalyst_analysis"]
       }
     ],
     "steps": [
       { "id": "collect_data", "kind": "collect_data", "status": "fallback", "warnings": [] },
       { "id": "vn-financial-data-auditor", "kind": "skill", "status": "success", "warnings": [] },
-      { "id": "vn-fundamental-analysis", "kind": "skill", "status": "partial", "warnings": ["news_missing"] }
+      { "id": "vn-fundamental-analysis", "kind": "skill", "status": "partial", "warnings": ["unsupported_news_scope"] }
     ],
     "collection": {
       "status": "partial",
       "collection_id": "collection_abc123",
       "providers": ["vnstock", "offline_fallback"],
-      "requested_dataset_groups": ["market_price", "fundamental", "news"],
+      "requested_dataset_groups": ["market_price", "fundamental"],
       "provider_results": [
         {
           "provider_id": "vnstock",
@@ -122,18 +116,11 @@ Required catalog ids:
           "status": "success",
           "source_ids": ["vnstock_prices", "vnstock_fundamentals"],
           "warnings": []
-        },
-        {
-          "provider_id": "offline_fallback",
-          "dataset_groups": ["news"],
-          "status": "fallback",
-          "source_ids": ["offline_source_documents"],
-          "warnings": ["news_provider_unavailable"]
         }
       ],
       "records_collected": 2,
-      "documents_collected": 1,
-      "warnings": ["source_documents_fallback"],
+      "documents_collected": 0,
+      "warnings": [],
       "failure_reasons": [],
       "started_at": "2026-06-27T00:00:00+00:00",
       "completed_at": "2026-06-27T00:00:01+00:00"
@@ -141,10 +128,20 @@ Required catalog ids:
     "citations": [
       {
         "citation_id": "cite_1",
+        "record_id": "data_price_summary_VN_STOCK_VCB_2026-06-18_v1",
+        "record_type": "price_summary_record",
         "source_id": "vnstock_prices",
         "dataset_id": "vn_prices",
         "label": "Demo VN Prices",
-        "timestamp": "2026-06-18T07:00:00+00:00"
+        "timestamp": "2026-06-18T07:00:00+00:00",
+        "cited_fields": ["payload.close", "payload.change_pct"],
+        "payload_snapshot": {
+          "close": 87200,
+          "change_pct": 1.2,
+          "volume": 1200000
+        },
+        "display_content": "- Close: 87,200\n- Daily change: +1.2%\n- Volume: 1,200,000",
+        "methodology_version": "price-summary-v1"
       }
     ],
     "artifacts": [
@@ -199,7 +196,7 @@ Required catalog ids:
     ],
     "grounding": {
       "grounding_status": "pass",
-      "blocked_claims": ["recent_news_impact"],
+      "blocked_claims": ["recent_news_impact", "catalyst_analysis"],
       "uncited_claims": []
     }
   },
@@ -240,7 +237,8 @@ Step and grounding contract:
 - `collect_data` is the only hard floor: zero records and zero source documents
   fails the run before any skill step.
 - `grounding.grounding_status` is `pass` or `blocked`. It is `blocked` only when
-  claims cite sources not present in the returned citations (`uncited_claims`).
+  claims cite ids not present in the returned citation allowlist
+  (`uncited_claims`).
 - `grounding.blocked_claims` lists claim categories the skill reported blocked
   (surfaced for transparency).
 - `grounding.uncited_claims` lists claims whose citations are not a subset of the
@@ -261,8 +259,8 @@ Collection contract:
   FinMind-validated collection plan, not direct workflow or agent provider calls.
 - `providers` may include provider ids such as `vnstock`, `alpha_vantage`,
   `sec_edgar`, and `offline_fallback`.
-- `requested_dataset_groups` values are `market_price`, `fundamental`, and
-  `news` for Phase 02.
+- `requested_dataset_groups` values are `market_price` and `fundamental` for
+  Phase 02.
 - Requested dataset groups are derived from the referenced skills'
   `DATA_REQUIREMENTS.yaml` (raw-data skills only; upstream-dependent skills have
   none and are not added to the collect fetch list). Workflow YAML must not
@@ -274,6 +272,23 @@ Collection contract:
 - If live provider collection fails and fallback data is used, the response must
   preserve the fallback provider id and quality warnings so user-facing claims
   are caveated or marked unavailable.
+
+Evidence and citation contract:
+
+- Derived `DataRecord` objects are deterministic runtime records built after
+  collection and before the LLM call.
+- The data bundle is the compact model-visible subset plus citation allowlist.
+- `citations` are persisted pointers to data records; they include
+  `record_id`, `record_type`, source id, dataset id, label, timestamp,
+  optional cited fields, structured `payload_snapshot`, and optional
+  `display_content`.
+- `price_series_record` may be persisted for chart rendering and reuse but is
+  excluded from the normal LLM data bundle.
+- Intermediate derived records are not required to be persisted durably for
+  every run.
+- `fundamental_record.is_audited=true` is required for confident fundamental
+  claims. If false, the answer must mark affected claims unavailable or
+  preliminary according to workflow policy.
 
 ## `POST /api/workflows/{workflow_id}/runs`
 
@@ -475,3 +490,47 @@ result reinspection. Latest runs appear first.
 
 Returns a completed, partial, or failed workflow/chatflow run. Unknown run ids return
 `404`.
+
+## `GET /api/runs/{run_id}/citations`
+
+Returns persisted citation records for an authenticated run. The response is used
+by citation inspection surfaces and must match the citation summaries embedded in
+`GET /api/runs/{run_id}`.
+
+Response shape:
+
+```json
+{
+  "run_id": "run_abc123",
+  "citations": [
+    {
+      "citation_id": "cite_1",
+      "record_id": "data_price_summary_VN_STOCK_VCB_2026-06-18_v1",
+      "record_type": "price_summary_record",
+      "source_id": "vnstock_prices",
+      "dataset_id": "vn_prices",
+      "label": "Demo VN Prices",
+      "timestamp": "2026-06-18T07:00:00+00:00",
+      "cited_fields": ["payload.close", "payload.change_pct"],
+      "payload_snapshot": {
+        "close": 87200,
+        "change_pct": 1.2,
+        "volume": 1200000
+      },
+      "display_content": "- Close: 87,200\n- Daily change: +1.2%\n- Volume: 1,200,000",
+      "methodology_version": "price-summary-v1"
+    }
+  ]
+}
+```
+
+Rules:
+
+- The caller must own the run.
+- Unknown runs return not-found behavior.
+- `display_content` is an optional rendered snippet for UI display; structured
+  `payload_snapshot` remains the canonical cited snapshot.
+- Citation rows must never expose raw provider payloads or hidden model
+  reasoning.
+- The endpoint must not depend on reconstructing citations from raw provider
+  payloads, full intermediate runtime records, or hidden model prompts.

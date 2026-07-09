@@ -24,8 +24,8 @@ current market scope: VN stocks and US stocks only. The workflow suite uses
 internal data collection and grounding steps, fetching the latest
 available provider data before falling back to deterministic demo data in local
 or offline test mode. It then exposes repeatable analysis paths such as
-fundamental analysis, technical analysis, news digest, risk review, and combined
-stock briefs. Workflows provide bounded analysis, validated inputs, evidence
+fundamental analysis, technical analysis, and optional combined stock briefs.
+Workflows provide bounded analysis, validated inputs, evidence
 objects, citations, chart artifacts, execution status, and result
 reinspection from the UI.
 
@@ -33,6 +33,17 @@ This draft feature will own workflow execution and result inspection. It does no
 overall app shell (`../001-mvp-ui/`). It owns the async execution and streaming
 transport needed by workflows and chat, while production flexible Q&A behavior
 remains governed by `../003-agentic-chatflow/`.
+
+For Phase 02 storage, the workflow feature persists lean durable evidence by
+default: reusable `price_series` base data, final run output, and cited
+citation snapshots. Intermediate derived records remain part of the
+deterministic runtime pipeline before the LLM call, but they are not required to
+be stored for every run.
+
+For Phase 02 rendering, each deterministic record type exposes structured
+fields plus a deterministic rendered `context` view. The rendered view may be
+reused for LLM input and UI display, while the structured fields remain the
+canonical record content.
 
 ## User Scenarios & Testing
 
@@ -59,8 +70,8 @@ Acceptance scenarios:
 ### User Story 2 - Choose A Workflow Type (Priority: P1)
 
 An authenticated internal user can choose the appropriate trading-support workflow
-for their research need, such as fundamental analysis, technical analysis, news
-digest, risk review, or a combined stock brief.
+for their research need, such as fundamental analysis, technical analysis, or a
+combined stock brief.
 
 **Independent Test**: Open the workflow catalog and verify that each supported
 workflow type describes its purpose, required inputs, expected output sections,
@@ -77,12 +88,12 @@ Acceptance scenarios:
 3. Given the user selects technical analysis, when the workflow runs, then the
    result emphasizes price trend, momentum, support/resistance, indicators, chart
    artifacts, and cited market records.
-4. Given the user selects news digest, when trusted source material is available,
-   then the result summarizes relevant recent items with citations (source id,
-   timestamp, dataset id), sentiment/impact framing, and provenance; when source
-   material is unavailable, the limitation is clearly marked.
-5. Given the user selects risk review or combined stock brief, when the workflow
-   runs, then the result combines relevant evidence sections without presenting an
+4. Given the user asks a supported workflow for recent news, catalysts, or
+   standalone risk review, when Phase 02 has no deterministic record for that
+   claim category, then the result marks that category unavailable instead of
+   fabricating evidence.
+5. Given the user selects combined stock brief, when the workflow runs, then the
+   result combines fundamental and technical evidence without presenting an
    autonomous trading decision.
 
 ### User Story 3 - Compose A Stock Brief From Reusable Steps (Priority: P1)
@@ -91,8 +102,8 @@ An authenticated internal user can run a combined stock brief that orchestrates
 reusable workflow steps instead of duplicating each analysis path.
 
 **Independent Test**: Run `stock-brief` and verify it executes collection,
-quality checks, fundamental analysis, technical analysis, news digest, and risk
-review as visible stages, with partial/unavailable stages clearly marked.
+quality checks, fundamental analysis, and technical analysis as visible stages,
+with partial/unavailable stages clearly marked.
 
 Acceptance scenarios:
 
@@ -257,15 +268,15 @@ Acceptance scenarios:
   and structured chart requirements.
 - **FR-003**: Current workflow market scope MUST include VN stocks and US stocks
   only.
-- **FR-004**: Workflow suite MUST include, at minimum, fundamental analysis,
-  technical analysis, and news digest workflows for supported stocks.
-- **FR-005**: Workflow suite SHOULD include risk review and combined stock brief
-  workflows when their required evidence inputs are available.
+- **FR-004**: Workflow suite MUST include, at minimum, fundamental analysis and
+  technical analysis workflows for supported stocks.
+- **FR-005**: Workflow suite SHOULD include a combined stock brief workflow when
+  its required fundamental and technical evidence inputs are available.
 - **FR-006**: Workflow suite MUST support reusable workflow steps so a composite
   workflow can run another workflow or internal step as one stage.
 - **FR-007**: `data-collector` MUST be an internal step that gathers the latest
   available datasets required by the selected workflow, including market records,
-  fundamentals, source documents or news, and peer data when available.
+  fundamentals, and peer data when available.
  - **FR-008**: `collect_data` MUST be a deterministic step that reads the raw
   `DATA_REQUIREMENTS.yaml` declared by the workflow's skill steps and collects
   canonical records before any skill step runs.
@@ -273,9 +284,8 @@ Acceptance scenarios:
   cited sources are a subset of sources returned by `collect_data` and blocking
   claim categories whose required dataset returned no records.
  - **FR-010**: `stock-brief` MUST be a composite workflow that runs
-  `data-collector`, `fundamental-analysis`, `technical-analysis`,
-  `news-digest`, and `risk-review` as ordered stages, with the grounding check
-  auditing each skill step.
+  `data-collector`, `fundamental-analysis`, and `technical-analysis` as ordered
+  stages, with the grounding check auditing each skill step.
 - **FR-011**: Gold, BTC, and other assets MUST NOT be enabled runnable workflow
   choices unless a later spec changes scope.
 - **FR-012**: Workflow forms MUST render every required input and submit those
@@ -286,22 +296,44 @@ Acceptance scenarios:
 - **FR-014**: System MUST maintain deterministic seeded/offline canonical records
   for VN and US stock examples with source identity, market time, collection
   time, and unique record keys for tests and provider-failure fallback.
-- **FR-015**: News digest workflows MUST use trusted source material with source
-  identity and publication or collection timestamps when available; if trusted
-  source material is unavailable, the workflow MUST clearly mark the news section
-  unavailable rather than fabricating digest content.
+- **FR-015**: Phase 02 workflows MUST NOT provide standalone news digest,
+  catalyst analysis, or current-event claims unless a deterministic future source
+  contract supplies auditable news records; unsupported news/catalyst categories
+  MUST be marked unavailable.
 - **FR-016**: Fundamental analysis workflows MUST expose business quality,
-  financial health, valuation, peer/industry context where available, and key
-  risk sections when supporting evidence is available.
+  financial health, valuation, peer/industry context where available, and
+  financial-quality warnings when supporting evidence is available.
 - **FR-017**: Technical analysis workflows MUST expose trend, momentum,
   support/resistance or equivalent price-level framing, chart artifacts, and
   cited market records when supporting evidence is available.
-- **FR-018**: Risk review workflows MUST highlight material downside, data quality,
-  market, bull/bear framing, and evidence limitations without issuing autonomous
-  decisions.
- - **FR-019**: System MUST derive source-level citations from collected records,
-  linking workflow claims to source identity, timestamps, and dataset ids.
- - **FR-020**: Workflow outputs MUST include grounding checks relevant to the
+- **FR-018**: Phase 02 workflows MUST NOT provide standalone risk-review outputs.
+  Risk language may summarize only risk signals derived from cited technical or
+  fundamental records, such as drawdown, volatility, leverage, margin pressure,
+  or audit warnings.
+- **FR-019**: System MUST derive citations from deterministic data records,
+  linking workflow claims to record id, source identity, timestamps, and dataset
+  ids.
+- **FR-019A**: The system MUST persist reusable `price_series` base data for
+  chart rendering, internal reuse, and deterministic recalculation of derived
+  records.
+- **FR-019B**: The system MUST persist cited citation snapshots used in the
+  final answer, including enough payload detail and provenance for UI source
+  inspection without requiring every intermediate derived record to be stored.
+- **FR-019C**: Phase 02 workflow runs MUST NOT require durable persistence of
+  every intermediate derived `DataRecord`; derived records MAY be recalculated
+  from persisted base data unless a later audit/debug feature explicitly expands
+  storage scope.
+- **FR-019D**: Each deterministic record type MUST expose a deterministic
+  human-readable `context` representation derived from structured fields so the
+  same record content can be reused for LLM prompting and UI display.
+- **FR-019E**: Structured record fields MUST remain canonical. Rendered
+  markdown or text content MUST be derived from those fields and MUST NOT
+  replace them as the source of truth.
+- **FR-019F**: The default record rendering path SHOULD use a class-owned
+  template-backed `context` property and MAY cache the rendered output for
+  repeated use within a run, provided records are treated as immutable after
+  construction.
+- **FR-020**: Workflow outputs MUST include grounding checks relevant to the
   market and evidence type, including inconsistent periods, split-adjusted price
   comparisons, changed share counts, and unavailable source fields when
   applicable. Cited sources must be a subset of collected sources.
@@ -324,7 +356,7 @@ Acceptance scenarios:
   for Phase 02 latest price and fundamental data where the library supports the
   requested symbol and dataset.
 - **FR-028**: US stock collection MUST use provider adapters backed by a
-  documented US market data source for prices/news and SEC EDGAR company facts
+  documented US market data source for prices and SEC EDGAR company facts
   for public-company fundamentals where available.
 - **FR-029**: The system MUST provide a collection-first `dataflows` module that
   serves workflows now and future chatflow collection without implementing admin
@@ -423,6 +455,21 @@ Acceptance scenarios:
 - **FR-057**: Citations MUST remain evidence/source references, not artifacts.
   The citations panel MUST show internal fetched data and external web links
   distinctly while preserving source identity, dataset id, and timestamp.
+- **FR-058**: Workflow runtime MUST follow the product-wide data-record
+  boundary defined in `../system/data-record-flow.md`: raw data is fetched
+  and normalized by the runtime, deterministic records are derived before the
+  LLM call, and skills interpret those records rather than driving collection.
+- **FR-059**: LLM-visible workflow context MUST be limited to the deterministic
+  data bundle defined by the runtime data-record boundary. Skill prompts
+  MAY interpret those records, cite the provided ids, and mark unsupported
+  claims unavailable, but they MUST NOT depend on raw provider dumps as their
+  primary analysis surface.
+- **FR-060**: Citation inspection surfaces MUST render from persisted citation
+  snapshots, not by requiring the UI to reconstruct the cited evidence from
+  full intermediate runtime records.
+- **FR-061**: Citation inspection surfaces SHOULD prefer a persisted rendered
+  citation snippet or display content when available, while retaining structured
+  citation snapshot fields for precise filtering and future UI behaviors.
 
 ## Key Entities
 
@@ -457,8 +504,8 @@ See `../system/state-model.md` for canonical entity definitions.
   before user reliance.
 - Citation unavailable for a generated claim: claim is omitted, qualified, or
   marked unsupported.
-- News source material unavailable for a requested digest: news digest section is
-  marked unavailable with the reason.
+- User asks for current news, catalysts, or recent events: the claim category is
+  marked unavailable unless a later spec adds deterministic news records.
 - Technical chart data unavailable: chart artifact is marked unavailable and the
   text result avoids unsupported technical claims.
 - Artifact unavailable or failed: the artifact card and panel show the status
@@ -499,10 +546,16 @@ See `../system/state-model.md` for canonical entity definitions.
 - Latest per-run provider collection is enough for Phase 02; historical
   warehouse ingestion, scheduling, and broad data operations require later
   bounded specs.
+- Persisting `price_series` plus cited `Citation` snapshots is sufficient for
+  current workflow result inspection. Full intermediate-record persistence is
+  deferred unless a later audit/debug requirement makes it product-critical.
+- Record rendering templates may be shared across LLM input building and UI
+  display, but template execution remains deterministic presentation logic only;
+  calculation logic stays outside the template layer.
 - Deterministic seeded/offline VN and US stock records remain necessary to
   validate workflow contracts without network or provider credentials.
-- News digest can start from provider news where configured and trusted source
-  documents or curated/open-source source material available to the project.
+- Phase 02 excludes standalone news digest, catalyst analysis, and standalone
+  risk-review workflows; unsupported claim categories are marked unavailable.
 - Workflows provide advice support and evidence framing, not buy/sell decisions.
 - `data-collector` is bounded to workflow-run needs and does not implement a
   broad native ingestion platform.
@@ -523,12 +576,11 @@ See `../system/state-model.md` for canonical entity definitions.
   output, chart artifact, and execution status in under 5 minutes.
 - **SC-002**: A user can complete a supported US stock workflow and inspect cited
   output, chart artifact, and execution status in under 5 minutes.
-- **SC-003**: A user can choose fundamental analysis, technical analysis, and news
-  digest workflows from the UI and understand each workflow's purpose before
-  running it.
+- **SC-003**: A user can choose fundamental analysis and technical analysis
+  workflows from the UI and understand each workflow's purpose before running it.
  - **SC-004**: A user can run `stock-brief` and see collection, grounding,
-  fundamental, technical, news, and risk stages with clear completion, partial,
-  failed, or unavailable status.
+  fundamental, and technical stages with clear completion, partial, failed, or
+  unavailable status.
 - **SC-005**: 100% of user-facing material workflow claims include at least one
   citation or are explicitly marked unsupported/unavailable.
 - **SC-006**: At least 95% of supported workflow result views show a citation
@@ -570,7 +622,8 @@ See `../system/state-model.md` for canonical entity definitions.
 - Production flexible Q&A agentic chatflow behavior beyond the separate direct
   async chatflow stream transport and deterministic Phase 02 mock output.
 - Broad native realtime market data platform beyond per-run provider fetch.
-- Broad native realtime news ingestion beyond provider/source documents required
-  by one workflow run.
+- Standalone news digest, current-event/catalyst analysis, standalone risk
+  review, `news_record`, and `risk_record`.
+- Broad native realtime news ingestion.
 - Gold, BTC, crypto, commodities, options, futures, broker connectivity, trade
   execution, and autonomous financial actions.
