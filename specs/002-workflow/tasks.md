@@ -88,29 +88,29 @@ bundle, not raw provider payloads or full price series.
 
 ### Tests for Data Records And Citations
 
-- [ ] T018 [P] Add deterministic record id, payload, and `context` rendering tests for price summary, indicator, pattern evidence, pattern setup, company profile, and fundamental records in `tests/test_platform_services.py`
-- [ ] T019 [P] Add regression tests for strict pattern evidence outputs ported from `src/finmind_agents/workflows/skills/vn-technical-analysis/references/pattern_detection.md` in `tests/test_platform_services.py`
-- [ ] T020 [P] Add regression tests for heuristic setup ranking/status outputs ported from `equity-research-vn/vn-technical-analysis/references/pattern_scoring.md` in `tests/test_platform_services.py`
-- [ ] T021 [P] Add citation allowlist, rendered citation snippet, and unknown-citation grounding tests in `tests/test_platform_services.py`
-- [ ] T022 [P] Add audited fundamental gate tests for `fundamental_record.is_audited` in `tests/test_platform_services.py`
-- [ ] T023 [P] Add API contract coverage for `GET /api/runs/{run_id}/citations` in `tests/test_app.py`
-- [ ] T024 [P] Add regression coverage that full `price_series_record` and raw provider payloads are excluded from normal LLM payloads in `tests/test_platform_services.py`
+- [x] T018 [P] Add deterministic record id, payload, and `context` rendering tests for price summary, indicator, pattern evidence, pattern setup, company profile, and fundamental records in `tests/test_platform_services.py`
+- [x] T019 [P] Add regression tests for strict pattern evidence outputs ported from `src/finmind_agents/workflows/skills/vn-technical-analysis/references/pattern_detection.md` in `tests/test_platform_services.py`
+- [x] T020 [P] Add regression tests for heuristic setup ranking/status outputs ported from `equity-research-vn/vn-technical-analysis/references/pattern_scoring.md` in `tests/test_platform_services.py`
+- [x] T021 [P] Add citation allowlist, rendered citation snippet, and unknown-citation grounding tests in `tests/test_platform_services.py`
+- [x] T022 [P] Add audited fundamental gate tests for `fundamental_record.is_audited` in `tests/test_platform_services.py`
+- [x] T023 [P] Add API contract coverage for `GET /api/runs/{run_id}/citations` in `tests/test_app.py`
+- [x] T024 [P] Add regression coverage that full `price_series_record` and raw provider payloads are excluded from normal LLM payloads in `tests/test_platform_services.py`
 
 ### Implementation for Data Records And Citations
 
-- [ ] T025 [P] Add shared `DataRecord`, `PriceSeriesRecord`, `DataBundle`, and citation snapshot models in `src/finmind_agents/models.py`
-- [ ] T026 [P] Add record rendering helpers with template-backed default `context` generation in `src/finmind_agents/evidence/rendering.py`
-- [ ] T027 [P] Add record rendering templates for price summary, indicators, pattern evidence, pattern setup, company profile, and fundamental context in `src/finmind_agents/templates/records/`
-- [ ] T028 [P] Add deterministic data record builders for price summary, indicators, pattern evidence, pattern setup, company profile, fundamental records, and stored price series in `src/finmind_agents/evidence/builders.py`
-- [ ] T029 [P] Port strict technical-pattern detectors from `src/finmind_agents/workflows/skills/vn-technical-analysis/references/pattern_detection.md` into `src/finmind_agents/evidence/patterns.py`
-- [ ] T030 [P] Port heuristic setup scoring from `equity-research-vn/vn-technical-analysis/references/pattern_scoring.md` into `src/finmind_agents/evidence/patterns.py`
-- [ ] T031 [P] Add citation allowlist generation and citation snapshot builders in `src/finmind_agents/evidence/citations.py`
-- [ ] T032 Add data bundle packaging that uses rendered record `context` and excludes full price series from normal LLM context in `src/finmind_agents/evidence/bundles.py`
-- [ ] T033 Add PostgreSQL and in-memory repositories for persisted `price_series` data and citation rows in `src/finmind_api/run_store.py`
-- [ ] T034 Add workflow execution wiring to persist reusable `price_series`, build runtime `DataRecord` objects, and persist only cited citation snapshots before `FinMindAgentRuntime` calls in `src/finmind_agents/workflows/service.py`
-- [ ] T035 Update agent request payload construction to pass `data_bundle` and citation ids instead of raw provider payloads in `src/finmind_agents/agents/prompts.py`
-- [ ] T036 Update grounding validation to verify model citations against the data bundle citation allowlist in `src/finmind_agents/workflows/grounding.py`
-- [ ] T037 Add `GET /api/runs/{run_id}/citations` route and response schema in `src/finmind_api/routes/runs.py` and `src/finmind_api/schemas.py`
+- [x] T025 [P] Add shared `DataRecord`, `PriceSeriesRecord`, `DataBundle`, and citation snapshot models in `src/finmind_agents/models.py`
+- [x] T026 [P] Add record rendering helpers with template-backed default `context` generation in `src/finmind_agents/evidence/rendering.py`
+- [x] T027 [P] Add record rendering templates for price summary, indicators, pattern evidence, pattern setup, company profile, and fundamental context in `src/finmind_agents/templates/records/`
+- [x] T028 [P] Add deterministic data record builders for price summary, indicators, pattern evidence, pattern setup, company profile, fundamental records, and stored price series in `src/finmind_agents/evidence/builders.py`
+- [x] T029 [P] Port strict technical-pattern detectors from `src/finmind_agents/workflows/skills/vn-technical-analysis/references/pattern_detection.md` into `src/finmind_agents/evidence/patterns.py`
+- [x] T030 [P] Port heuristic setup scoring from `equity-research-vn/vn-technical-analysis/references/pattern_scoring.md` into `src/finmind_agents/evidence/patterns.py`
+- [x] T031 [P] Add citation allowlist generation and citation snapshot builders in `src/finmind_agents/evidence/citations.py`
+- [x] T032 Add data bundle packaging that uses rendered record `context` and excludes full price series from normal LLM context in `src/finmind_agents/evidence/bundles.py`
+- [x] T033 Add PostgreSQL and in-memory repositories for persisted `price_series` data and citation rows in `src/finmind_api/run_store.py`
+- [x] T034 Add workflow execution wiring to persist reusable `price_series`, build runtime `DataRecord` objects, and persist only cited citation snapshots before `FinMindAgentRuntime` calls in `src/finmind_agents/workflows/service.py`
+- [x] T035 Update agent request payload construction to pass `data_bundle` and citation ids instead of raw provider payloads in `src/finmind_agents/agents/prompts.py`
+- [x] T036 Update grounding validation to verify model citations against the data bundle citation allowlist in `src/finmind_agents/workflows/grounding.py`
+- [x] T037 Add `GET /api/runs/{run_id}/citations` route and response schema in `src/finmind_api/routes/runs.py` and `src/finmind_api/schemas.py`
 
 **Checkpoint**: Workflow runs persist reusable `price_series` data and cited
 citation snapshots before LLM analysis; model output can cite only the
