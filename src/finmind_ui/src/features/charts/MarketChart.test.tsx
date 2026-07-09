@@ -47,8 +47,8 @@ const markup = renderToStaticMarkup(
 );
 
 assert.match(markup, /DXG price chart/);
-assert.match(markup, /Line/);
-assert.match(markup, /Candlestick/);
+assert.match(markup, /aria-label="Line chart"/);
+assert.match(markup, /aria-label="Candlestick chart"/);
 assert.match(markup, /Download SVG/);
 assert.doesNotMatch(markup, /Data table/);
 assert.doesNotMatch(markup, /Chart unavailable/);

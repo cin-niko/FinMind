@@ -1,10 +1,17 @@
 import { CandlestickSeries, LineSeries, createChart, type IChartApi } from "lightweight-charts";
+import { ChartNoAxesCombined, SlidersVertical } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChartArtifact } from "../../api/client";
 
 type ChartPoint = { date: string; value: number; change_percent?: number };
 
-export function MarketChart({ artifact }: { artifact: ChartArtifact }) {
+export function MarketChart({
+  artifact,
+  showDownloads = true
+}: {
+  artifact: ChartArtifact;
+  showDownloads?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const supportedViews = artifact.spec.supported_views;
   const [view, setView] = useState(() => artifact.spec.default_view);
@@ -70,8 +77,10 @@ export function MarketChart({ artifact }: { artifact: ChartArtifact }) {
             className={activeView === "line" ? "chartToggle active" : "chartToggle"}
             onClick={() => setView("line")}
             type="button"
+            aria-label="Line chart"
+            title="Line chart"
           >
-            Line
+            <ChartNoAxesCombined size={16} />
           </button>
         ) : null}
         {canShowCandles ? (
@@ -79,8 +88,10 @@ export function MarketChart({ artifact }: { artifact: ChartArtifact }) {
             className={activeView === "candlestick" ? "chartToggle active" : "chartToggle"}
             onClick={() => setView("candlestick")}
             type="button"
+            aria-label="Candlestick chart"
+            title="Candlestick chart"
           >
-            Candlestick
+            <SlidersVertical size={16} />
           </button>
         ) : null}
       </div>
@@ -89,7 +100,7 @@ export function MarketChart({ artifact }: { artifact: ChartArtifact }) {
       ) : (
         <div className="freshness">Chart unavailable: {artifact.reason ?? "missing data"}</div>
       )}
-      {artifact.downloads.length ? (
+      {showDownloads && artifact.downloads.length ? (
         <div className="downloadRow">
           {artifact.downloads.map((download) => (
             <a className="downloadChip" href={download.url} key={download.url}>

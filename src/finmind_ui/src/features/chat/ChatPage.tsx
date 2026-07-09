@@ -2,7 +2,9 @@ import {
   CheckCircle2,
   ChevronRight,
   Database,
+  Download,
   FilePenLine,
+  FileText,
   LineChart,
   SearchCheck,
   Send,
@@ -205,18 +207,34 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                 {visibleArtifacts(message).length ? (
                   <div className="artifactCards">
                     {visibleArtifacts(message).map((artifact) => (
-                      <button
-                        className="artifactCard"
-                        key={artifact.id}
-                        onClick={() =>
-                          onSelectArtifact(artifact, message.workflowRun, evidenceFor(message))
-                        }
-                        type="button"
-                      >
-                        <span>{artifact.kind}</span>
-                        <strong>{artifact.title}</strong>
-                        <small>{artifact.summary}</small>
-                      </button>
+                      <div className="artifactCard" key={artifact.id}>
+                        <button
+                          className="artifactOpenButton"
+                          onClick={() =>
+                            onSelectArtifact(artifact, message.workflowRun, evidenceFor(message))
+                          }
+                          type="button"
+                        >
+                          <span className="artifactIcon" aria-hidden="true">
+                            {artifact.kind === "chart" ? <LineChart size={22} /> : <FileText size={22} />}
+                          </span>
+                          <span className="artifactCopy">
+                            <strong>{artifact.title}</strong>
+                            <small>{artifact.typeLabel ?? artifact.summary}</small>
+                          </span>
+                        </button>
+                        {artifact.download ? (
+                          <a
+                            className="artifactDownloadButton"
+                            href={artifact.download.url}
+                            onClick={(event) => event.stopPropagation()}
+                            title={`Download ${artifact.download.filename}`}
+                          >
+                            <Download size={16} />
+                            <span>Download</span>
+                          </a>
+                        ) : null}
+                      </div>
                     ))}
                   </div>
                 ) : null}

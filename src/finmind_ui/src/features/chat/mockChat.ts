@@ -1,4 +1,4 @@
-import type { Artifact, WorkflowRun } from "../../api/client";
+import type { Artifact, ArtifactDownload, WorkflowRun } from "../../api/client";
 
 export type ChatArtifactKind = "report" | "chart" | "file" | "table";
 
@@ -8,6 +8,8 @@ export type ChatArtifact = {
   kind: ChatArtifactKind;
   title: string;
   summary: string;
+  typeLabel?: string;
+  download?: ArtifactDownload;
 };
 
 export type LiveCitation = {
@@ -60,12 +62,41 @@ export function mapArtifactsToCards(artifacts: Artifact[], runId: string): ChatA
     id: `${runId}-${artifact.artifact_id}`,
     artifactId: artifact.artifact_id,
     kind: artifact.artifact_type,
-    title: artifact.title,
+    title: artifactDisplayTitle(artifact),
+    typeLabel: artifactTypeLabel(artifact),
+    download: artifact.downloads[0] ?? (artifact.artifact_type === "file" ? {
+      url: artifact.file.url,
+      filename: artifact.file.filename,
+      mime_type: artifact.file.mime_type
+    } : undefined),
     summary:
       artifact.artifact_type === "chart"
-        ? "Open the full chart viewer"
-        : `Open ${artifact.file_type.toUpperCase()} file`
+        ? "Chart artifact"
+        : `${artifact.file_type.toUpperCase()} file`
   }));
+}
+
+function artifactDisplayTitle(artifact: Artifact): string {
+  if (artifact.artifact_type !== "chart") {
+    return artifact.title;
+  }
+  const recordKey = typeof artifact.inputs.record_key === "string" ? artifact.inputs.record_key : "";
+  const symbol = recordKey.split(/[-_:]/)[0]?.trim().toUpperCase();
+  return symbol ? `${symbol} Chart` : artifact.title;
+}
+
+function artifactTypeLabel(artifact: Artifact): string {
+  if (artifact.artifact_type === "chart") {
+    return "Chart";
+  }
+  const fileType = artifact.file_type.toUpperCase();
+  if (fileType === "XLSX" || fileType === "CSV") {
+    return `Spreadsheet · ${fileType}`;
+  }
+  if (fileType === "PDF") {
+    return "PDF";
+  }
+  return `File · ${fileType}`;
 }
 
 export type ChatBlock =

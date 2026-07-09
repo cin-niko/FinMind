@@ -47,6 +47,7 @@ export function App() {
   const [selectedCitationId, setSelectedCitationId] = useState<string | null>(null);
   const [citationFlashKey, setCitationFlashKey] = useState(0);
   const [selectedLive, setSelectedLive] = useState<LiveEvidence | null>(null);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession({ authenticated: false }));
@@ -57,6 +58,7 @@ export function App() {
     setSelectedArtifact(null);
     setSelectedCitationId(null);
     setSelectedLive(null);
+    setRightPanelCollapsed(false);
     setView("chat");
   }, []);
 
@@ -87,6 +89,8 @@ export function App() {
     setSession(next);
     setSelectedArtifact(null);
     setSelectedCitationId(null);
+    setSelectedLive(null);
+    setRightPanelCollapsed(false);
     setView("chat");
   }
 
@@ -204,6 +208,7 @@ export function App() {
   function handleNavigate(nextView: View) {
     setSelectedArtifact(null);
     setSelectedLive(null);
+    setRightPanelCollapsed(false);
     if (nextView === "chat") {
       if (view === "chat" && currentConversationId === null) {
         return;
@@ -216,6 +221,7 @@ export function App() {
   function handleChatSubmit(message: string) {
     setSelectedArtifact(null);
     setSelectedLive(null);
+    setRightPanelCollapsed(false);
     if (!currentConversationId) {
       const conversation = createNewConversation(message);
       const response = createMockResponse(message);
@@ -280,6 +286,7 @@ export function App() {
       setSelectedArtifact(null);
       setSelectedCitationId(null);
       setSelectedLive(null);
+      setRightPanelCollapsed(false);
     }
   }
 
@@ -288,6 +295,7 @@ export function App() {
     setSelectedArtifactRun(run ?? null);
     setSelectedLive(live ?? null);
     setSelectedCitationId(null);
+    setRightPanelCollapsed(false);
   }
 
   function handleSelectCitation(citationId: string, run?: WorkflowRun, live?: LiveEvidence) {
@@ -296,6 +304,7 @@ export function App() {
     setSelectedLive(live ?? null);
     setSelectedCitationId(citationId);
     setCitationFlashKey((current) => current + 1);
+    setRightPanelCollapsed(false);
   }
 
   const currentConversation =
@@ -321,10 +330,19 @@ export function App() {
         setSelectedArtifact(null);
         setSelectedCitationId(null);
         setSelectedLive(null);
+        setRightPanelCollapsed(false);
         setView("chat");
       }}
     >
-      <div className={selectedArtifact || selectedCitationId ? "contentWithArtifact" : "contentWithArtifact noArtifact"}>
+      <div
+        className={
+          selectedArtifact || selectedCitationId
+            ? rightPanelCollapsed
+              ? "contentWithArtifact rightCollapsed"
+              : "contentWithArtifact"
+            : "contentWithArtifact noArtifact"
+        }
+      >
         <div className="primaryPane">
           <header className="topBar">
             <h1>{titleByView[view]}</h1>
@@ -355,11 +373,8 @@ export function App() {
           citations={selectedLive?.citations}
           citationOrdinals={selectedLive?.citationOrdinals}
           artifacts={selectedLive?.artifacts}
-          onClose={() => {
-            setSelectedArtifact(null);
-            setSelectedCitationId(null);
-            setSelectedLive(null);
-          }}
+          collapsed={rightPanelCollapsed}
+          onToggleCollapse={() => setRightPanelCollapsed((current) => !current)}
         />
       </div>
     </AppShell>

@@ -1,4 +1,4 @@
-import { History, LogOut, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, History, LogOut, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { ChatConversation } from "../chat/mockChat";
@@ -36,6 +36,7 @@ export function AppShell({
   const [draftTitle, setDraftTitle] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const [leftRailCollapsed, setLeftRailCollapsed] = useState(false);
   const menuRootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -109,9 +110,20 @@ export function AppShell({
     conversations.find((conversation) => conversation.id === openMenuId) ?? null;
 
   return (
-    <div className="shell">
+    <div className={leftRailCollapsed ? "shell leftCollapsed" : "shell"}>
       <aside className="leftRail" aria-label="Primary navigation">
-        <div className="brand">FinMind</div>
+        <div className="brandRow">
+          <div className="brand">{leftRailCollapsed ? "FM" : "FinMind"}</div>
+          <button
+            aria-label={leftRailCollapsed ? "Expand left panel" : "Collapse left panel"}
+            className="iconButton panelToggleButton"
+            onClick={() => setLeftRailCollapsed((current) => !current)}
+            type="button"
+            title={leftRailCollapsed ? "Expand left panel" : "Collapse left panel"}
+          >
+            {leftRailCollapsed ? <ChevronsRight size={17} /> : <ChevronsLeft size={17} />}
+          </button>
+        </div>
         <nav className="primaryNav" aria-label="Primary surfaces">
           {PRIMARY_NAV_ITEMS.map(({ view, label, Icon }) => (
             <button
@@ -119,8 +131,11 @@ export function AppShell({
               onClick={() => onNavigate(view)}
               type="button"
               key={view}
+              aria-label={leftRailCollapsed ? label : undefined}
+              title={leftRailCollapsed ? label : undefined}
             >
-              <Icon size={17} /> {label}
+              <Icon size={17} />
+              <span className="navLabel">{label}</span>
             </button>
           ))}
         </nav>
