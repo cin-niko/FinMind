@@ -36,6 +36,7 @@ Rules:
 
 
 def build_skill_answer_prompt(request: AgentRunRequest) -> str:
+    bundle_payload = request.context.get("data_bundle", request.context)
     payload = {
         "workflow_id": request.workflow_id,
         "skill_id": request.skill_id,
@@ -47,6 +48,7 @@ def build_skill_answer_prompt(request: AgentRunRequest) -> str:
             }
             for requirement in request.data_requirements
         ],
+        "data_bundle": bundle_payload,
         "context": request.context,
         "allowed_citation_ids": list(request.citation_ids),
     }
@@ -63,9 +65,11 @@ def build_skill_metadata_prompt(
     request: AgentRunRequest,
     answer_text: str,
 ) -> str:
+    bundle_payload = request.context.get("data_bundle", request.context)
     payload = {
         "workflow_id": request.workflow_id,
         "skill_id": request.skill_id,
+        "data_bundle": bundle_payload,
         "context": request.context,
         "allowed_citation_ids": list(request.citation_ids),
         "answer_text": answer_text,

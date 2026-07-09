@@ -474,14 +474,55 @@ def test_workflow_passes_rendered_data_records_without_raw_price_series(
     assert len(orchestrator.requests) == 1
     request = orchestrator.requests[0]
     records = request.context["records"]
+    data_bundle = request.context["data_bundle"]
     assert records
     assert all("context" in record for record in records)
     assert any(record["record_type"] == "price_summary" for record in records)
     assert not any(record["record_type"] == "price_series" for record in records)
+    assert data_bundle["records"] == records
+    assert data_bundle["excluded_record_ids"]
     price_summary = next(
         record for record in records if record["record_type"] == "price_summary"
     )
     assert "year_end_prices" in price_summary["fields"]
+    assert "citation_vn_prices_VCB-prices" in data_bundle["citation_ids"]
+
+
+def test_fundamental_analysis_request_marks_fundamental_record_audited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    orchestrator = CapturingAgentOrchestrator()
+    monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
+    monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
+    monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
+    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
+    monkeypatch.setattr(
+        "finmind_api.platform.build_default_agent_orchestrator",
+        lambda: orchestrator,
+    )
+    app = create_app()
+    with TestClient(app) as test_client:
+        login = test_client.post(
+            "/api/login",
+            json={"username": "analyst", "password": "secret-pass"},
+        )
+        assert login.status_code == 200
+        response, result, _events = _post_workflow_run(
+            test_client,
+            "vn-fundamental-analysis",
+            {"market": "VN_STOCK", "symbol": "VCB"},
+        )
+
+    assert response.status_code == 200
+    assert result is not None
+    assert len(orchestrator.requests) == 2
+    request = orchestrator.requests[-1]
+    fundamental = next(
+        record for record in request.context["data_bundle"]["records"]
+        if record["record_type"] == "fundamental"
+    )
+    assert fundamental["fields"]["is_audited"] is True
+    assert "audit_warnings" in fundamental["fields"]
 
 
 def test_workflow_chart_artifact_uses_structured_price_trend_contract(
@@ -1557,3 +1598,174 @@ def test_with_heartbeats_disabled_when_interval_is_zero() -> None:
     frames = _asyncio.run(collect())
     assert frames == [b"a\n\n", b"b\n\n"]
     assert HEARTBEAT_FRAME not in frames
+
+
+def _synthetic_pattern_series() -> list[dict[str, object]]:
+    closes = [
+        120, 118, 116, 114, 112, 110, 108, 106, 104, 102,
+        100, 98, 96, 94, 92, 90, 92, 95, 98, 101,
+        104, 107, 110, 113, 116, 114, 112, 109, 106, 103,
+        100, 97, 94, 91, 89, 90, 93, 97, 101, 105,
+        109, 113, 116, 118, 120, 121, 122, 121, 120, 119,
+        118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
+    ]
+    rows: list[dict[str, object]] = []
+    for index, close in enumerate(closes, start=1):
+        rows.append(
+            {
+                "date": f"2026-03-{index:02d}",
+                "open": close - 1,
+                "high": close + 2,
+                "low": close - 2,
+                "close": close,
+                "volume": 1_000_000 + index * 1000,
+            }
+        )
+    return rows
+
+
+def test_data_record_builders_render_expected_contexts() -> None:
+    from datetime import UTC, datetime
+
+    from finmind_agents.evidence.builders import build_data_bundle
+    from finmind_agents.models import CanonicalMarketDataRecord
+
+    price_record = CanonicalMarketDataRecord(
+        dataset_id="vn_prices",
+        record_key="VCB-prices",
+        instrument_id="VCB",
+        market_time=datetime(2026, 6, 18, 7, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 18, 8, 0, tzinfo=UTC),
+        source_id="vnstock_prices",
+        payload={
+            "series": _synthetic_pattern_series(),
+            "count": 60,
+            "start_date": "2026-03-01",
+            "end_date": "2026-03-60",
+            "interval": "1D",
+        },
+    )
+    fundamental_record = CanonicalMarketDataRecord(
+        dataset_id="vn_fundamentals",
+        record_key="VCB-FY2025",
+        instrument_id="VCB",
+        market_time=datetime(2026, 3, 31, 7, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 18, 8, 0, tzinfo=UTC),
+        source_id="vnstock_fundamentals",
+        payload={"period": "FY2025", "eps": 5200, "roe_percent": 20.3},
+    )
+    company_profile_record = CanonicalMarketDataRecord(
+        dataset_id="vn_company_profile",
+        record_key="VCB-profile",
+        instrument_id="VCB",
+        market_time=datetime(2026, 6, 18, 7, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 18, 8, 0, tzinfo=UTC),
+        source_id="vnstock_company_profile",
+        payload={"company_name": "VCB", "industry": "Banking"},
+    )
+    indicator_record = CanonicalMarketDataRecord(
+        dataset_id="vn_indicators",
+        record_key="VCB-indicators",
+        instrument_id="VCB",
+        market_time=datetime(2026, 6, 18, 7, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 18, 8, 0, tzinfo=UTC),
+        source_id="computed_indicators",
+        payload={"latest_date": "2026-06-18", "latest_close": 127, "trend": "uptrend", "ema10": 120, "sma20": 118, "sma50": 112, "rsi14": 61, "macd_line": 1.2, "macd_signal": 0.8, "macd_histogram": 0.4, "support": 116, "resistance": 128, "volume_ratio": 1.4},
+    )
+    bundle = build_data_bundle((price_record, fundamental_record, company_profile_record, indicator_record))
+
+    record_types = {record.record_type for record in bundle.records}
+    assert "price_series" in record_types
+    assert "price_summary" in record_types
+    assert "pattern_evidence" in record_types
+    assert "pattern_setup" in record_types
+    assert "fundamental" in record_types
+    assert "company_profile" in record_types
+    assert "indicator" in record_types
+    for record in bundle.records:
+        assert record.record_id
+        assert record.context
+        assert record.citation_id
+    assert bundle.to_prompt_payload()["excluded_record_ids"] == []
+
+
+def test_pattern_evidence_builder_detects_double_bottom_and_divergence() -> None:
+    from finmind_agents.evidence.patterns import detect_pattern_evidence
+
+    payload = detect_pattern_evidence(_synthetic_pattern_series())
+    patterns = {pattern["pattern_id"]: pattern for pattern in payload["detected_patterns"]}
+
+    assert "double_bottom" in patterns
+    assert patterns["double_bottom"]["verdict"] == "detected"
+    assert "rsi_divergence" in patterns or "rsi_bullish_divergence" in patterns
+
+
+def test_pattern_setup_builder_returns_ranked_candidates() -> None:
+    from finmind_agents.evidence.patterns import detect_pattern_setups
+
+    payload = detect_pattern_setups(_synthetic_pattern_series())
+
+    assert payload["setups"]
+    assert payload["setups"][0]["completion_score"] >= payload["setups"][-1]["completion_score"]
+    assert payload["setups"][0]["setup_status"] in {"near_confirmation", "forming", "not_clean"}
+
+
+def test_mark_fundamentals_audited_sets_audit_gate() -> None:
+    from datetime import UTC, datetime
+
+    from finmind_agents.data_records import FundamentalRecord
+    from finmind_agents.evidence.builders import mark_fundamentals_audited
+
+    record = FundamentalRecord(
+        record_id="fundamental:VCB",
+        record_type="fundamental",
+        dataset_id="vn_fundamentals",
+        instrument_id="VCB",
+        market_time=datetime(2026, 3, 31, 7, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 18, 8, 0, tzinfo=UTC),
+        source_id="vnstock_fundamentals",
+        payload={"period": "FY2025", "eps": 5200, "is_audited": False},
+        citation_id="citation_vn_fundamentals_VCB-FY2025",
+        label="VCB fundamentals",
+    )
+
+    audited = mark_fundamentals_audited((record,))[0]
+
+    assert audited.payload["is_audited"] is True
+    assert audited.context
+
+
+def test_grounding_rejects_unknown_citation_ids() -> None:
+    from finmind_agents.workflows.grounding import citations_within_allowlist, uncited_citations
+
+    assert citations_within_allowlist(("cite_1",), ("cite_1", "cite_2")) is True
+    assert citations_within_allowlist(("cite_3",), ("cite_1", "cite_2")) is False
+    assert uncited_citations(("cite_1", "cite_3"), ("cite_1", "cite_2")) == ("cite_3",)
+
+
+def test_prompt_payload_uses_data_bundle_and_citation_allowlist() -> None:
+    from finmind_agents.agents.models import AgentRunRequest
+    from finmind_agents.agents.prompts import build_skill_answer_prompt
+
+    request = AgentRunRequest(
+        workflow_id="vn-technical-analysis",
+        skill_id="vn-technical-analysis",
+        skill_markdown="# Skill",
+        data_requirements=(),
+        context={
+            "data_bundle": {
+                "bundle_id": "bundle_1",
+                "records": [{"record_id": "r1", "record_type": "indicator", "context": "x"}],
+                "citation_ids": ["cite_1"],
+                "excluded_record_ids": ["raw_prices"],
+                "methodology_versions": ["indicators.v1"],
+            }
+        },
+        citation_ids=("cite_1",),
+    )
+
+    prompt = build_skill_answer_prompt(request)
+
+    assert '"data_bundle"' in prompt
+    assert '"excluded_record_ids": ["raw_prices"]' in prompt
+    assert '"allowed_citation_ids": ["cite_1"]' in prompt

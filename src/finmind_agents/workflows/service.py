@@ -9,17 +9,14 @@ from finmind_agents.agents.models import (
     AgentRunResult,
 )
 from finmind_agents.artifacts import build_chart_artifacts
-from finmind_agents.data_records import (
-    CompanyProfileRecord,
-    DataBundle,
-    DataRecord,
-    FundamentalRecord,
-    IndicatorsRecord,
-    PriceSeriesRecord,
-    PriceSummaryRecord,
-    build_data_bundle,
-)
+from finmind_agents.data_records import DataBundle
 from finmind_agents.dataflows.service import DataflowService
+from finmind_agents.evidence.builders import build_data_bundle
+from finmind_agents.evidence.bundles import skill_data_bundle
+from finmind_agents.evidence.citations import (
+    build_citation_allowlist,
+    build_citations,
+)
 from finmind_agents.runtime.offload import run_sync
 from finmind_agents.runtime.service import AgentOrchestratorError
 from finmind_agents.streaming.models import (
@@ -40,7 +37,6 @@ from finmind_agents.repositories import (
     WorkflowRepository,
 )
 from finmind_agents.serialization import serialize_run
-from finmind_agents.workflows.citations import build_citations
 from finmind_agents.workflows.indicators import compute_indicators
 from finmind_agents.workflows.collector import (
     collect_workflow_data,
@@ -48,7 +44,11 @@ from finmind_agents.workflows.collector import (
     primary_skill_id,
     skill_ref_for_id,
 )
-from finmind_agents.workflows.grounding import GroundingResult, uncited_citations
+from finmind_agents.workflows.grounding import (
+    GroundingResult,
+    citations_within_allowlist,
+    uncited_citations,
+)
 from finmind_agents.workflows.validation import validate_workflow_inputs
 
 COLLECT_STEP = "collect_data"
@@ -218,14 +218,13 @@ class WorkflowService:
                 skill_ref = skill_ref_for_id(prepared.workflow, skill_id)
                 skill_requirements = data_requirements_for_skill(prepared.workflow, skill_id)
 
-                skill_records = _skill_records(skill_id, data_bundle)
+                skill_bundle = skill_data_bundle(skill_id, data_bundle)
+                skill_records = skill_bundle.records
                 skill_citations = build_citations(skill_records)
                 citations_by_id.update(
                     {citation.citation_id: citation for citation in skill_citations}
                 )
-                allowed_citation_ids = {
-                    citation.citation_id for citation in skill_citations
-                }
+                allowed_citation_ids = set(build_citation_allowlist(skill_records))
                 request = AgentRunRequest(
                     workflow_id=prepared.workflow.workflow_id,
                     skill_id=skill_id,
@@ -234,10 +233,11 @@ class WorkflowService:
                     context={
                         "inputs": prepared.run_inputs,
                         "collection": prior_outputs.get(COLLECT_STEP, {}),
+                        "data_bundle": skill_bundle.to_prompt_payload(),
                         "records": [record.to_prompt_record() for record in skill_records],
                         "prior_outputs": prior_outputs,
                     },
-                    citation_ids=tuple(citation.citation_id for citation in skill_citations),
+                    citation_ids=build_citation_allowlist(skill_records),
                 )
                 yield emit(
                     StreamEventKind.RUN_STAGE,
@@ -282,10 +282,15 @@ class WorkflowService:
                     for citation_id in agent_result.citations
                     if citation_id in allowed_citation_ids
                 )
-                uncited = uncited_citations(
+                uncited = ()
+                if not citations_within_allowlist(
                     agent_result.citations,
-                    tuple(citation.citation_id for citation in skill_citations),
-                )
+                    build_citation_allowlist(skill_records),
+                ):
+                    uncited = uncited_citations(
+                        agent_result.citations,
+                        build_citation_allowlist(skill_records),
+                    )
                 grounding_uncited.extend(uncited)
                 grounding_blocked.extend(agent_result.blocked_claims)
                 if _is_visible_output_step(prepared.workflow, skill_id):
@@ -571,68 +576,6 @@ def _enrich_with_indicators(
         payload=indicator_data,
     )
     return (*records, indicator_record)
-
-
-def _skill_records(
-    skill_id: str,
-    bundle: DataBundle,
-) -> tuple[DataRecord, ...]:
-    if skill_id == "vn-technical-analysis":
-        return tuple(
-            record
-            for record in bundle.records
-            if isinstance(record, (IndicatorsRecord, CompanyProfileRecord))
-        )
-    price_record = next(
-        (record for record in bundle.records if isinstance(record, PriceSeriesRecord)),
-        None,
-    )
-    payloads: list[DataRecord] = [
-        record
-        for record in bundle.records
-        if isinstance(record, (FundamentalRecord, CompanyProfileRecord))
-    ]
-    if price_record:
-        summary = _year_end_price_summary_record(price_record)
-        if summary is not None:
-            payloads.append(summary)
-    return tuple(payloads)
-
-
-def _year_end_price_summary_record(
-    price_record: PriceSeriesRecord,
-) -> PriceSummaryRecord | None:
-    series = price_record.payload.get("series", [])
-    by_year: dict[int, dict[str, object]] = {}
-    for bar in series:
-        date_str = bar.get("date", "")
-        if len(date_str) < 4:
-            continue
-        year = int(date_str[:4])
-        existing = by_year.get(year)
-        if existing is None or date_str > existing["date"]:
-            by_year[year] = bar
-    year_end_bars = sorted(by_year.values(), key=lambda b: b["date"])
-    if not year_end_bars:
-        return None
-    return PriceSummaryRecord(
-        record_id=f"{price_record.dataset_id}:{price_record.instrument_id}-year-end",
-        record_type="price_summary",
-        dataset_id=price_record.dataset_id,
-        instrument_id=price_record.instrument_id,
-        market_time=price_record.market_time,
-        collected_at=price_record.collected_at,
-        source_id=price_record.source_id,
-        citation_id=price_record.citation_id,
-        label=price_record.label,
-        source_record_key=price_record.source_record_key,
-        payload={
-            "year_end_prices": [
-                {"date": b["date"], "close": b["close"], "volume": b.get("volume")}
-                for b in year_end_bars
-            ],
-        },
-    )
 
 
 def _price_series_records(

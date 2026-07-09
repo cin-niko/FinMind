@@ -1,0 +1,4 @@
+Pattern evidence for {{ instrument_id }}.
+{% for pattern in payload.detected_patterns -%}
+- {{ pattern.pattern_name }}: {{ pattern.verdict }}{% if pattern.strength is defined and pattern.strength %} ({{ pattern.strength }}){% endif %} - {{ pattern.reader_note }}
+{% endfor %}
