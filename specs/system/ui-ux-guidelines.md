@@ -77,6 +77,7 @@ Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail
 - Chat artifact detail headers are compact and pinned inside the right-side artifact panel. They use the same small title size as the chat header and show the artifact title plus close control only; artifact kind and metadata belong in the panel body.
 - The logout control belongs in the left rail footer with the current role/session summary, not in the top context bar.
 - Desktop shell scrolling is separated by panel: the left rail keeps brand/nav and logout visible while history scrolls; the primary content pane keeps its header visible; chat keeps the composer pinned to the bottom while only messages scroll; the right artifact panel keeps its header visible while only artifact body content scrolls.
+- Desktop left rail may collapse to a compact icon rail. The right artifact/citation panel may fully collapse so the primary pane reclaims the width; selecting a citation or artifact opens it again. Collapse controls belong in the respective panel headers, use icon-only buttons with accessible labels, and must not destroy the active chat, artifact, or citation selection state.
 - No large hero areas.
 
 Navigation is roadmap-aware:
