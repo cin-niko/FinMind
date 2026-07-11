@@ -44,8 +44,6 @@ def create_demo_platform() -> Platform:
         registry=build_default_provider_registry(
             vn_data_provider=settings.vn_data_provider,
             vnstock_api_key=settings.vnstock_api_key,
-            alpha_vantage_api_key=settings.us_alpha_vantage_api_key,
-            sec_edgar_user_agent=settings.sec_edgar_user_agent,
             fallback_market_data=market_data,
         )
     )

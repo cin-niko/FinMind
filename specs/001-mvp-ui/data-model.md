@@ -25,4 +25,4 @@ Feature-owned usage:
   surfaces, not as chat artifact cards.
 
 Workflow execution state belongs to `../002-workflow/`. Production chat execution
-state belongs to `../003-agentic-chatflow/`.
+state belongs to `../004-agentic-chatflow/`.

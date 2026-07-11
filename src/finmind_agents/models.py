@@ -9,7 +9,6 @@ from finmind_agents.evidence.rendering import render_record_context
 
 class Market(StrEnum):
     VN_STOCK = "VN_STOCK"
-    US_STOCK = "US_STOCK"
 
 
 class RunStatus(StrEnum):

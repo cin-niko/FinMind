@@ -101,12 +101,9 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
                 <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
                   {selected.market_scope.map((scope) => (
                     <option key={scope} value={scope}>
-                      {scope === "VN_STOCK" ? "VN stocks" : "US stocks"}
+                      {scope === "VN_STOCK" ? "VN stocks" : scope}
                     </option>
                   ))}
-                  <option disabled value="BTC">
-                    BTC (future)
-                  </option>
                 </select>
               </label>
               {symbolInput ? (

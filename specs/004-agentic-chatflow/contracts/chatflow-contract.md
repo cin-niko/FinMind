@@ -1,5 +1,5 @@
 ---
-id: SPEC-FEAT-003-CONTRACTS
+id: SPEC-FEAT-004-CONTRACTS
 feature: agentic-chatflow
 status: draft
 owner: solo
@@ -20,4 +20,4 @@ Draft contract requirements:
 - Raw agent reasoning, hidden prompts, secrets, and unsafe diagnostics are never
   user-visible.
 - Trade execution, order placement, and broker actions are not supported.
-- Market scope is VN stocks and US stocks only until a later spec expands scope.
+- Market scope starts from VN stocks and gold until a later spec expands scope.

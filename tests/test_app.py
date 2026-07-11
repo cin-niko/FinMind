@@ -217,7 +217,7 @@ def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
 
     unsupported_market = client.post(
         "/api/workflows/vn-financial-data-collector/runs",
-        json={"market": "BTC", "symbol": "BTC"},
+        json={"market": "INVALID_MARKET", "symbol": "INVALID"},
     )
     missing_symbol = client.post(
         "/api/workflows/vn-financial-data-collector/runs",
@@ -225,7 +225,7 @@ def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
     )
 
     assert unsupported_market.status_code == 422
-    assert "supports VN stocks and US stocks only" in unsupported_market.json()["detail"]
+    assert "supports VN stocks only" in unsupported_market.json()["detail"]
     assert missing_symbol.status_code == 422
     assert missing_symbol.json()["detail"] == "symbol is required"
 

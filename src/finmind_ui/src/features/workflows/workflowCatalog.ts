@@ -30,8 +30,5 @@ function formatMarket(market: string): string {
   if (market === "VN_STOCK") {
     return "VN stocks";
   }
-  if (market === "US_STOCK") {
-    return "US stocks";
-  }
   return market;
 }

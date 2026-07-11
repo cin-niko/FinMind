@@ -29,7 +29,7 @@ Response item shape:
   "title": "Stock Brief",
   "description": "Combined cited stock research brief.",
   "workflow_type": "composite",
-  "market_scope": ["VN_STOCK", "US_STOCK"],
+  "market_scope": ["VN_STOCK"],
   "required_inputs": [
     { "name": "market", "type": "string", "required": true },
     { "name": "symbol", "type": "string", "required": true }
@@ -257,8 +257,8 @@ Collection contract:
 - `collection.status` values: `success`, `partial`, `failed`, `fallback`.
 - `collection` is produced by `src/finmind_agents/dataflows/` after a
   FinMind-validated collection plan, not direct workflow or agent provider calls.
-- `providers` may include provider ids such as `vnstock`, `alpha_vantage`,
-  `sec_edgar`, and `offline_fallback`.
+- `providers` may include `vnstock` and `offline_fallback`; US market provider
+  ids are unsupported.
 - `requested_dataset_groups` values are `market_price` and `fundamental` for
   Phase 02.
 - Requested dataset groups are derived from the referenced skills'
@@ -323,7 +323,7 @@ Concurrency error response shape:
 {
   "error": {
     "code": "concurrency_limit_exceeded",
-    "message": "Too many active workflow or chatflow streams. Retry after a short delay.",
+    "message": "Too many active workflow streams. Retry after a short delay.",
     "retry_after_seconds": 5
   }
 }
@@ -353,68 +353,15 @@ Rules:
   must carry plain text chunks, not partial JSON fragments.
 - Sync-only provider/model calls must not execute in the request handler.
 
-## `POST /api/chatflow/chats`
+## Chatflow APIs
 
-Creates a chat conversation owned by the authenticated user. Phase 02 may use a
-minimal deterministic chat resource so the streaming message endpoint has clear
-ownership and history semantics.
-
-Request:
-
-```json
-{
-  "title": "VCB research"
-}
-```
-
-Response:
-
-```json
-{
-  "chat_id": "chat_123",
-  "title": "VCB research",
-  "created_at": "2026-06-27T00:00:00+00:00"
-}
-```
-
-## `GET /api/chatflow/chats/{chat_id}/messages`
-
-Returns safe persisted messages visible to the authenticated user. Unknown or
-unauthorized chats return `404` or `403`; raw reasoning is never returned.
-
-## `POST /api/chatflow/chats/{chat_id}/messages`
-
-Appends one user message to an existing chat and streams safe assistant
-answer/status events on the same HTTP response. Phase 02 may return
-deterministic mock chatflow output through this contract; production flexible
-Q&A behavior remains governed by `../003-agentic-chatflow/`.
-
-Request:
-
-```json
-{
-  "message": "What changed for VCB fundamentals?",
-  "market_context": { "market": "VN_STOCK", "symbol": "VCB" }
-}
-```
-
-Response: `200 OK` with `Content-Type: text/event-stream`
-
-Rules:
-
-- Chatflow output must follow citation, unsupported-claim, advice-only, and
-  no-raw-reasoning rules.
-- Configured model/provider adapters must support streaming through
-  LangChain/LiteLLM in Phase 02. Unsupported streaming capability fails closed
-  during runtime configuration.
-- Chatflow streams share the direct response event format with workflows but use
-  a chatflow-specific runtime policy and output schema.
-- Mock chatflow output in Phase 02 must still use the stream event contract and
-  no-raw-reasoning rules.
+Chatflow APIs are not owned by Phase 02. Production flexible Q&A behavior,
+chatflow transport, chatflow persistence, and any `/api/chatflow/...` contract
+belong to `../004-agentic-chatflow/`.
 
 ## Streaming Event Frames
 
-Workflow and chatflow streaming endpoints return ordered safe events using SSE.
+Workflow streaming endpoints return ordered safe events using SSE.
 
 Request headers:
 
@@ -424,8 +371,6 @@ Route semantics:
 
 - Workflow runs use `POST /api/workflows/{workflow_id}/runs`; `workflow_id`
   stays in the path because it selects the executable workflow resource.
-- Chatflow messages use `POST /api/chatflow/chats/{chat_id}/messages`;
-  `chat_id` stays in the path because it selects the conversation resource.
 - Streaming is defined by `Accept: text/event-stream` and response
   `Content-Type: text/event-stream`, not by a `/stream` path suffix or request
   payload flag.
@@ -478,17 +423,17 @@ Rules:
   disconnect.
 - Disconnecting from the stream cancels request-scoped execution cooperatively
   where possible. Already-persisted final/partial output remains inspectable.
-- Unknown or unauthorized workflow/chatflow contexts return `404` or `403`; stream
+- Unknown or unauthorized workflow contexts return `404` or `403`; stream
   payloads must not leak whether another user's run exists.
 
 ## `GET /api/runs`
 
-Returns workflow and chatflow runs visible to the authenticated user for history and
+Returns workflow runs visible to the authenticated user for history and
 result reinspection. Latest runs appear first.
 
 ## `GET /api/runs/{run_id}`
 
-Returns a completed, partial, or failed workflow/chatflow run. Unknown run ids return
+Returns a completed, partial, or failed workflow run. Unknown run ids return
 `404`.
 
 ## `GET /api/runs/{run_id}/citations`

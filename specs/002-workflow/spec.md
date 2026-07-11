@@ -20,19 +20,20 @@ adr_refs:
 ## Summary
 
 Define phase 02 fixed, system-defined financial trading support workflows for the
-current market scope: VN stocks and US stocks only. The workflow suite uses
+current Phase 02 market scope: VN stocks only. The workflow suite uses
 internal data collection and grounding steps, fetching the latest
 available provider data before falling back to deterministic demo data in local
-or offline test mode. It then exposes repeatable analysis paths such as
-fundamental analysis, technical analysis, and optional combined stock briefs.
+or offline test mode. It then exposes repeatable atomic analysis paths such as
+fundamental analysis and technical analysis.
 Workflows provide bounded analysis, validated inputs, evidence
 objects, citations, chart artifacts, execution status, and result
 reinspection from the UI.
 
-This draft feature will own workflow execution and result inspection. It does not own the
-overall app shell (`../001-mvp-ui/`). It owns the async execution and streaming
-transport needed by workflows and chat, while production flexible Q&A behavior
-remains governed by `../003-agentic-chatflow/`.
+This draft feature owns workflow execution, workflow streaming, and result
+inspection. It does not own the overall app shell (`../001-mvp-ui/`). Production
+chatflow behavior and chatflow transport are deferred to `../004-agentic-chatflow/`.
+Gold dataflows and the next VN stock plus gold workflows are owned by
+`../003-vn-gold-dataflows-workflows/`.
 
 For Phase 02 storage, the workflow feature persists lean durable evidence by
 default: reusable `price_series` base data, final run output, and cited
@@ -50,15 +51,15 @@ canonical record content.
 ### User Story 1 - Run A Supported Stock Workflow From UI (Priority: P1)
 
 An authenticated internal user selects a fixed workflow from the UI, chooses a
-supported VN or US stock input, runs bounded analysis, and reviews cited results.
+supported VN stock input, runs bounded analysis, and reviews cited results.
 
-**Independent Test**: Log in, open `Workflows`, run one supported VN stock or US
-stock workflow, and verify output sections, citations, chart artifacts, and
+**Independent Test**: Log in, open `Workflows`, run one supported VN stock
+workflow, and verify output sections, citations, chart artifacts, and
 execution status.
 
 Acceptance scenarios:
 
-1. Given a configured VN or US stock provider can return current records, when
+1. Given a configured VN stock provider can return current records, when
    the user submits valid workflow inputs, then the workflow completes with
    structured output using latest provider data and visible collection
    timestamps.
@@ -92,65 +93,13 @@ Acceptance scenarios:
    standalone risk review, when Phase 02 has no deterministic record for that
    claim category, then the result marks that category unavailable instead of
    fabricating evidence.
-5. Given the user selects combined stock brief, when the workflow runs, then the
-   result combines fundamental and technical evidence without presenting an
-   autonomous trading decision.
+## Moved Scope
 
-### User Story 3 - Compose A Stock Brief From Reusable Steps (Priority: P1)
-
-An authenticated internal user can run a combined stock brief that orchestrates
-reusable workflow steps instead of duplicating each analysis path.
-
-**Independent Test**: Run `stock-brief` and verify it executes collection,
-quality checks, fundamental analysis, and technical analysis as visible stages,
-with partial/unavailable stages clearly marked.
-
-Acceptance scenarios:
-
-1. Given the user runs `stock-brief`, when the workflow starts, then it first
-   collects required data before claim-generating analysis steps run.
-2. Given the grounding check blocks a claim category, when downstream analysis
-   runs, then affected claims include visible caveats or are marked unavailable.
-3. Given a required dataset returned no records, when downstream analysis reaches
-   that category, then the affected section is omitted or marked unavailable
-   instead of fabricated.
-4. Given one downstream step fails or is unavailable, when the composite workflow
-   completes, then successful sections remain inspectable and the failed section
-   shows a clear status.
-
-### User Story 4 - Reject Unsupported Inputs (Priority: P1)
-
-An authenticated internal user cannot accidentally run unsupported markets,
-unsupported symbols, missing data, or unsafe workflow states.
-
-**Independent Test**: Attempt to run workflows with gold, BTC, other assets,
-unsupported symbols, missing inputs, and stale/missing data conditions.
-
-Acceptance scenarios:
-
-1. Given an unsupported market or asset is selected or submitted, when workflow
-   validation runs, then execution is blocked or clearly marked unavailable.
-2. Given required input is missing or invalid, when the user submits the workflow,
-   then validation appears near the field and no fabricated result is created.
-3. Given cited data is stale, missing, or failed, when a result is shown, then the
-   condition is visible to the user.
-
-### User Story 5 - Reopen Workflow Results (Priority: P2)
-
-An authenticated internal user can reopen completed workflow runs from history and
-inspect output, citations, artifacts, and execution status.
-
-**Independent Test**: Complete a workflow run, refresh with the same valid session,
-select the run from `History` -> `Workflow Runs`, and verify the result is restored.
-
-Acceptance scenarios:
-
-1. Given a workflow run completed, when the page reloads with a valid session, then
-   the run remains visible under `Workflow Runs`.
-2. Given a completed run is selected, when the result opens, then citations,
-   artifacts, and execution status remain inspectable.
-3. Given a run ID does not exist, when requested, then the system returns a
-   not-found state rather than fabricating a result.
+The following unfinished Phase 02 behavior is now owned by
+`../003-vn-gold-dataflows-workflows/`: composed VN stock briefs, market-aware
+field validation, Phase 03 VN/gold scope enforcement, and workflow-history
+reinspection. The Phase 03 specification preserves the originating requirement
+and success-criterion traceability.
 
 ### User Story 6 - Run Workflows Asynchronously With Streaming (Priority: P1)
 
@@ -204,32 +153,7 @@ Acceptance scenarios:
     than exposing internal step ids directly, and the completed list ends with
     `Done`.
 
-### User Story 7 - Chatflow Asynchronously With Streaming (Priority: P2)
-
-An authenticated internal user can send a chatflow message to the server, receive
-a streaming progress/answer feed, and keep chatflow output bounded by the same
-evidence, citation, safety, and no-raw-reasoning rules as workflows.
-
-**Independent Test**: Submit a chatflow message through the async chatflow
-endpoint, consume streamed answer/status events, and verify the persisted
-chatflow run can be reopened without exposing raw reasoning. Phase 02 may satisfy
-this with deterministic mock chatflow output.
-
-Acceptance scenarios:
-
-1. Given a chatflow message is submitted, when the backend accepts it, then it
-   creates a chatflow run and streams safe progress/output events without
-   blocking other authenticated users.
-2. Given chatflow synthesis produces token or section deltas, when streaming is
-   supported by the model adapter, then the UI renders those deltas in order and
-   reconciles them with the final stored answer.
-3. Given streaming is not supported by a configured adapter, when runtime
-   configuration is validated, then chatflow execution fails closed before
-   presenting a degraded non-streaming answer.
-4. Given a chatflow answer includes material financial claims, when the answer is
-   shown, then claims have citations or are marked unsupported/unavailable.
-
-### User Story 8 - Inspect Artifacts And Citations In The Right Panel (Priority: P1)
+### User Story 7 - Inspect Artifacts And Citations In The Right Panel (Priority: P1)
 
 An authenticated internal user can inspect generated workflow artifacts and cited
 sources without losing their place in the transcript. Artifact cards open the
@@ -266,14 +190,10 @@ Acceptance scenarios:
 - **FR-002**: Workflow catalog entries MUST declare supported market scope,
   required inputs, stages, role labels, output sections, citation expectations,
   and structured chart requirements.
-- **FR-003**: Current workflow market scope MUST include VN stocks and US stocks
-  only.
+- **FR-003**: Current workflow market scope MUST include VN stocks only. US
+  stocks are unsupported.
 - **FR-004**: Workflow suite MUST include, at minimum, fundamental analysis and
   technical analysis workflows for supported stocks.
-- **FR-005**: Workflow suite SHOULD include a combined stock brief workflow when
-  its required fundamental and technical evidence inputs are available.
-- **FR-006**: Workflow suite MUST support reusable workflow steps so a composite
-  workflow can run another workflow or internal step as one stage.
 - **FR-007**: `data-collector` MUST be an internal step that gathers the latest
   available datasets required by the selected workflow, including market records,
   fundamentals, and peer data when available.
@@ -283,18 +203,11 @@ Acceptance scenarios:
  - **FR-009**: A grounding check MUST run after each skill step, verifying that
   cited sources are a subset of sources returned by `collect_data` and blocking
   claim categories whose required dataset returned no records.
- - **FR-010**: `stock-brief` MUST be a composite workflow that runs
-  `data-collector`, `fundamental-analysis`, and `technical-analysis` as ordered
-  stages, with the grounding check auditing each skill step.
-- **FR-011**: Gold, BTC, and other assets MUST NOT be enabled runnable workflow
-  choices unless a later spec changes scope.
-- **FR-012**: Workflow forms MUST render every required input and submit those
-  values rather than defaulting to the first available record.
-- **FR-013**: Workflow input validation MUST reject unsupported markets,
-  unsupported symbols, missing inputs, and invalid values before successful
-  execution.
+- **FR-011**: Phase 02 MUST NOT enable workflow markets beyond its VN stock
+  foundation. Gold workflow support is deferred to
+  `../003-vn-gold-dataflows-workflows/`.
 - **FR-014**: System MUST maintain deterministic seeded/offline canonical records
-  for VN and US stock examples with source identity, market time, collection
+  for VN stock examples with source identity, market time, collection
   time, and unique record keys for tests and provider-failure fallback.
 - **FR-015**: Phase 02 workflows MUST NOT provide standalone news digest,
   catalyst analysis, or current-event claims unless a deterministic future source
@@ -345,22 +258,17 @@ Acceptance scenarios:
   those intents through a deterministic chart registry rather than LLM-generated
   chart code. Phase 02 MUST support `price_trend`; additional chart ids MAY be
   added by extending the registry.
-- **FR-023**: System MUST record execution runs for workflow submissions,
-  generated artifacts, failures, partial results, and user-visible output status.
-- **FR-024**: System MUST expose result views where users can inspect completed
-  workflow outputs after the original run.
 - **FR-025**: User-facing workflow outputs MUST NOT expose raw agent reasoning.
 - **FR-026**: Workflow outputs MUST be framed as research support, not trading
   decisions, executable orders, or autonomous financial actions.
 - **FR-027**: VN stock collection MUST use a provider adapter backed by `vnstock`
   for Phase 02 latest price and fundamental data where the library supports the
   requested symbol and dataset.
-- **FR-028**: US stock collection MUST use provider adapters backed by a
-  documented US market data source for prices and SEC EDGAR company facts
-  for public-company fundamentals where available.
+- **FR-028**: Collection and provider adapters outside the VN stock foundation
+  are not part of the current product plan.
 - **FR-029**: The system MUST provide a collection-first `dataflows` module that
-  serves workflows now and future chatflow collection without implementing admin
-  ingestion, scheduled backfill, or broad realtime data operations.
+  serves workflows without implementing admin ingestion, scheduled backfill, or
+  broad realtime data operations.
 - **FR-030**: `dataflows` MUST expose a single collection boundary that accepts
   market, symbol, and required dataset groups, then returns canonical market
   records, source documents, provider statuses, collection timestamps, warnings,
@@ -391,20 +299,13 @@ Acceptance scenarios:
   diagnostics.
 - **FR-039**: Streamed workflow events MUST be ordered within the response and
   reconcilable with the persisted final run record after completion.
-- **FR-040**: Chatflow submissions MUST use a separate direct async stream API
-  from workflow submissions. The API MUST append a user message to a chat
-  resource at `POST /api/chatflow/chats/{chat_id}/messages`, stream safe
-  progress updates and incremental assistant answer text on the same HTTP
-  response, and use a chatflow-specific runtime policy and answer schema. Phase
-  02 MAY use deterministic mock chatflow output behind this stream contract.
 - **FR-041**: Async API handlers MUST NOT directly call blocking provider,
   database, filesystem, or model operations. Any unavoidable synchronous library
   call MUST be isolated with bounded offload and timeout controls.
 - **FR-042**: The system MUST enforce process-local global stream, per-user
-  stream, and sync-offload concurrency limits for workflow and chatflow streams
-  so one user or blocking sync path does not starve other users. Provider/model
-  specific limit buckets are deferred until real usage or multi-worker
-  deployment requires them.
+  stream, and sync-offload concurrency limits for workflow streams so one user or
+  blocking sync path does not starve other users. Provider/model specific limit
+  buckets are deferred until real usage or multi-worker deployment requires them.
 - **FR-043**: Streamed responses MUST NOT expose raw agent reasoning, hidden
   prompts, provider secrets, raw provider payloads, or unsafe diagnostics.
 - **FR-044**: Workflow-backed assistant responses shown in transcript-style UI
@@ -477,7 +378,6 @@ Acceptance scenarios:
 - Canonical Market Data Record
 - Workflow Specification
 - Workflow Step
-- Workflow Composition
 - Execution Run
 - Stream Event
 - Grounding Check
@@ -552,17 +452,16 @@ See `../system/state-model.md` for canonical entity definitions.
 - Record rendering templates may be shared across LLM input building and UI
   display, but template execution remains deterministic presentation logic only;
   calculation logic stays outside the template layer.
-- Deterministic seeded/offline VN and US stock records remain necessary to
-  validate workflow contracts without network or provider credentials.
+- Deterministic seeded/offline VN stock records remain necessary to validate
+  workflow contracts without network or provider credentials.
 - Phase 02 excludes standalone news digest, catalyst analysis, and standalone
   risk-review workflows; unsupported claim categories are marked unavailable.
 - Workflows provide advice support and evidence framing, not buy/sell decisions.
 - `data-collector` is bounded to workflow-run needs and does not implement a
   broad native ingestion platform.
-- Phase 02 may define and implement the separate direct async chatflow transport
-  and server-side streaming contract, including deterministic mock chatflow
-  output; production flexible Q&A behavior, broad dynamic research planning, and
-  chat-specific product intelligence remain owned by `../003-agentic-chatflow/`.
+- Phase 02 does not define chatflow transport or chatflow behavior. Production
+  flexible Q&A, broad dynamic research planning, chat-specific product
+  intelligence, and chatflow streaming are owned by `../004-agentic-chatflow/`.
 - User-facing "reasoning" in Phase 02 means safe execution visibility such as
   workflow stages, tool activity summaries, and progress updates; it does not
   mean raw chain-of-thought or hidden internal reasoning.
@@ -574,21 +473,16 @@ See `../system/state-model.md` for canonical entity definitions.
 
 - **SC-001**: A user can complete a supported VN stock workflow and inspect cited
   output, chart artifact, and execution status in under 5 minutes.
-- **SC-002**: A user can complete a supported US stock workflow and inspect cited
-  output, chart artifact, and execution status in under 5 minutes.
+- **SC-002**: 100% of unsupported workflow requests are rejected or marked
+  unsupported before a result is created.
 - **SC-003**: A user can choose fundamental analysis and technical analysis
   workflows from the UI and understand each workflow's purpose before running it.
- - **SC-004**: A user can run `stock-brief` and see collection, grounding,
-  fundamental, and technical stages with clear completion, partial, failed, or
-  unavailable status.
 - **SC-005**: 100% of user-facing material workflow claims include at least one
   citation or are explicitly marked unsupported/unavailable.
 - **SC-006**: At least 95% of supported workflow result views show a citation
   (source id, dataset id, timestamp) for every referenced dataset.
 - **SC-007**: Users can identify missing, failed, or out-of-scope data
   conditions (via blocked_claims and unavailable sections) without reading logs.
-- **SC-008**: Completed workflow runs remain visible under `History` ->
-  `Workflow Runs` after refresh with a valid session.
 - **SC-009**: 100% of workflow outputs avoid autonomous buy/sell/order language
   and keep final trading judgment with the user.
 - **SC-010**: A streaming workflow request receives its first safe stream event
@@ -596,34 +490,32 @@ See `../system/state-model.md` for canonical entity definitions.
 - **SC-011**: A workflow stream emits immediate progress visibility before final
   answer completion for 100% of completed, partial, or failed streamed runs.
 - **SC-012**: At least 10 concurrent authenticated local test clients can hold
-  workflow or chatflow streams without event-loop blocking from synchronous
-  provider, database, or model calls.
-- **SC-013**: For long-answer workflows and chatflow requests, streamed answer
-  text begins before the final persisted result is emitted in at least 95% of
-  successful streaming runs against supported streaming providers.
-- **SC-014**: Chatflow streams never expose raw reasoning and reconcile streamed
-  output with the persisted final chatflow run.
-- **SC-015**: In transcript-style workflow responses, users can distinguish
+  workflow streams without event-loop blocking from synchronous provider,
+  database, or model calls.
+- **SC-013**: For long-answer workflows, streamed answer text begins before the
+  final persisted result is emitted in at least 95% of successful streaming runs
+  against supported streaming providers.
+- **SC-014**: In transcript-style workflow responses, users can distinguish
   their prompt from the assistant answer and scan execution visibility without a
   full assistant message card or repeated role headers.
-- **SC-016**: For 100% of completed workflow-backed assistant responses, the
+- **SC-015**: For 100% of completed workflow-backed assistant responses, the
   execution-visibility block auto-expands during active work, auto-collapses
   after completion, and remains re-openable by the user.
-- **SC-017**: For 100% of ready workflow artifacts in supported runs, users can
+- **SC-016**: For 100% of ready workflow artifacts in supported runs, users can
   open the full artifact viewer from the artifact card and access at least one
   valid download action when a download is declared.
-- **SC-018**: For 100% of rendered inline citation chips, clicking the chip opens
+- **SC-017**: For 100% of rendered inline citation chips, clicking the chip opens
   the citations panel and positions the selected source within the visible
   source list.
 
 ## Out Of Scope
 
 - App shell/login ownership.
-- Production flexible Q&A agentic chatflow behavior beyond the separate direct
-  async chatflow stream transport and deterministic Phase 02 mock output.
+- Production flexible Q&A agentic chatflow behavior and chatflow streaming
+  transport.
 - Broad native realtime market data platform beyond per-run provider fetch.
 - Standalone news digest, current-event/catalyst analysis, standalone risk
   review, `news_record`, and `risk_record`.
 - Broad native realtime news ingestion.
-- Gold, BTC, crypto, commodities, options, futures, broker connectivity, trade
-  execution, and autonomous financial actions.
+- Out-of-scope assets, broker connectivity, trade execution, and autonomous
+  financial actions.

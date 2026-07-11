@@ -22,8 +22,8 @@ Accepted
 
 ## Context
 
-Phase 02 introduces UI-runnable financial trading support workflows for VN stocks
-and US stocks. These workflows must be composable, testable, visible in the UI,
+Phase 02 introduces UI-runnable financial trading support workflows for VN stocks.
+These workflows must be composable, testable, visible in the UI,
 safe for advice-only output, and reusable later by external agent clients such as
 Claude or MCP-compatible integrations.
 

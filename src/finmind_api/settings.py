@@ -14,8 +14,6 @@ class Settings:
     session_secret: str
     session_cookie_name: str = "finmind_session"
     session_ttl_seconds: int = 8 * 60 * 60
-    us_alpha_vantage_api_key: str = ""
-    sec_edgar_user_agent: str = ""
     vn_data_provider: str = "vnstock"
     vnstock_api_key: str = ""
     dataflow_provider_timeout_seconds: float = 15.0
@@ -53,16 +51,6 @@ class Settings:
             admin_username=required["FINMIND_ADMIN_USERNAME"],
             admin_password=required["FINMIND_ADMIN_PASSWORD"],
             session_secret=required["FINMIND_SESSION_SECRET"],
-            us_alpha_vantage_api_key=_env(
-                "FINMIND_US_ALPHA_VANTAGE_API_KEY",
-                dotenv,
-                "",
-            ).strip(),
-            sec_edgar_user_agent=_env(
-                "FINMIND_SEC_EDGAR_USER_AGENT",
-                dotenv,
-                "",
-            ).strip(),
             vn_data_provider=vn_data_provider,
             vnstock_api_key=_env("FINMIND_VNSTOCK_API_KEY", dotenv, "").strip(),
             dataflow_provider_timeout_seconds=float(

@@ -8,7 +8,7 @@ created: 2026-06-27
 last_reviewed: 2026-06-27
 related_specs:
   - specs/002-workflow/spec.md
-  - specs/003-agentic-chatflow/spec.md
+  - specs/004-agentic-chatflow/spec.md
 related_adrs:
   - docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md
 ---
@@ -79,5 +79,5 @@ back to FinMind-owned validation and audit boundaries.
 ## References
 
 - `specs/002-workflow/spec.md`
-- `specs/003-agentic-chatflow/spec.md`
+- `specs/004-agentic-chatflow/spec.md`
 - `docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md`

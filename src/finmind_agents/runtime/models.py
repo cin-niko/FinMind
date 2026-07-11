@@ -42,7 +42,7 @@ class AgentRuntimePolicy:
             mode=RuntimeMode.WORKFLOW,
             allowed_tools=("collect_dataflow", "load_skill", "validate_finmind_output"),
             allowed_skills=allowed_skills,
-            allowed_markets=(Market.VN_STOCK, Market.US_STOCK),
+            allowed_markets=(Market.VN_STOCK,),
             allowed_dataset_groups=("market_price", "fundamental", "news"),
             allow_optional_collection=True,
             max_iterations=4,
@@ -53,4 +53,3 @@ class AgentRuntimePolicy:
 
     def allows_market(self, market: Market) -> bool:
         return market in self.allowed_markets
-

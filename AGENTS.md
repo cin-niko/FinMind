@@ -4,11 +4,11 @@ This file orients any AI coding agent working in this repository. Read it before
 
 ## 1. What This Repo Is
 
-FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated, workflow-first finance advice workbench for VN stocks and US stocks, with evidence-backed outputs, citations, canonical contracts, chart artifacts, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with citations and source provenance, not hallucination.
+FinMind is an agentic AI platform for Financial Trading. The current short-term product direction is an authenticated, workflow-first finance advice workbench for VN stocks and gold, with evidence-backed outputs, citations, canonical contracts, chart artifacts, and deterministic mock chat artifacts. The product principle is advice, not decision; data driven; claims with citations and source provenance, not hallucination.
 
 The target repo split is `src/finmind_agents` for the shared agentic and
 finance orchestration layer, `src/finmind_api` for the backend API layer, and
-`src/finmind_ui` for the frontend layer. Phase 02 planning uses the LangChain
+`src/finmind_ui` for the frontend layer. The workflow foundation uses the LangChain
 ecosystem with `langchain-litellm` as the default model adapter and defers
 LangGraph until graph state or multi-agent branching is required. Finance
 product APIs, UI, data workflows, and orchestration are specified under
@@ -25,17 +25,17 @@ Every piece of information should have one canonical location. Link to it instea
 | Platform-wide state, contracts, runtime, security, UI rules | [`specs/system/`](specs/system/) |
 | Per-feature specs | [`specs/NNN-slug/`](specs/README.md) |
 | Local agent skills | [`.agents/skills/`](.agents/skills/) |
-| Planned shared agent runtime | [`specs/002-workflow/plan.md`](specs/002-workflow/plan.md) |
+| Current feature implementation plan | [`specs/003-vn-gold-dataflows-workflows/plan.md`](specs/003-vn-gold-dataflows-workflows/plan.md) |
 | Existing tests | [`tests/`](tests/) |
 | Product source ideas | [`ideas/`](ideas/) |
 
 ## 3. Hard Rules
 
 1. **Specs before code.** When adding or changing behavior, update the relevant `specs/system/*` or `specs/NNN-slug/*` file first, then implementation and tests.
-2. **Do not collapse bounded features into one phase.** Current bounded feature folders are active `001-mvp-ui/`, draft `002-workflow/`, and draft `003-agentic-chatflow/`. Create future `NNN-slug/` folders only when the next bounded capability is ready to become canonical.
+2. **Do not collapse bounded features into one phase.** Current bounded feature folders are active `001-mvp-ui/`, draft `002-workflow/`, draft `003-vn-gold-dataflows-workflows/`, and draft `004-agentic-chatflow/`. Create future `NNN-slug/` folders only when the next bounded capability is ready to become canonical.
 3. **System contracts live in `specs/system/`.** If a feature changes shared state, API contracts, runtime behavior, security, or UI foundations, update `specs/system/*` and cross-reference the feature.
 4. **Use YAML frontmatter on spec files.** Include `id`, `status` or feature lifecycle status, `implements`, `validated_by`, and `adr_refs`. Only reference paths that exist; draft specs may use `implements: []` until code lands.
-5. **Keep VN stocks and US stocks as current user-facing market scope.** Gold, BTC, and other assets are roadmap-only unless a later spec explicitly changes scope.
+5. **Keep current user-facing market scope to VN stocks and gold.** No other market or asset is in scope unless a later spec explicitly changes it.
 6. **No raw agent reasoning in user-facing surfaces.** Show evidence, citations, stages, tool/artifact status, and grounded outputs only.
 7. **Keep humans in control.** Do not implement autonomous trades, orders, or irreversible financial actions; unsupported, stale, missing, failed, or unsafe outputs must be blocked or clearly marked before user reliance.
 8. **Provider details stay abstract at product-contract level.** Implementation may validate providers, licensing, credentials, and schemas behind source connector contracts.
@@ -129,7 +129,7 @@ For UI work, use `ui-ux-pro-max` for design-system/search guidance and implement
 ## 7. Anti-Patterns
 
 - Do not recreate a monolithic V1 spec folder as the long-term source of truth.
-- Do not add ingestion admin, plugin hardening, gold, BTC, or other assets into the current MVP unless the owning spec is explicitly changed.
+- Do not add ingestion admin, plugin hardening, or out-of-scope assets into the current MVP unless the owning spec is explicitly changed. Gold is owned by `specs/003-vn-gold-dataflows-workflows/`.
 - Do not expose provider secrets, environment secrets, or raw model reasoning in docs, logs, UI, or tests.
 - Do not invent new market scope terminology outside `specs/system/runtime-config-security.md`.
 - Do not let feature specs redefine shared entities that belong in `specs/system/state-model.md`.
@@ -151,13 +151,14 @@ tests/                   current test suite
 ## 9. Current Feature State
 
 1. `001-mvp-ui`: active implemented feature covering auth, app shell, deterministic mock chat UI, artifact detail, navigation, grouped history layout, and UI foundations.
-2. `002-workflow`: draft phase 02 feature for a guarded async workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock and US stock scope, citations, chart artifacts, execution status, separate workflow/chatflow stream transport, and run inspection.
-3. `003-agentic-chatflow`: draft phase 03 feature for future evidence-backed flexible Q&A chatflow over trusted sources.
+2. `002-workflow`: draft phase 02 feature for a guarded async workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock foundation scope, citations, chart artifacts, workflow stream transport, and run inspection.
+3. `003-vn-gold-dataflows-workflows`: draft phase 03 feature for gold dataflows plus new fixed workflows covering VN stocks and gold before production chatflow.
+4. `004-agentic-chatflow`: draft phase 04 feature for future evidence-backed flexible Q&A chatflow over trusted sources.
 
 Deleted roadmap folders such as data operations and extension hardening are not canonical. Recreate future capabilities through a fresh Spec Kit cycle only when scope, data access, safety, and contracts are ready.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/002-workflow/plan.md
+at specs/003-vn-gold-dataflows-workflows/plan.md
 <!-- SPECKIT END -->

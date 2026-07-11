@@ -23,14 +23,6 @@ class OfflineFallbackProvider:
                 DatasetGroup.NEWS,
             ),
         ),
-        ProviderCapability(
-            market=Market.US_STOCK,
-            dataset_groups=(
-                DatasetGroup.MARKET_PRICE,
-                DatasetGroup.FUNDAMENTAL,
-                DatasetGroup.NEWS,
-            ),
-        ),
     )
 
     def __init__(self, market_data: MarketDataRepository) -> None:

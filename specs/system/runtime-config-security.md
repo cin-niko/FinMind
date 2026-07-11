@@ -1,7 +1,7 @@
 ---
 id: SPEC-SYSTEM-RUNTIME-SECURITY-FINMIND
 status: active
-last_review: 2026-06-18
+last_review: 2026-07-11
 implements:
   - src/finmind_agents/runtime
   - src/finmind_api/settings.py
@@ -31,9 +31,10 @@ V1 uses cookie-backed web sessions for authenticated browser access. Session coo
 
 ## Scope Gates
 
-Current seeded/demo workflow coverage is VN stocks and US stocks. Future market
-coverage is not valid user-facing scope until a new bounded spec defines the
-asset coverage, source eligibility, and safety behavior.
+The active user-facing workflow scope is VN stocks and gold only. Chatflow
+remains deferred to Phase 04. Future market coverage is not valid user-facing
+scope until a bounded spec defines asset coverage, source eligibility, and
+safety behavior.
 
 Mock/demo surfaces are still user-facing scope surfaces. Controls must not present
 unsupported markets or assets as enabled runnable choices. If roadmap markets are

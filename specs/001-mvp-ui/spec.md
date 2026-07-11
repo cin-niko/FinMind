@@ -22,7 +22,7 @@ artifact detail behavior, and the shared light ledger UI treatment.
 
 This feature owns the user-facing shell and UI foundations only. Fixed workflow
 execution belongs to `../002-workflow/`. Production evidence-backed agentic
-chatflow belongs to `../003-agentic-chatflow/`.
+chatflow belongs to `../004-agentic-chatflow/`.
 
 ## User Scenarios & Testing
 
@@ -80,7 +80,7 @@ Acceptance scenarios:
 1. Given the user is authenticated, when they use the left rail, then `New Chat`,
    `Workflows`, and grouped `History` are available.
 2. Given roadmap features are not canonical, when the shell renders, then native
-   Market, Admin ingestion, production chat orchestration, plugin, gold, BTC, and
+   Market, Admin ingestion, production chat orchestration, plugin, and
    other future asset surfaces are not enabled navigation entries.
 
 ## Functional Requirements
@@ -146,5 +146,5 @@ See `../system/state-model.md` for canonical entity definitions.
 - Fixed workflow execution and cited workflow outputs.
 - Production evidence-backed agentic chatflow.
 - Native market data/news platform.
-- Trade execution, broker connectivity, autonomous decisions, gold, BTC, and
+- Trade execution, broker connectivity, autonomous decisions, and
   other non-current assets.

@@ -36,7 +36,7 @@ adr_refs: []
 ## Feature Readiness
 
 - [x] Workflow scope is separated from MVP UI and agentic chatflow
-- [x] Current market scope is VN stocks and US stocks only
+- [x] Current market scope is VN stocks only
 - [x] Workflow suite includes fundamental analysis and technical analysis as
   required phase 02 capabilities
 - [x] Streaming scope distinguishes immediate progress visibility from

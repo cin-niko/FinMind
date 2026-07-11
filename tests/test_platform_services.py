@@ -208,9 +208,7 @@ def test_workflow_catalog_entries_expose_required_metadata(
             }
         ]
         serialized = json.dumps(workflow).lower()
-        assert "alpha_vantage" not in serialized
         assert "vnstock" not in serialized
-        assert "sec_edgar" not in serialized
 
 
 def test_workflow_yaml_definitions_reference_existing_agent_skills() -> None:
@@ -956,16 +954,7 @@ def test_dataflow_registry_selects_providers_by_market_and_dataset_group() -> No
         market=Market.VN_STOCK,
         dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
     )
-    us_providers = registry.providers_for(
-        market=Market.US_STOCK,
-        dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.NEWS),
-    )
-
     assert {provider.provider_id for provider in vn_providers} >= {"vnstock", "offline_fallback"}
-    assert {provider.provider_id for provider in us_providers} >= {
-        "alpha_vantage",
-        "offline_fallback",
-    }
 
 
 def test_vn_data_provider_env_can_disable_vnstock(
@@ -1027,38 +1016,6 @@ def test_vnstock_api_key_env_is_supported(
     monkeypatch.setenv("FINMIND_VNSTOCK_API_KEY", "vnstock-secret")
 
     assert Settings.from_env().vnstock_api_key == "vnstock-secret"
-
-
-def test_dataflow_fallback_labels_provider_failure_without_raw_payloads(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
-    from finmind_api.platform import create_demo_platform
-
-    monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
-    monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
-    monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
-    monkeypatch.delenv("FINMIND_US_ALPHA_VANTAGE_API_KEY", raising=False)
-    platform = create_demo_platform()
-
-    result = platform.dataflow_service.collect(
-        DataflowCollectionRequest(
-            market=Market.US_STOCK,
-            symbol="AAPL",
-            dataset_groups=(DatasetGroup.NEWS,),
-            requested_by="vn-financial-data-collector",
-        )
-    )
-    output = result.to_output()
-
-    assert output["status"] in {"partial", "fallback", "failed"}
-    assert "offline_fallback" in output["providers"]
-    assert any(
-        provider["status"] in {"skipped", "fallback", "failed"}
-        for provider in output["provider_results"]
-    )
-    assert "raw" not in str(output).lower()
-    assert "secret" not in str(output).lower()
 
 
 def test_vnstock_provider_fetches_live_price_and_fundamental_records(
@@ -1356,20 +1313,18 @@ def test_invalid_workflow_input_does_not_create_successful_run(
 ) -> None:
     response = client.post(
         "/api/workflows/vn-financial-data-collector/runs",
-        json={"market": "GOLD", "symbol": "SJC"},
+        json={"market": "INVALID_MARKET", "symbol": "INVALID"},
     )
 
     assert response.status_code == 422
     detail = response.json()["detail"]
-    assert "supports VN stocks and US stocks only" in detail
+    assert "supports VN stocks only" in detail
 
 
 @pytest.mark.parametrize(
     ("payload", "expected_detail"),
     [
-        ({"market": "GOLD", "symbol": "SJC"}, "supports VN stocks and US stocks only"),
-        ({"market": "BTC", "symbol": "BTC"}, "supports VN stocks and US stocks only"),
-        ({"market": "CRYPTO", "symbol": "ETH"}, "supports VN stocks and US stocks only"),
+        ({"market": "INVALID_MARKET", "symbol": "INVALID"}, "supports VN stocks only"),
         ({"market": "VN_STOCK"}, "symbol is required"),
     ],
 )
@@ -1408,8 +1363,6 @@ def test_workflow_catalog_remains_provider_neutral(client: TestClient) -> None:
     assert response.status_code == 200
     catalog_text = str(response.json()).lower()
     assert "vnstock" not in catalog_text
-    assert "alpha_vantage" not in catalog_text
-    assert "sec_edgar" not in catalog_text
 
 
 def test_unsupported_market_validation_stops_before_dataflow_calls(
@@ -1423,7 +1376,10 @@ def test_unsupported_market_validation_stops_before_dataflow_calls(
 
     monkeypatch.setattr(DataflowService, "collect", fail_collect)
 
-    response = client.post("/api/workflows/vn-financial-data-collector/runs", json={"market": "GOLD", "symbol": "SJC"})
+    response = client.post(
+        "/api/workflows/vn-financial-data-collector/runs",
+        json={"market": "INVALID_MARKET", "symbol": "INVALID"},
+    )
 
     assert response.status_code == 422
 

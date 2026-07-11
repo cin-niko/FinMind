@@ -53,24 +53,6 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                 },
             ),
             CanonicalMarketDataRecord(
-                dataset_id="us_prices",
-                record_key="AAPL-prices",
-                instrument_id="AAPL",
-                market_time=datetime(2026, 6, 18, 20, 0, tzinfo=UTC),
-                collected_at=collected_at,
-                source_id="demo_us_prices",
-                payload={
-                    "series": [
-                        {"date": "2026-06-18", "open": None, "high": None, "low": None,
-                         "close": 195.64, "change_percent": 0.42, "volume": 52100000},
-                    ],
-                    "count": 1,
-                    "start_date": "2026-06-18",
-                    "end_date": "2026-06-18",
-                    "interval": "1D",
-                },
-            ),
-            CanonicalMarketDataRecord(
                 dataset_id="vn_fundamentals",
                 record_key="VCB-FY2025",
                 instrument_id="VCB",
@@ -81,20 +63,6 @@ class InMemoryMarketDataRepository(MarketDataRepository):
                     "eps": 5200,
                     "bvps": 35600,
                     "roe_percent": 20.3,
-                    "period": "FY2025",
-                },
-            ),
-            CanonicalMarketDataRecord(
-                dataset_id="us_fundamentals",
-                record_key="AAPL-FY2025",
-                instrument_id="AAPL",
-                market_time=datetime(2026, 3, 31, 20, 0, tzinfo=UTC),
-                collected_at=collected_at,
-                source_id="demo_us_fundamentals",
-                payload={
-                    "eps": 7.42,
-                    "revenue_growth_percent": 5.6,
-                    "roe_percent": 48.1,
                     "period": "FY2025",
                 },
             ),
@@ -118,10 +86,7 @@ class InMemoryMarketDataRepository(MarketDataRepository):
         self,
         market: Market,
     ) -> list[CanonicalMarketDataRecord]:
-        dataset_prefix_by_market = {
-            Market.VN_STOCK: "vn_",
-            Market.US_STOCK: "us_",
-        }
+        dataset_prefix_by_market = {Market.VN_STOCK: "vn_"}
         dataset_prefix = dataset_prefix_by_market[market]
         return [
             record

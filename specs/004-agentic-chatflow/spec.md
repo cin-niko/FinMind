@@ -1,5 +1,5 @@
 ---
-id: SPEC-FEAT-003
+id: SPEC-FEAT-004
 feature: agentic-chatflow
 status: draft
 owner: solo
@@ -18,7 +18,14 @@ The chatflow will answer user questions using trusted source data, citations (wi
 dataset id, and timestamp), artifacts, and explicit safety guardrails.
 
 This feature is draft. The current deterministic mock chat UI remains owned by
-`../001-mvp-ui/`. Fixed workflow execution remains owned by `../002-workflow/`.
+`../001-mvp-ui/`. Fixed Phase 02 workflow execution remains owned by
+`../002-workflow/`, and mature VN stock plus gold workflows are owned by
+`../003-vn-gold-dataflows-workflows/`.
+
+This feature also owns the chatflow streaming, chat persistence, service, route,
+frontend reconciliation, and evaluation work moved out of Phase 02. It remains
+separate from the deterministic mock chat surface until its source and planning
+gates are satisfied.
 
 ## User Scenarios & Testing
 
@@ -27,7 +34,7 @@ This feature is draft. The current deterministic mock chat UI remains owned by
 An authenticated internal user asks a finance research question and receives an
 answer grounded in trusted sources with citations.
 
-**Independent Test**: Ask a supported VN or US stock research question and verify
+**Independent Test**: Ask a supported VN stock or gold research question and verify
 that the answer includes cited claims, provenance (source id, dataset id,
 timestamp), and unsupported markers where evidence is missing.
 
@@ -76,8 +83,8 @@ Acceptance scenarios:
 
 - **FR-001**: Chatflow MUST answer supported finance research questions using
   trusted source data and citations.
-- **FR-002**: Chatflow MUST support VN stock and US stock questions only until a
-  later spec expands market scope.
+- **FR-002**: Chatflow MUST start from the supported VN stock and gold research
+  scope established before Phase 04 unless a later spec expands market scope.
 - **FR-003**: Chatflow MUST mark unsupported markets, unsupported assets, stale
   data, missing evidence, failed tools, and unavailable providers before user
   reliance.
@@ -112,8 +119,7 @@ require new production chat entities during planning.
 
 ## Edge Cases
 
-- User asks about gold, BTC, crypto, commodities, options, or other unsupported
-  assets: scope limitation is shown.
+- User asks about an unsupported asset: scope limitation is shown.
 - User asks for a decision or order: autonomous action is refused.
 - Trusted sources disagree: answer shows disagreement and cites both sides.
 - Source is unavailable or uncited: answer marks the claim ungrounded or
@@ -123,7 +129,8 @@ require new production chat entities during planning.
 ## Assumptions
 
 - The MVP UI shell exists from `../001-mvp-ui/`.
-- Fixed workflow contracts exist from `../002-workflow/`.
+- Fixed workflow contracts exist from `../002-workflow/` and mature VN stock plus
+  gold workflow scope exists from `../003-vn-gold-dataflows-workflows/`.
 - Trusted source access, collection policy, and data rights require planning before
   implementation.
 
@@ -137,8 +144,8 @@ require new production chat entities during planning.
   irreversible financial actions.
 - **SC-004**: Users can inspect citations, grounding, and artifact status for
   generated answers without reading logs.
-- **SC-005**: Supported answers remain within the current VN stock and US stock
-  market scope.
+- **SC-005**: Supported answers remain within the current VN stock and gold
+  research scope.
 
 ## Out Of Scope
 
@@ -147,4 +154,4 @@ require new production chat entities during planning.
 - Broker connectivity, trade execution, portfolio order management, and autonomous
   decisions.
 - Native realtime data/news platform unless specified by a later bounded feature.
-- Gold, BTC, crypto, commodities, options, futures, and other non-current assets.
+- Unsupported assets.

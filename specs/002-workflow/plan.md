@@ -20,9 +20,9 @@ adr_refs:
 ## Summary
 
 Implement Phase 02 fixed, UI-runnable financial trading support workflows for VN
-stocks and US stocks on top of a shared agent runtime that can later power
-Phase 03 chatflow. Workflow and chatflow execution should be async-first on the
-server so multiple authenticated users can run workflows or chatflow requests
+stocks on top of a shared agent runtime that can later power
+Phase 04 chatflow. Workflow execution should be async-first on the
+server so multiple authenticated users can run workflow requests
 concurrently without blocking API worker threads. The target repo split is `src/finmind_agents` for the agentic
 and finance orchestration layer, `src/finmind_api` for the FastAPI delivery
 layer, and `src/finmind_ui` for the frontend. The workflow contract remains
@@ -39,8 +39,8 @@ branching. Streaming uses a shared safe response-event format while keeping
 workflow run and chat message APIs separate, so each request can return
 stage/status/output events on the same HTTP response when the configured adapter
 supports it. The first active workflow focus is the
-VN financial data collector path, with broader workflow catalog and async
-execution contracts retained for Phase 02. Transcript-style workflow responses
+VN financial data collector path, with atomic workflow and async execution
+contracts retained for Phase 02. Transcript-style workflow responses
 also need a lighter editorial assistant presentation: user prompts stay as
 bubbles, workflow-backed assistant answers become frameless research-note
 content, and safe execution visibility appears as a compact collapsible block
@@ -56,14 +56,13 @@ that is open while work is running and collapsed after completion.
   repositories, pytest. LangGraph is intentionally deferred for the current MVP.
 - Market-data providers: `vnstock` (4.x unified API) adapter for VN stock
   latest price and fundamentals, using the `vci` source (the legacy `kbs`
-  endpoints reset connections); US provider adapter using Alpha Vantage for current/daily
-  prices when an API key is configured; SEC EDGAR company facts
-  adapter for public-company fundamentals; deterministic offline fallback for
-  tests and provider outage paths.
+  endpoints reset connections); deterministic offline fallback for tests and
+  provider outage paths. US market providers are unsupported in the current
+  product plan.
 - Frontend dependencies: React/Vite, existing app shell, existing workflow/result
   pages, existing chat transcript surface, Lightweight Charts.
 - Storage: in-memory canonical record cache for Phase 02 provider results
-  plus deterministic offline fallback records; completed workflow and chatflow runs
+  plus deterministic offline fallback records; completed workflow runs
   persist to PostgreSQL via async `psycopg` support (one `runs` table,
   `kind` discriminator), bootstrapped with idempotent DDL. Reusable
   `price_series` base data and cited citation snapshots should be persisted in
@@ -75,21 +74,22 @@ that is open while work is running and collapsed after completion.
 - Testing: `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest`
   and `npm run build` in `src/finmind_ui`.
 - Target platform: internal browser app backed by FastAPI JSON APIs.
-- Performance goals: streamed workflow/chatflow requests emit the first safe event
+- Performance goals: streamed workflow requests emit the first safe event
   in under 1 second in offline automated tests. Supported offline workflow runs
   complete under 3 seconds in automated tests.
   Live provider collection should target a 15-second per-run timeout budget,
   with per-provider timeout/failure surfaced to the `collect_data` step. Agent
   skill execution should have a bounded iteration and timeout budget per
   workflow stage. Local concurrency tests should support at least 10
-  authenticated workflow/chatflow streams without event-loop blocking.
+  authenticated workflow streams without event-loop blocking.
   Phase 02 concurrency is process-local and configured through
   `FINMIND_STREAM_GLOBAL_LIMIT`, `FINMIND_STREAM_PER_USER_LIMIT`, and
   `FINMIND_SYNC_OFFLOAD_LIMIT`. Provider/model-specific limit buckets and
   Redis/distributed leases are deferred until real usage or multi-worker /
   multi-instance deployment requires them.
-- Constraints: VN stocks and US stocks only; gold/BTC/other assets blocked or
-  roadmap-marked; no broker/order/trade execution; no raw reasoning exposure;
+- Constraints: Phase 02 remains a VN stock foundation; gold is deferred to
+  `../003-vn-gold-dataflows-workflows/`; out-of-scope assets are blocked; no
+  broker/order/trade execution; no raw reasoning exposure;
   workflow skill execution requires an explicit LLM configuration and fails
   closed when unavailable; async handlers must not directly perform blocking
   provider, database, filesystem, or model work.
@@ -103,10 +103,10 @@ that is open while work is running and collapsed after completion.
 - Code quality: keep the `src/finmind_agents` split explicit: runtime,
   workflows, skills, and dataflows remain separate; `src/finmind_api` stays a
   delivery layer and does not absorb finance workflow logic.
-- Testing standards: add/adjust pytest coverage for catalog, VN/US runs,
-  unsupported assets, composite `stock-brief`, data-quality gating, citations,
-  chart artifacts, and run reinspection; run frontend build for UI contract
-  compatibility.
+- Testing standards: add/adjust pytest coverage for the Phase 02 catalog, VN
+  atomic runs, data-quality gating, citations, chart artifacts, and workflow
+  streaming; run frontend build for UI contract compatibility. Phase 03 owns
+  composite workflows, active-market validation, and run reinspection.
 - Safety guardrails: unsupported assets are blocked, data-quality warnings gate
   claims, material claims require citations or unavailable marking, raw reasoning
   is excluded, LLM/tool failures fail closed or produce partial/unavailable
@@ -174,15 +174,9 @@ Deterministic step:
 The data audit is the `vn-financial-data-auditor` skill step; the post-skill
 `GroundingCheck` audits cited sources and blocks claims missing required data.
 
-Composite workflow:
-
-```text
-stock-brief
-  -> collect_data
-  -> vn-financial-data-auditor
-  -> fundamental-analysis
-  -> technical-analysis
-```
+Composite VN stock briefs and their partial-stage behavior are planned in
+`../003-vn-gold-dataflows-workflows/`; they reuse this phase's atomic workflow,
+grounding, record, citation, and stream foundations.
 
 Execution rules:
 
@@ -204,7 +198,7 @@ Execution rules:
   workflow metadata is finalized after the streamed answer completes through a
   second async metadata pass. The stream must not depend on recovering answer
   text from partial JSON. The v3 typed-projection API is chosen over
-  `stream_mode="messages"` so future subagent delegation (Phase 03 chatflow,
+  `stream_mode="messages"` so future subagent delegation (Phase 04 chatflow,
   composite workflows) can use the `subagents`/`tool_calls` projections for
   `run.stage` progress without changing the streaming contract.
 - Workflow YAML is the executable product contract for inputs, markets, skill
@@ -362,7 +356,7 @@ DataflowService.collect(...)
   (`uncited_claims`); blocked claims are surfaced for transparency and affected
   sections are caveated. Data age is conveyed by citation `timestamp`; there is
   no separate freshness concept.
-- Composite workflows preserve completed sections even when later stages are
+- Phase 03 composite workflows preserve completed sections when later stages are
   partial.
 
 ## Async Execution And Streaming Design
@@ -449,23 +443,18 @@ Non-blocking boundaries:
 
 Chatflow streaming:
 
-- Phase 02 owns a separate direct async chatflow message API and the runtime
-  policy seam. `POST /api/chatflow/chats/{chat_id}/messages` appends a user
-  message to an authenticated chat resource and streams the assistant response on
-  the same HTTP response. Production flexible Q&A behavior remains in
-  `../003-agentic-chatflow/`.
-- Chatflow streams use the same direct SSE response event format as workflows,
-  with `kind=chatflow` and a chatflow-specific policy/output schema.
-- Phase 02 may return deterministic mock chatflow output through the stream
-  contract.
-- Chatflow answers must obey the same citation, advice-only, no-raw-reasoning,
-  and unsupported-claim behavior as workflow output.
+- Phase 02 does not own chatflow transport or chatflow behavior. Production
+  flexible Q&A behavior, chatflow tool choice, source planning, persistence, and
+  streaming belong to `../004-agentic-chatflow/`.
+- Phase 02 workflow streaming should keep event, safety, and runtime boundaries
+  reusable so Phase 04 can define chatflow-specific contracts without duplicating
+  the workflow foundation.
 
 ## Dataflows Collection Design
 
 `src/finmind_agents/dataflows/` is a collection module, not an admin ingestion or
 backfill platform. It serves Phase 02 workflows and is intentionally reusable by
-the Phase 03 chatflow.
+Phase 03 VN/gold dataflows and workflows and Phase 04 chatflow.
 
 Module layout:
 
@@ -481,8 +470,6 @@ src/finmind_agents/dataflows/
     __init__.py
     base.py
     vnstock.py
-    alpha_vantage.py
-    sec_edgar.py
 ```
 
 Responsibilities:
@@ -523,10 +510,10 @@ finmind_api route
 
 Rules:
 
-- Workflows and chatflow do not know provider internals.
-- Workflows and chatflow share async runtime, dataflows, final-run persistence,
-  and safe direct stream event format; they use separate API endpoints and differ
-  by policy envelope and output schema.
+- Workflows do not know provider internals.
+- Workflow runtime, dataflows, final-run persistence, and safe direct stream event
+  format should remain reusable by later phases without Phase 02 implementing
+  chatflow endpoints or chat-specific output schemas.
 - Provider raw responses, API keys, credentials, hidden prompts, and unsafe
   diagnostics never reach user-facing responses.
 - Provider failure returns `partial`, `failed`, or `fallback`; it never fabricates
@@ -541,13 +528,14 @@ Rules:
 
 Resolved in `research.md`:
 
-- Use composable fixed workflows before flexible chatflow.
+- Use atomic fixed workflows before flexible chatflow; Phase 03 adds composed
+  workflows after the foundation is stable.
 - Use hybrid YAML workflow definitions and Markdown agent skills instead of
   one-off fixed-code workflows or unconstrained skill-only execution.
 - Use one shared `FinMindAgentRuntime` for workflow now and chatflow later, with
   different policy envelopes.
 - Use async-first execution and OpenAI-style SSE response streaming for workflow
-  and chat transport, with bounded offload for unavoidable sync libraries.
+  transport, with bounded offload for unavoidable sync libraries.
 - Treat Agent Skill `DATA_REQUIREMENTS.yaml` as the canonical source for detailed
   data needs; workflow YAML references skills and constrains runtime policy
   instead of duplicating collection requirements.
@@ -559,8 +547,8 @@ Resolved in `research.md`:
 - Spend implementation effort on dataflows, grounding, citations, validators,
   and synthesis prompts; do not rebuild planning/delegation primitives unless
   the framework proves too hard to control.
-- Use latest real provider data for VN and US stocks, with deterministic
-  seeded/offline fallback for tests and degraded provider paths.
+- Use latest real provider data for VN stocks, with deterministic seeded/offline
+  fallback for tests and degraded provider paths.
 - Keep data collection and quality checks internal but visible through status.
 - Keep data packaging deterministic so the same raw inputs produce the same
   derived records, citation ids, and model-visible claims.

@@ -1,7 +1,7 @@
 ---
 id: SPEC-SYSTEM-DATA-RECORD-FINMIND
 status: active
-last_review: 2026-07-09
+last_review: 2026-07-11
 implements:
   - src/finmind_agents
   - src/finmind_api
@@ -73,7 +73,10 @@ Phase 02 does not define `news_record`, `risk_record`, or
 `fundamental_flags_record`. News and catalyst claims must be marked unavailable
 until a future source-ingestion contract defines deterministic news records. Risk
 language may be generated only as interpretation of underlying technical or
-fundamental records, cited back to those records.
+fundamental records, cited back to those records. Phase 03 may add bounded
+gold-market record types through `../003-vn-gold-dataflows-workflows/`; those
+records must follow this same normalization, rendered-context, and citation
+allowlist boundary.
 
 Rules:
 
@@ -132,8 +135,9 @@ Disallowed LLM behavior:
 
 This boundary applies across the product:
 
-- Workflow orchestration builds the data bundle before analysis.
-- Chatflow uses the same record boundary for grounded responses.
+- Phase 02 workflow orchestration establishes the data bundle before analysis.
+- Phase 03 VN stock and gold workflows reuse the same record boundary.
+- Phase 04 chatflow uses the same record boundary for grounded responses.
 - UI inspection surfaces should render citations and, where needed, derived
   record facts, not raw provider dumps. In Phase 02, citation inspection is the
   required durable surface; full intermediate-record inspection is optional

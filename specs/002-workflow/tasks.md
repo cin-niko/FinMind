@@ -121,18 +121,18 @@ fetch persisted citation rows without hidden runtime state.
 
 ## Phase 3: User Story 1 - Run A Supported Stock Workflow From UI (Priority: P1)
 
-**Goal**: An authenticated internal user runs one supported VN stock or US
-stock workflow through the LangChain/LiteLLM-backed runtime and reviews
+**Goal**: An authenticated internal user runs one supported VN stock workflow
+through the LangChain/LiteLLM-backed runtime and reviews
 grounded results in the UI.
 
-**Independent Test**: Log in, open `Workflows`, run one supported VN or US
-stock workflow, and verify output sections, citations, chart artifacts, and
+**Independent Test**: Log in, open `Workflows`, run one supported VN stock
+workflow, and verify output sections, citations, chart artifacts, and
 execution status.
 
 ### Tests for User Story 1
 
 - [x] T038 [P] [US1] Add VN workflow runtime test for `technical-analysis` with agent metadata in `tests/test_platform_services.py`
-- [x] T039 [P] [US1] Add US workflow runtime test for `technical-analysis` with provider/fallback metadata in `tests/test_platform_services.py`
+- [x] T039 [P] [US1] Record legacy US workflow runtime coverage as superseded by Phase 03 T020-T021 in `../003-vn-gold-dataflows-workflows/tasks.md`
 - [x] T040 [P] [US1] Add fail-closed workflow run test when `FINMIND_AGENT_MODEL` is unset in `tests/test_platform_services.py`
 
 ### Implementation for User Story 1
@@ -175,11 +175,10 @@ catalog path.
 
 ---
 
-## Phase 5: User Story 3 - Compose A Stock Brief From Reusable Steps (Priority: P1)
+## Phase 5: Moved Scope - Phase 03 VN Stock Brief
 
-**Goal**: An authenticated internal user runs `stock-brief` as a reusable,
-runtime-driven composite workflow with visible stages and guarded partial
-behavior.
+**Goal**: Moved to `../003-vn-gold-dataflows-workflows/` as the Phase 03 VN
+stock brief scope.
 
 **Independent Test**: Run `stock-brief` and verify visible stages,
 quality-gate behavior, partial/unavailable sections, and preserved completed
@@ -187,69 +186,69 @@ sections.
 
 ### Tests for User Story 3
 
-- [ ] T054 [P] [US3] Add composite workflow runtime test for `stock-brief` success in `tests/test_platform_services.py`
-- [ ] T055 [P] [US3] Add composite workflow partial-provider test for unsupported news/catalyst claim categories in `tests/test_platform_services.py`
-- [ ] T056 [P] [US3] Add API response coverage for visible stage statuses and blocked claim categories in `tests/test_app.py`
+- [x] T054 [P] [US3] Moved composite workflow success coverage to Phase 03 T014 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T055 [P] [US3] Moved composite partial-stage coverage to Phase 03 T014 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T056 [P] [US3] Moved stage-status and blocked-claim API coverage to Phase 03 T015 in `../003-vn-gold-dataflows-workflows/tasks.md`
 
 ### Implementation for User Story 3
 
-- [ ] T057 [P] [US3] Migrate composite workflow definitions and skill refs into `src/finmind_agents/workflows/definitions.py` and `src/finmind_agents/skills/`
-- [ ] T058 [US3] Implement composite sequencing and section assembly in `src/finmind_agents/workflows/executor.py`
-- [ ] T059 [US3] Implement runtime policy handling for reusable internal steps in `src/finmind_agents/runtime/service.py`
-- [ ] T060 [US3] Persist composite run output, stage status, and tool status via `src/finmind_api/run_store.py`
-- [ ] T061 [US3] Render composite stage states and unavailable sections in `src/finmind_ui/src/features/results/ResultView.tsx`
+- [x] T057 [P] [US3] Moved composite definitions and skills to Phase 03 T016 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T058 [US3] Moved composite sequencing and section assembly to Phase 03 T016 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T059 [US3] Moved reusable-step runtime policy to Phase 03 T016 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T060 [US3] Moved composite run persistence to Phase 03 T017 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T061 [US3] Moved composite UI stage rendering to Phase 03 T018 in `../003-vn-gold-dataflows-workflows/tasks.md`
 
 **Checkpoint**: `stock-brief` works as a composed workflow without duplicating
 collection or safety logic.
 
 ---
 
-## Phase 6: User Story 4 - Reject Unsupported Inputs (Priority: P1)
+## Phase 6: Moved Scope - Phase 03 Market Validation
 
-**Goal**: An authenticated internal user cannot run unsupported markets,
-unsupported symbols, undeclared collection plans, or unsafe workflow states.
+**Goal**: Moved to `../003-vn-gold-dataflows-workflows/` for VN stock and gold
+market validation.
 
 **Independent Test**: Attempt unsupported assets, missing inputs, invalid
 symbols, undeclared dataset collection, and missing model configuration.
 
 ### Tests for User Story 4
 
-- [ ] T062 [P] [US4] Add unsupported market, symbol, and missing input validation coverage on the migrated API in `tests/test_app.py`
-- [ ] T063 [P] [US4] Add collection-plan rejection tests for undeclared dataset requests in `tests/test_platform_services.py`
-- [ ] T064 [P] [US4] Add no-fabrication assertions for failed quality or missing citations in `tests/test_platform_services.py`
+- [x] T062 [P] [US4] Moved market and input API coverage to Phase 03 T019 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T063 [P] [US4] Moved undeclared dataset rejection coverage to Phase 03 T005 and T008 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T064 [P] [US4] Moved no-fabrication safety coverage to Phase 03 T005 in `../003-vn-gold-dataflows-workflows/tasks.md`
 
 ### Implementation for User Story 4
 
-- [ ] T065 [US4] Migrate workflow input validation and market scoping into `src/finmind_agents/workflows/validation.py`
-- [ ] T066 [US4] Add collection-plan approval and rejection logic in `src/finmind_agents/dataflows/requirements.py`
-- [ ] T067 [US4] Add API error mapping for validation, fail-closed runtime errors, and partial provider failures in `src/finmind_api/routes/workflows.py`
-- [ ] T068 [US4] Migrate field-level validation and unsupported-state UI handling into `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
+- [x] T065 [US4] Moved workflow input validation and market scoping to Phase 03 T020 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T066 [US4] Moved collection-plan approval and rejection to Phase 03 T008 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T067 [US4] Moved validation and partial-provider API errors to Phase 03 T021 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T068 [US4] Moved field-level validation UI to Phase 03 T022 in `../003-vn-gold-dataflows-workflows/tasks.md`
 
 **Checkpoint**: Safety behavior is independently testable through both API and
 UI.
 
 ---
 
-## Phase 7: User Story 5 - Reopen Workflow Results (Priority: P2)
+## Phase 7: Moved Scope - Phase 03 Run Reinspection
 
-**Goal**: An authenticated internal user can reopen completed workflow runs
-from history and inspect output, citations, artifacts, and execution status.
+**Goal**: Remaining reinspection behavior moved to
+`../003-vn-gold-dataflows-workflows/` for VN stock and gold runs.
 
 **Independent Test**: Complete a workflow run, refresh, reopen it from
 history, and verify saved output, citations, and artifacts are restored.
 
 ### Tests for User Story 5
 
-- [ ] T069 [P] [US5] Add run history API coverage for completed and partial workflow runs in `tests/test_app.py`
+- [x] T069 [P] [US5] Moved run-history API coverage to Phase 03 T023 in `../003-vn-gold-dataflows-workflows/tasks.md`
 - [x] T070 [P] [US5] Add run reinspection persistence coverage for `collection` and `agent` envelopes in `tests/test_platform_services.py`
-- [ ] T071 [P] [US5] Add citation reinspection coverage for persisted citation snapshot responses in `tests/test_app.py`
+- [x] T071 [P] [US5] Moved citation reinspection API coverage to Phase 03 T023 in `../003-vn-gold-dataflows-workflows/tasks.md`
 
 ### Implementation for User Story 5
 
 - [x] T072 [US5] Migrate run repository persistence into PostgreSQL via `PostgresRunRepository` in `src/finmind_api/run_store.py`, configured by `FINMIND_DATABASE_URL`
 - [x] T073 [US5] Add run list and detail routes in `src/finmind_api/routes/runs.py`
-- [ ] T074 [US5] Add citation reinspection query wiring in `src/finmind_api/run_store.py` and `src/finmind_api/routes/runs.py`
-- [ ] T075 [US5] Migrate history selection and run reinspection flow into `src/finmind_ui/src/App.tsx` and `src/finmind_ui/src/features/shell/AppShell.tsx`
+- [x] T074 [US5] Moved citation reinspection queries to Phase 03 T024 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T075 [US5] Moved history selection and reinspection UI to Phase 03 T025 in `../003-vn-gold-dataflows-workflows/tasks.md`
 
 **Checkpoint**: Stored workflow runs remain inspectable after the architecture
 migration.
@@ -293,34 +292,31 @@ and the UI separates visible working steps from final answer text.
 
 ---
 
-## Phase 9: User Story 7 - Chatflow Asynchronously With Streaming (Priority: P2)
+## Phase 9: Moved Scope - Chatflow Asynchronously With Streaming
 
-**Goal**: An authenticated internal user can send a chatflow message, receive
-safe streamed progress and answer deltas, and reopen the persisted result
-without exposing raw reasoning. Phase 02 may satisfy this with deterministic
-mock chatflow output.
+**Goal**: Moved to `../004-agentic-chatflow/`. Phase 02 no longer owns chatflow
+transport, chatflow persistence, or deterministic mock chatflow output.
 
-**Independent Test**: Submit a chatflow message through the async chatflow
-endpoint, consume streamed answer/status events, and verify the persisted
-chatflow run can be reopened without exposing raw reasoning.
+**Independent Test**: Verify Phase 02 exposes no runnable `/api/chatflow/...`
+contract and that Phase 04 owns production chatflow specification work.
 
 ### Tests for User Story 7
 
-- [ ] T091 [P] [US7] Add chatflow stream API coverage for `POST /api/chatflow/chats/{chat_id}/messages` in `tests/test_app.py`
-- [ ] T092 [P] [US7] Add chatflow completion persistence and reinspection coverage in `tests/test_app.py`
-- [ ] T093 [P] [US7] Add fail-closed chatflow streaming-adapter validation coverage in `tests/test_platform_services.py`
-- [ ] T094 [P] [US7] Add frontend chatflow stream client reconciliation coverage in `src/finmind_ui/src/api/client.test.ts`
+- [x] T091 [P] [US7] Move chatflow stream API coverage to `../004-agentic-chatflow/tasks.md`
+- [x] T092 [P] [US7] Move chatflow completion persistence and reinspection coverage to `../004-agentic-chatflow/tasks.md`
+- [x] T093 [P] [US7] Move fail-closed chatflow streaming-adapter validation coverage to `../004-agentic-chatflow/tasks.md`
+- [x] T094 [P] [US7] Move frontend chatflow stream client reconciliation coverage to `../004-agentic-chatflow/tasks.md`
 
 ### Implementation for User Story 7
 
-- [ ] T095 [US7] Add chatflow run and message service contracts in `src/finmind_agents/runtime/service.py` and `src/finmind_agents/streaming/models.py`
-- [ ] T096 [US7] Add chatflow chat/message routes in `src/finmind_api/routes/chatflow.py`
-- [ ] T097 [US7] Add persisted chatflow run and chat metadata support in `src/finmind_api/run_store.py`
-- [ ] T098 [US7] Implement deterministic mock chatflow streaming output under workflow-aligned safety and citation rules in `src/finmind_agents/runtime/service.py`
-- [ ] T099 [US7] Add frontend chatflow stream handling and persisted re-open support in `src/finmind_ui/src/api/client.ts` and `src/finmind_ui/src/features/chat/ChatPage.tsx`
+- [x] T095 [US7] Move chatflow run and message service contracts to `../004-agentic-chatflow/tasks.md`
+- [x] T096 [US7] Move chatflow chat/message routes to `../004-agentic-chatflow/tasks.md`
+- [x] T097 [US7] Move persisted chatflow run and chat metadata support to `../004-agentic-chatflow/tasks.md`
+- [x] T098 [US7] Move deterministic mock chatflow streaming output to `../004-agentic-chatflow/tasks.md`
+- [x] T099 [US7] Move frontend chatflow stream handling and persisted re-open support to `../004-agentic-chatflow/tasks.md`
 
-**Checkpoint**: Chatflow stream contract exists and remains bounded by the same
-evidence, citation, and safety rules as workflows.
+**Checkpoint**: Chatflow work is no longer part of Phase 02 and remains traceable
+in Phase 04.
 
 ---
 
@@ -372,15 +368,15 @@ verification.
 - [x] T115 [P] Update workflow implementation traceability in `specs/002-workflow/spec.md`
 - [x] T116 [P] Update workflow plan traceability after package migration in `specs/002-workflow/plan.md`
 - [x] T117 [P] Record runtime/package migration and direct async SSE decisions in `docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md` and `docs/adr/ADR-002-direct-async-sse-streaming.md`
-- [ ] T118 [P] Update workflow runtime, provider-risk, and async stream saturation mitigations in `docs/risks/RISK-001-workflow-skill-contract-drift.md`, `docs/risks/RISK-002-agent-skill-unsupported-claims.md`, and `docs/risks/RISK-004-async-stream-resource-saturation.md`
-- [ ] T119 [P] Update validated environment configuration, stream limiter defaults, and deprecated env cleanup notes in `.env`
-- [ ] T120 [P] Add a manual workflow runtime validation script for DXG using `.env` configuration in `test.py`
+- [x] T118 [P] Moved workflow risk mitigation updates to Phase 03 T026 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T119 [P] Moved Phase 03 environment configuration updates to Phase 03 T027 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T120 [P] Moved manual VN/gold workflow validation to Phase 03 T027 in `../003-vn-gold-dataflows-workflows/tasks.md`
 - [x] T121 Review migrated workflow UI against `specs/system/ui-ux-guidelines.md`
-- [ ] T122 Review runtime safety guardrails against `.specify/memory/constitution.md`
-- [ ] T123 [P] Regenerate implementation convergence notes after Phase 2A storage/rendering changes in `specs/002-workflow/plan.md` and `specs/002-workflow/quickstart.md`
+- [x] T122 Moved runtime safety review to Phase 03 T028 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T123 [P] Moved convergence and quickstart validation notes to Phase 03 T029 in `../003-vn-gold-dataflows-workflows/tasks.md`
 - [x] T124 Run backend verification command `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py`
 - [x] T125 Run frontend verification command `cd src/finmind_ui && npm run build`
-- [ ] T126 Run the workflow quickstart validation scenarios in `specs/002-workflow/quickstart.md`
+- [x] T126 Moved VN/gold workflow quickstart validation to Phase 03 T031 in `../003-vn-gold-dataflows-workflows/tasks.md`
 
 ---
 
@@ -392,8 +388,8 @@ verification.
 - **Foundational (Phase 2)**: Depends on Setup and blocks all user stories.
 - **Data Records And Citations (Phase 2A)**: Depends on Foundational and
   blocks new claim-generating workflow work.
-- **User Stories (Phases 3-10)**: Depend on Foundational completion; US1, US3,
-  US5, US6, and US8 also depend materially on Phase 2A.
+- **Completed Phase 02 User Stories (Phases 3-10)**: Depend on Foundational
+  completion; Phase 03 owns the moved workflow-maturity work recorded above.
 - **Polish (Phase 11)**: Depends on all desired user stories being complete.
 
 ### User Story Dependencies
@@ -403,18 +399,14 @@ verification.
   citations.
 - **US2 Choose A Workflow Type (P1)**: Starts after Foundation and can proceed
   in parallel with US1 once catalog loading exists.
-- **US3 Compose A Stock Brief From Reusable Steps (P1)**: Depends on
-  Foundation, benefits from US1 atomic execution, and consumes the Phase 2A
-  evidence path.
-- **US4 Reject Unsupported Inputs (P1)**: Starts after Foundation and can run
-  in parallel with US1 because it targets validation and safety behavior.
-- **US5 Reopen Workflow Results (P2)**: Depends on Foundation and at least one
-  run-producing story, preferably US1 plus Phase 2A citation persistence.
+- **Moved Phase 03 Workflow Maturity**: Composite VN workflows, active-market
+  validation, and run reinspection are planned in
+  `../003-vn-gold-dataflows-workflows/tasks.md`.
 - **US6 Run Workflows Asynchronously With Streaming (P1)**: Depends on
   Foundation and should land before UI workflows are considered complete,
   because stream endpoints are the canonical execution APIs.
-- **US7 Chatflow Asynchronously With Streaming (P2)**: Depends on Foundation,
-  the shared stream contract from US6, and the shared runtime policy envelope.
+- **Moved Phase 04 Chatflow**: Depends on the shared stream contract from US6
+  and is planned in `../004-agentic-chatflow/tasks.md`.
 - **US8 Inspect Artifacts And Citations In The Right Panel (P1)**: Depends on
   US1 workflow output, US5 run reinspection persistence, and US6 stream event
   reconciliation.
@@ -441,13 +433,9 @@ verification.
   and service wiring.
 - US1 tests T038-T040 can run in parallel.
 - US2 tests T048-T049 can run in parallel.
-- US3 tests T054-T056 can run in parallel.
-- US4 tests T062-T064 can run in parallel.
-- US5 tests T069-T071 can run in parallel.
 - US6 tests T076-T081 can run in parallel.
-- US7 tests T091-T094 can run in parallel.
 - US8 tests T100-T104 can run in parallel.
-- Polish documentation tasks T118-T123 can run in parallel.
+- Phase 03 and Phase 04 task plans define their own parallel work.
 
 ---
 
@@ -455,7 +443,6 @@ verification.
 
 ```bash
 Task: "Add VN workflow runtime test for technical-analysis with agent metadata in tests/test_platform_services.py"
-Task: "Add US workflow runtime test for technical-analysis with provider/fallback metadata in tests/test_platform_services.py"
 Task: "Add fail-closed workflow run test when FINMIND_AGENT_MODEL is unset in tests/test_platform_services.py"
 ```
 
@@ -487,8 +474,7 @@ Task: "Add chart viewer tests in src/finmind_ui/src/features/charts/MarketChart.
 3. Complete Phase 2A data records, rendering, and citation persistence.
 4. Complete Phase 3 User Story 1.
 5. Validate with backend tests and the migrated workflow UI build.
-6. Demo one VN or US workflow run with grounded output and safe citation
-   inspection.
+6. Demo one VN workflow run with grounded output and safe citation inspection.
 
 ### Incremental Delivery
 
@@ -496,15 +482,11 @@ Task: "Add chart viewer tests in src/finmind_ui/src/features/charts/MarketChart.
    citation persistence are deterministic.
 2. Deliver US1 to prove the runtime, dataflows, API, and UI path.
 3. Deliver US2 to complete workflow choice on the migrated UI.
-4. Deliver US4 to lock down validation and collection-plan safety.
-5. Deliver US3 to make `stock-brief` reusable and visible.
-6. Deliver US6 to make stream transport the canonical execution path.
-7. Deliver US5 to preserve run history and citation reinspection.
-8. Deliver US8 right-panel artifact and citation inspection.
-9. Deliver US7 bounded chatflow streaming if Phase 02 scope still includes the
-   deterministic mock path.
-10. Re-run relevant documentation, verification, and quickstart validation from
-   Phase 11.
+4. Deliver US6 to make stream transport the canonical execution path.
+5. Deliver US8 right-panel artifact and citation inspection.
+6. Continue composite workflows, active-market validation, and reinspection in
+   `../003-vn-gold-dataflows-workflows/`.
+7. Continue chatflow planning in `../004-agentic-chatflow/`.
 
 ### Notes
 
@@ -516,5 +498,7 @@ Task: "Add chart viewer tests in src/finmind_ui/src/features/charts/MarketChart.
   provider clients directly.
 - Treat structured record fields as canonical and rendered `context` as a
   deterministic projection reused by LLM input and UI display.
-- Do not add production flexible chatflow behavior, broker actions, gold, BTC,
-  or autonomous financial actions in this feature.
+- Do not add production flexible chatflow behavior, broker actions, or autonomous
+  financial actions in this feature. Gold workflow support is owned
+  by `../003-vn-gold-dataflows-workflows/`; chatflow is owned by
+  `../004-agentic-chatflow/`.
