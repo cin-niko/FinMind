@@ -106,6 +106,9 @@ Navigation is roadmap-aware:
 - Workflow catalog cards for fixed system-defined workflows
 - Market/instrument inputs expose only supported VN stock and gold choices as
   enabled runnable selections for `003-vn-gold-dataflows-workflows`.
+- Market identifiers in catalog summaries and selectors use human-readable
+  labels rather than raw contract values; each supported market maps through a
+  shared UI label mapping.
 - Roadmap market or asset choices may appear only as disabled or clearly marked
   future/out-of-scope preview options; users must not be able to select them and
   discover the limitation only after clicking Run.
