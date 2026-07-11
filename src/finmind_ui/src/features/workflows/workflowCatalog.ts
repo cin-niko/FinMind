@@ -18,7 +18,12 @@ const MARKET_LABELS: Record<string, string> = {
 };
 
 export function marketLabel(market: string): string {
-  return MARKET_LABELS[market] ?? market;
+  const knownLabel = MARKET_LABELS[market];
+  if (knownLabel) {
+    return knownLabel;
+  }
+  const humanized = market.replaceAll("_", " ").toLowerCase();
+  return humanized.charAt(0).toUpperCase() + humanized.slice(1);
 }
 
 export function summarizeWorkflow(workflow: Workflow): WorkflowCatalogSummary {

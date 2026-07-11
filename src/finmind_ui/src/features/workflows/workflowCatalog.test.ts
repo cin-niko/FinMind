@@ -38,4 +38,4 @@ assert.deepEqual(summary.sections, ["Data Quality", "Collected Data"]);
 assert.equal(summary.citationLabel, "Citations required");
 assert.equal(summary.chartLabel, "Price trend");
 assert.equal(marketLabel("GOLD"), "Gold");
-assert.equal(marketLabel("FUTURE_MARKET"), "FUTURE_MARKET");
+assert.equal(marketLabel("FUTURE_MARKET"), "Future market");
