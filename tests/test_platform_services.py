@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 import asyncio
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -955,6 +956,19 @@ def test_dataflow_registry_selects_providers_by_market_and_dataset_group() -> No
         dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
     )
     assert {provider.provider_id for provider in vn_providers} >= {"vnstock", "offline_fallback"}
+
+
+def test_smoke_script_builds_workflow_service_without_removed_provider_kwargs() -> None:
+    script_path = Path(__file__).resolve().parents[1] / "test.py"
+    spec = importlib.util.spec_from_file_location("finmind_smoke_script", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    workflow_service = module.create_workflow_service_from_env()
+
+    assert workflow_service.list_workflows()
 
 
 def test_vn_data_provider_env_can_disable_vnstock(

@@ -156,14 +156,6 @@ def create_workflow_service_from_env():
         registry=build_default_provider_registry(
             vn_data_provider="vnstock",
             vnstock_api_key=os.getenv("FINMIND_VNSTOCK_API_KEY", "").strip(),
-            alpha_vantage_api_key=os.getenv(
-                "FINMIND_US_ALPHA_VANTAGE_API_KEY",
-                "",
-            ).strip(),
-            sec_edgar_user_agent=os.getenv(
-                "FINMIND_SEC_EDGAR_USER_AGENT",
-                "",
-            ).strip(),
             fallback_market_data=market_data,
         )
     )
