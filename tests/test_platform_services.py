@@ -956,15 +956,27 @@ def test_dataflow_registry_selects_providers_by_market_and_dataset_group() -> No
 
 def test_smoke_script_builds_workflow_service_without_removed_provider_kwargs() -> None:
     script_path = Path(__file__).resolve().parents[1] / "test.py"
-    spec = importlib.util.spec_from_file_location("finmind_smoke_script", script_path)
+    module_name = "finmind_smoke_script"
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    original_sys_path = sys.path.copy()
+    previous_module = sys.modules.get(module_name)
+    sys.modules[module_name] = module
 
-    workflow_service = module.create_workflow_service_from_env()
+    try:
+        spec.loader.exec_module(module)
 
-    assert workflow_service.list_workflows()
+        workflow_service = module.create_workflow_service_from_env()
+
+        assert workflow_service.list_workflows()
+    finally:
+        sys.path[:] = original_sys_path
+        if previous_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous_module
 
 
 def test_vn_data_provider_env_rejects_offline_mode(
