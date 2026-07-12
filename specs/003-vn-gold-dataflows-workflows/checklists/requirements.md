@@ -12,7 +12,7 @@ adr_refs: []
 # Specification Quality Checklist: VN And Gold Dataflows And Workflows
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-07-11
+**Created**: 2026-07-12
 **Feature**: [`spec.md`](../spec.md)
 
 ## Content Quality
@@ -42,4 +42,8 @@ adr_refs: []
 
 ## Notes
 
-- Validated on 2026-07-11. The spec intentionally defers source/provider selection, data rights, and implementation design to `/speckit-plan`.
+- Validated on 2026-07-12. The updated scope explicitly names the Phase 03
+  workflows, XAUUSD/Twelve Data Gold boundary, server-persisted language
+  preference, and Phase 04 chat-language ownership. Source-rights validation,
+  provider limits, and detailed valuation methodology remain `/speckit-plan`
+  gates.

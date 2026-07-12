@@ -1,7 +1,7 @@
 ---
 id: SPEC-SYSTEM-STATE-FINMIND
 status: active
-last_review: 2026-07-11
+last_review: 2026-07-12
 implements:
   - src/finmind_agents
 validated_by:
@@ -40,6 +40,28 @@ Rules:
 - Exactly one admin account is required for V1.
 - The account is bootstrapped from `FINMIND_ADMIN_USERNAME`, `FINMIND_ADMIN_PASSWORD`, and `FINMIND_SESSION_SECRET`.
 - Missing or invalid bootstrap environment values fail closed before protected app access is available.
+
+### UserLanguagePreference
+
+Represents the authenticated user's persisted web-language preference.
+
+- `username`: linked internal admin user
+- `language`: `vi` or `en`
+- `updated_at`: latest preference update timestamp
+
+Rules:
+
+- The preference is owned by the authenticated user and persisted server-side;
+  it remains available across browser sessions and devices.
+- On first authenticated use, the app detects a supported Vietnamese or English
+  browser language and persists it as the preference. It persists English when
+  no supported browser language is available.
+- A later explicit user choice replaces the initially detected preference.
+- The preference controls web-visible copy and generated Phase 03 workflow
+  narrative. Source identifiers, citations, timestamps, numeric values, and
+  market symbols remain unchanged.
+- A workflow captures the preference in effect when it is submitted. Changing a
+  later preference does not rewrite saved workflow output.
 
 ### Session
 
@@ -171,6 +193,8 @@ Common record for workflow and chat execution.
 - `status`: queued, running, success, partial, failed
 - `requested_by`: admin user
 - `inputs`: user inputs or question
+- `output_language`: workflow language captured when the run is accepted, when
+  applicable
 - `started_at`: start timestamp
 - `completed_at`: completion timestamp when available
 - `output`: linked result output

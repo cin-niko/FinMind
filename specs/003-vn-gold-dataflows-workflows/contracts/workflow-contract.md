@@ -20,7 +20,8 @@ This feature extends the shared API and evidence contracts in
 Each enabled catalog entry must include:
 
 - stable `workflow_id`, title, and purpose;
-- `market_scope` containing only `VN_STOCK` or `GOLD`;
+- `market_scope` containing only `VN_STOCK` or `GOLD`, with `XAUUSD` as the
+  sole enabled Gold instrument;
 - required input schema and supported instrument selection;
 - required dataset groups, ordered stage labels, expected output sections, and
   chart requirements;
@@ -43,6 +44,9 @@ A supported gold collection result must return:
 Any stale, unavailable, mismatched, or undeclared gold dataset must mark its
 affected claims unavailable or reject the workflow before answer generation.
 
+Gold collection uses XAUUSD OHLC evidence with UTC-normalized timestamps. A
+missing volume field remains unavailable and must not be inferred.
+
 ## Workflow Run Contract
 
 `POST /api/workflows/{workflow_id}/runs` retains the Phase 02 SSE event contract
@@ -53,7 +57,7 @@ The request must reject or visibly mark:
 
 - missing or malformed inputs;
 - a market outside `VN_STOCK` or `GOLD`;
-- a gold instrument or benchmark outside the configured catalog;
+- a Gold instrument outside `XAUUSD`;
 - undeclared dataset requests; and
 - unsafe, stale, or unsupported claim categories.
 
@@ -63,6 +67,17 @@ The request must reject or visibly mark:
 `GET /api/runs/{run_id}/citations` must support completed and partial Phase 03
 workflow runs. Responses preserve market, instrument, stage status, output,
 artifacts, citation provenance, and limitations without disclosing raw reasoning.
+
+## Language Preference Contract
+
+The authenticated user's persisted `vi` or `en` web-language preference is
+resolved server-side when a workflow is submitted and captured with the run.
+The preference controls web-visible copy and generated workflow narrative. It
+does not translate or alter evidence identifiers, citations, timestamps, numeric
+values, market symbols, or prior saved output.
+
+When no preference exists, the app persists a supported browser language for the
+authenticated user, or `en` when browser detection is unsupported or unavailable.
 
 ## Safety Contract
 

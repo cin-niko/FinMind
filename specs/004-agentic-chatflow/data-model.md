@@ -31,12 +31,15 @@ retention, source, and tool choices remain Phase 04 planning gates.
 ## ChatMessage
 
 - `message_id`, `chat_id`, optional `run_id`, `role`, `content`, optional
-  `market_context`, citations, `created_at`, and status.
+  `market_context`, `detected_language`, citations, `created_at`, and status.
 - Supported roles are `user`, `assistant`, and `system_status`; statuses are
   `submitted`, `streaming`, `completed`, `partial`, and `failed`.
 - Assistant output is reconciled from safe stream events and final persisted
   run/message output. Secrets, prompts, raw reasoning, and unsafe diagnostics
   are never persisted as messages.
+- The individual user message is the primary response-language signal. When no
+  reliable language is identified, chatflow uses the owner's persisted `vi` or
+  `en` web-language preference.
 
 ## ExecutionRun And StreamEvent Usage
 

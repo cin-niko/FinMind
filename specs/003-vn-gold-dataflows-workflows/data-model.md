@@ -18,7 +18,11 @@ Phase 03 usage and extensions.
 ## MarketInstrument Usage
 
 - Enabled Phase 03 `market` values: `VN_STOCK` and `GOLD`.
-- `GOLD` identifies a configured instrument or benchmark, not all commodities.
+- `GOLD` identifies the single supported `XAUUSD` world-gold benchmark, not all
+  commodities.
+- `XAUUSD` has the user-facing display name `Gold`; it is not labeled as or
+  treated as a domestic SJC product.
+- The benchmark is quoted in USD per troy ounce.
 - Each enabled instrument declares a display name, quote currency or unit, and
   active/unsupported status.
 
@@ -26,9 +30,8 @@ Phase 03 usage and extensions.
 
 Feature-owned request passed to the common dataflow boundary.
 
-- `instrument_id`: configured supported gold instrument or benchmark.
-- `required_datasets`: declared dataset groups, such as market price/history or
-  supported context fields.
+- `instrument_id`: `XAUUSD`.
+- `required_datasets`: supported Gold OHLC price history.
 - `requested_at`: collection request timestamp.
 
 Rules:
@@ -36,6 +39,8 @@ Rules:
 - Requests for unsupported assets or undeclared datasets are rejected before
   collection.
 - A collection request does not expose provider credentials or raw payloads.
+- Gold evidence timestamps are normalized to UTC. Source-specific symbol mapping
+  remains inside the connector contract.
 
 ## GoldEvidenceRecord
 
@@ -53,6 +58,8 @@ Rules:
 
 - Gold records have the same citation allowlist and rendering rules as other
   records, but never claim stock-only fundamentals.
+- Gold technical records use OHLC evidence and may omit volume; a missing volume
+  cannot be inferred or presented as zero.
 - Stale, delayed, missing, or mismatched benchmark data blocks affected claims.
 
 ## WorkflowSpecification Usage
@@ -67,7 +74,8 @@ Rules:
 ## ExecutionRun And Citation Usage
 
 - Workflow runs persist market, instrument, inputs, stage status, final output,
-  artifacts, warnings, and status through the shared run store.
+  artifacts, warnings, status, and captured output language through the shared
+  run store.
 - Citation snapshots retain source id, dataset id, timestamp, rendered evidence,
   and enough structured context for later inspection.
 - Reinspection restores final/partial output and limitations without raw agent

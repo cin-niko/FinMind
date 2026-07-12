@@ -25,16 +25,18 @@ owned by `../004-agentic-chatflow/`.
   boundary, deterministic record rendering, citation allowlist, workflow SSE
   events, artifact contract, and run-store foundation.
 - Active market boundary: enabled workflow inputs are `VN_STOCK` and `GOLD`.
-- Gold source gate: select one supported gold instrument or benchmark and a
-  licensed/allowed source before implementation. The selected provider remains
-  behind the dataflow connector contract.
+- Gold source: `XAUUSD` is the sole supported Gold benchmark. Twelve Data
+  supplies OHLC evidence through the dataflow connector contract; timestamps
+  normalize to UTC and absent volume remains absent.
 - Runtime: retain the shared LangChain/LiteLLM-backed workflow runtime and its
   request-scoped SSE behavior. New workflow code must not bypass the dataflow,
   citation, grounding, or bounded-offload boundaries.
 - Storage: reuse the PostgreSQL run store and persisted citation snapshots.
   Gold source data follows the same canonical record and evidence-snapshot model.
 - UI: extend the existing workflow catalog, validation, transcript result,
-  history, artifact, and citation-panel surfaces. Do not activate production
+  history, artifact, citation-panel, and server-persisted Vietnamese/English
+  preference surfaces. On first authenticated use, persist the supported
+  browser language or English as the default. Do not activate production
   chatflow UI behavior in this phase.
 
 ## Constitution Check
@@ -46,20 +48,25 @@ owned by `../004-agentic-chatflow/`.
   internal.
 - Human control: workflows provide research support only and refuse trading,
   broker, and order actions.
-- Scope: enabled inputs remain VN stocks and the selected gold instrument or
-  benchmark. Other assets are rejected or shown unavailable.
+- Scope: enabled inputs remain VN stocks and `XAUUSD`. Other assets are rejected
+  or shown unavailable. Technical outputs are analysis-only and never produce
+  trading signals, verdicts, entry/exit instructions, or target prices.
 - Shared contracts: market enum expansion and active-scope rules live in
   `../system/state-model.md` and `../system/runtime-config-security.md`.
 
-Gate result: planning is ready for implementation only after the gold-source
-decision and contract validation tasks are complete.
+Gate result: planning is ready for implementation only after Twelve Data source
+rights and contract validation, the VN news search-domain allowlist and source
+handling, valuation methodology, and language-preference contract validation
+tasks are complete.
 
 ## Architecture And Ownership
 
 - `src/finmind_agents/dataflows/`: gold connector selection, normalization,
   freshness, source-status handling, and deterministic gold evidence records.
 - `src/finmind_agents/workflows/`: VN stock brief composition, market-specific
-  catalog metadata, input validation, and workflow execution assembly.
+  catalog metadata, input validation, and workflow execution assembly. Existing
+  VN technical and fundamental workflow runtime is refined through its skill,
+  evidence, output, language, and safety contracts rather than rebuilt.
 - `src/finmind_api/`: workflow/catalog/run/citation delivery contracts and
   persisted-run queries.
 - `src/finmind_ui/`: market-aware catalog inputs, validation states, stage
@@ -69,14 +76,17 @@ decision and contract validation tasks are complete.
 
 ## Delivery Sequence
 
-1. Resolve the supported gold instrument, source eligibility, datasets,
-   freshness expectation, and provider-failure behavior.
+1. Validate Twelve Data rights, limits, Gold OHLC schema, freshness expectation,
+   and provider-failure behavior for `XAUUSD`.
 2. Extend shared dataflow and market validation contracts for `GOLD`.
 3. Build gold evidence collection and its deterministic records before any gold
    workflow can generate claims.
-4. Deliver gold workflows and the composed VN stock brief with visible partial
-   and unavailable states.
-5. Complete validation, run-history, citation reinspection, safety, risk, and
+4. Refine the existing VN technical and fundamental workflows, then deliver new
+   Gold technical analysis, VN news digest, VN valuation, and VN stock-brief
+   workflows with bounded content and visible partial and unavailable states.
+5. Deliver the server-persisted Vietnamese/English web preference and capture
+   it in workflow runs without altering evidence fields.
+6. Complete validation, run-history, citation reinspection, safety, risk, and
    quickstart verification across both markets.
 
 ## Deferred Scope

@@ -21,3 +21,8 @@ Draft contract requirements:
   user-visible.
 - Trade execution, order placement, and broker actions are not supported.
 - Market scope starts from VN stocks and gold until a later spec expands scope.
+- Each response uses the reliably identified language of its individual user
+  message. When a message has no reliable language signal, the authenticated
+  user's persisted `vi` or `en` web-language preference is the fallback.
+- Language behavior does not translate or alter source identifiers, citations,
+  timestamps, numeric values, market symbols, or evidence snapshots.

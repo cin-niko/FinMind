@@ -28,6 +28,9 @@ are finalized.
   targets.
 - Future market scope starts from the mature VN stock and gold workflow scope
   unless a later spec expands it before implementation.
+- Response language is derived per user message. The persisted Vietnamese or
+  English user preference established by Phase 03 is the fallback when a
+  message language is ambiguous.
 - Inherited foundation: Phase 02 established shared safe SSE event semantics,
   bounded sync offload, citation snapshots, artifact inspection, and persisted
   run foundations. Phase 04 defines chat-specific conversation, message,

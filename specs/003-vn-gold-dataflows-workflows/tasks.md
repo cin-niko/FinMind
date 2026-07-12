@@ -1,7 +1,7 @@
 ---
 id: SPEC-FEAT-003-TASKS
 feature: vn-gold-dataflows-workflows
-status: draft
+status: superseded
 owner: solo
 created: 2026-07-11
 implements: []
@@ -12,6 +12,15 @@ adr_refs: []
 # Tasks: VN And Gold Dataflows And Workflows
 
 **Input**: Design artifacts in `specs/003-vn-gold-dataflows-workflows/`
+
+> **Superseded task draft**: This task list predates the Phase 03 scope that
+> defines XAUUSD/Twelve Data, mature existing VN workflows, new VN news and
+> valuation workflows, server-persisted language preference, and Phase 04-only
+> chat behavior. Do not implement from this file. Regenerate it with
+> `/speckit-tasks` after the detailed Phase 03 planning discussion is complete.
+>
+> Phase 02 migration references to task identifiers in this file are historical
+> traceability only. The regenerated task list replaces those identifiers.
 
 ## Phase 1: Gold Scope And Foundation
 
