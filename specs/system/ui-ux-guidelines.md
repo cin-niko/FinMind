@@ -36,7 +36,9 @@ concepts until their bounded specs make them canonical.
 - Roadmap surfaces are not active navigation: Market, Admin ingestion, production
   chat orchestration, and plugin surfaces require new bounded specs before they
   become canonical.
-- Operational clarity: ingestion status, stale data warnings, failed runs, and unsupported markets must be visible without reading logs.
+- Operational clarity: ingestion status, unavailable-evidence limitations,
+  failed conversations, and unsupported markets must be visible without reading
+  logs.
 - Dense but legible: prioritize compact navigation, tables, toolbars, split panes, and fixed-height panels.
 - No raw reasoning exposure: show stages, role status, tool status, citations, and artifacts; do not show hidden model reasoning transcripts.
 - Stable layout: hover, loading, validation, and chart states must not resize the shell or shift critical controls.
@@ -58,9 +60,9 @@ Use a light professional theme by default with a Perplexity-inspired ledger trea
 | Accent Teal | `accent-teal` | `#2F6654` | Selected icons, focus rings, send button, chart highlights |
 | Accent Teal Strong | `accent-teal-strong` | `#285746` | Active controls and hover states |
 | Amber | `accent-amber` | `#D09A2D` | Primary workflow run CTA, warnings, and coverage status |
-| Success | `success` | `#138A63` | Fresh data, bullish candles, success states |
+| Success | `success` | `#138A63` | Completed states and bullish candles |
 | Danger | `danger` | `#B9433A` | Failed jobs, bearish candles, destructive states |
-| Warning | `warning` | `#D09A2D` | Stale data, partial results |
+| Warning | `warning` | `#D09A2D` | Unavailable evidence and limitations |
 
 Avoid gradient-orb, bokeh, decorative hero, generic white-card/blue-SaaS, heavy beige archive styling, purple-blue, and marketing-card-heavy treatments.
 
@@ -73,7 +75,9 @@ Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail
 - Primary nav rows are flat text rows by default. Do not draw each row as an outlined button.
 - Only the active nav row or selected history row receives `surface-selected`; avoid simultaneous white, gray, and yellow row-selection backgrounds. Active rail rows do not increase font weight.
 - Yellow/amber must not be used as a rail selection color. Reserve it for run actions, warnings, and content-level coverage state.
-- `History` is one rail section with two subsections: `Chat` and `Workflow Runs`. Do not split history by relative dates such as Today or Yesterday in V1.
+- `History` is one rail section for persisted conversations. A workflow-created
+  conversation appears here as soon as it is started; do not expose a separate
+  workflow-run history or split history by relative dates in V1.
 - Top context bar is compact, pinned inside the primary content pane, and aligned with the artifact detail header when the artifact panel is open. In chat, it shows only the active conversation title matching the History label, falling back to `New Chat` before a conversation exists. Other surfaces show their current surface title only; surface metadata and filters belong inside the active work area.
 - Chat artifact detail headers are compact and pinned inside the right-side artifact panel. They use the same small title size as the chat header and show the artifact title plus close control only; artifact kind and metadata belong in the panel body.
 - The logout control belongs in the left rail footer with the current role/session summary, not in the top context bar.
@@ -134,11 +138,13 @@ Navigation is roadmap-aware:
   active symbol, and a terminal `Done` row. They show safe stage metadata only,
   not raw reasoning transcripts.
 
-### Results
+### Conversation Detail
 
-- Run list with filters
-- Detail view with output, citations, artifacts, visible execution status, and logs summary
-- Partial and failed runs distinguishable from successful runs
+- Conversation list and detail view with initiating workflow metadata, first
+  assistant message, its citations and artifacts, visible execution status, and
+  safe failure summary
+- Failed workflow-created conversations distinguishable from successful ones;
+  unavailable evidence and limitations remain visible in either outcome
 
 ### Chat
 
@@ -157,7 +163,7 @@ Navigation is roadmap-aware:
   panel on desktop or equivalent full-screen artifact view on mobile.
 - Inline citation chips appear at the cited answer location. Clicking a citation
   chip opens the citations view in the same right-side panel, shows the complete
-  source list for the answer or run, and scrolls to the selected source.
+  source list for the answer or conversation, and scrolls to the selected source.
 - Citations are not artifact cards; they are source/evidence inspection controls.
 - Chat must not render citation bundle or evidence list artifact cards when
   inline citation chips and citation-panel inspection are available.

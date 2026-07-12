@@ -97,6 +97,12 @@ Rules:
   projection from its structured fields. That rendered context may be reused for
   LLM input, citation display, and UI inspection, but the structured fields
   remain the canonical source of truth.
+- A collected or derived field with no usable value is normalized as `None` in
+  the structured record payload. Its deterministic rendered context maps `None`
+  to `Unavailable` before the LLM receives the record. Valid zero and false
+  values remain values; they must not be treated as unavailable by truthiness.
+  The context must not omit the field, substitute a plausible value, or make the
+  absence look like a completed result.
 - The default rendering contract is a class-owned `context` property backed by a
   deterministic template. Subclasses may override the default when a record
   needs custom presentation logic.
@@ -122,6 +128,8 @@ Allowed LLM behavior:
 - Summarize the data bundle
 - Cite the provided citation ids
 - Mark unsupported claims unavailable
+- Preserve deterministic unavailable field markers in its user-facing answer,
+  with an explanation when useful
 - Explain pattern findings or metric guardrails from the supplied records
 
 Disallowed LLM behavior:
@@ -147,4 +155,7 @@ This boundary applies across the product:
   deterministic for the same record fields.
 - Tests should assert that deterministic record generation and citations remain
   stable and inspectable without exposing hidden reasoning or provider
-  internals.
+  internals. Tests that exercise provider, market-data, news-search, or model
+  behavior must use deterministic mocks or fixtures rather than live external
+  calls. Live-provider contract validation is a separately recorded operational
+  check, not an automated-suite dependency.

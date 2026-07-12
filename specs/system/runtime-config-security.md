@@ -62,12 +62,17 @@ Generated material claims must show citations (source id, dataset id, timestamp)
 
 The UI may show evidence, citations, workflow stages, role status, tool status, artifact status, and final grounded rationale. It must not expose raw agent reasoning.
 
-## Run Store (PostgreSQL)
+## Conversation Store (PostgreSQL)
 
-Completed workflow and chat runs persist to PostgreSQL so history survives app restarts. Configuration:
+Workflow-created conversations persist to PostgreSQL so history survives app
+restarts. Interrupted queued or running conversations are reconciled to failed
+on startup under the shared conversation contract. Configuration:
 
-- `FINMIND_DATABASE_URL`: Postgres DSN. Required for the product run store; the application fails closed (protected content is not served) when it is missing or the database is unreachable.
-- The persistence implementation (`PostgresRunRepository`) lives in the API layer (`src/finmind_api/run_store.py`); the agentic layer (`finmind_agents`) only declares the `RunRepository` contract.
+- `FINMIND_DATABASE_URL`: Postgres DSN. Required for the product conversation store; the application fails closed (protected content is not served) when it is missing or the database is unreachable.
+- The persistence implementation is owned by the API layer; the agentic layer declares the corresponding conversation repository contract.
 - Development uses the `postgres` service in `docker-compose.yaml`; local `uv run uvicorn` points `FINMIND_DATABASE_URL` at `localhost:5432`.
-- One `runs` table backs both `workflow` and `chat` runs via the `kind` discriminator. The schema is bootstrapped idempotently on startup (`CREATE TABLE IF NOT EXISTS`); migrations are deferred until schema changes are required.
+- Conversations own their messages and execution metadata; assistant messages
+  own their citation snapshots and artifacts. Deleting a conversation
+  cascade-deletes those children but does not delete shared canonical market
+  data. The schema is bootstrapped or migrated safely on startup.
 - Database credentials are read only from environment variables and must not be logged, returned in API output, or exposed in the UI.

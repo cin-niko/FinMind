@@ -21,9 +21,11 @@ This spec defines stable contract rules for API responses, generated artifacts, 
 The authenticated app shell consumes JSON APIs for:
 
 - Session state: `GET /api/session`, `POST /api/login`, `POST /api/logout`
-- Workflow catalog and runs: `GET /api/workflows`, `POST /api/workflows/{workflow_id}/run`
-- Result inspection: `GET /api/runs`, `GET /api/runs/{run_id}`,
-  `GET /api/runs/{run_id}/citations`
+- Workflow catalog and conversation creation: `GET /api/workflows`,
+  `POST /api/workflows/{workflow_id}/conversations`
+- Conversation inspection and deletion: `GET /api/conversations`,
+  `GET /api/conversations/{conversation_id}`, and
+  `DELETE /api/conversations/{conversation_id}`
 
 All protected APIs require an active cookie-backed session. Raw agent reasoning is never returned.
 
@@ -40,7 +42,7 @@ Material user-facing claims must be backed by at least one citation or be explic
 - Source or market timestamp (conveys data age)
 - Optional cited fields or payload paths
 
-Cited ids must be a subset of the run's citation allowlist. Claims citing ids
+Cited ids must be a subset of the assistant message's citation allowlist. Claims citing ids
 not in the returned set are `uncited_claims` and force grounding to `blocked`.
 Data age is conveyed by citation timestamps; there is no separate
 freshness-status concept.
@@ -52,7 +54,8 @@ LLM flow used across FinMind surfaces.
 
 ## Artifact Contract
 
-Artifacts are reusable outputs linked to inputs, source refs, and execution context.
+Artifacts are reusable outputs linked to their owning assistant message, inputs,
+and source refs.
 
 Supported artifact types:
 
@@ -92,7 +95,7 @@ User-facing execution status may include:
 - Workflow stages
 - Role-agent status
 - Tool or artifact status
-- Run status: queued, running, success, partial, failed
+- Conversation workflow status: queued, running, success, failed
 - Failure summaries and unavailable sections
 
 User-facing execution status must not include hidden model reasoning transcripts.

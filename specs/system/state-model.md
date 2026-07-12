@@ -43,25 +43,30 @@ Rules:
 
 ### UserLanguagePreference
 
-Represents the authenticated user's persisted web-language preference.
+Represents the authenticated user's persisted web-language selection and its
+effective output language.
 
 - `username`: linked internal admin user
-- `language`: `vi` or `en`
+- `selection`: `auto`, `vi`, or `en`
 - `updated_at`: latest preference update timestamp
 
 Rules:
 
 - The preference is owned by the authenticated user and persisted server-side;
   it remains available across browser sessions and devices.
-- On first authenticated use, the app detects a supported Vietnamese or English
-  browser language and persists it as the preference. It persists English when
-  no supported browser language is available.
-- A later explicit user choice replaces the initially detected preference.
-- The preference controls web-visible copy and generated Phase 03 workflow
-  narrative. Source identifiers, citations, timestamps, numeric values, and
-  market symbols remain unchanged.
-- A workflow captures the preference in effect when it is submitted. Changing a
-  later preference does not rewrite saved workflow output.
+- The initial selection is `auto`. The UI offers exactly `Auto-detect`,
+  `English`, and `Vietnamese`.
+- With `auto`, the UI resolves the effective language from the browser's ordered
+  language list: it normalizes `vi-*` to `vi` and `en-*` to `en`, uses the first
+  supported entry, and uses `en` when no supported entry exists. With an
+  explicit selection, the effective language is that selection.
+- The selection and effective language control web-visible copy. Source
+  identifiers, citations, timestamps, numeric values, and market symbols remain
+  unchanged.
+- At workflow submission the UI sends the resolved effective language (`vi` or
+  `en`). The backend validates and captures that value as `output_language` and
+  uses it for generated Phase 03 workflow narrative. A later selection change
+  does not rewrite saved workflow output.
 
 ### Session
 
@@ -138,7 +143,7 @@ Rules:
   ids and payloads should be produced.
 - `DataRecord` defines the deterministic pre-LLM interface and may be
   recalculated from persisted base data; it is not required to be persisted for
-  every run.
+  every workflow-created conversation.
 - The structured record fields remain canonical; `context` is a deterministic
   rendered projection of those fields, not the source of truth.
 - The default implementation may use a class-owned template and cached
@@ -184,31 +189,98 @@ Rules:
 - Workflows must remain bounded and independently testable.
 - Workflow definitions must not hardcode provider-specific details.
 
-### ExecutionRun
+### WorkflowResult
 
-Common record for workflow and chat execution.
+The transient, non-conversation output of one fixed workflow execution.
 
-- `run_id`: unique identifier
-- `kind`: workflow or chat
-- `status`: queued, running, success, partial, failed
-- `requested_by`: admin user
-- `inputs`: user inputs or question
-- `output_language`: workflow language captured when the run is accepted, when
-  applicable
-- `started_at`: start timestamp
-- `completed_at`: completion timestamp when available
-- `output`: linked result output
-- `logs`: execution events
+- `workflow_id`: workflow that produced the result
+- `status`: success or failed
+- `output`: structured result sections or product-facing failure summary
+- `stage_status`: safe visible workflow-stage state
+- `citations`: cited evidence references
+- `artifacts`: generated chart or file outputs
+- `output_language`: resolved language used for narrative, when applicable
 
 Rules:
 
-- Partial runs distinguish completed sections from failures.
-- Raw agent reasoning remains internal and is not included in user-facing output.
-- Completed runs persist to the PostgreSQL run store so they remain inspectable
-  from `History` -> `Workflow Runs` (and later chat history) after an app
-  restart. One `runs` table serves both `workflow` and `chat` runs via the
-  `kind` discriminator. The DSN is configured via `FINMIND_DATABASE_URL`; the app
-  fails closed when it is missing or unreachable.
+- `WorkflowResult` is an execution boundary, not a persisted user-history root
+  and not a message. It does not own citations or artifacts after persistence.
+- The conversation adapter maps a `WorkflowResult` to an assistant message and
+  assigns its citations and artifacts to that message.
+
+### Conversation
+
+The product-owned root for a user's ordered messages. Starting a fixed workflow
+always creates a new conversation. Its workflow result is passed to the
+conversation adapter, which creates the first assistant message. Future chat
+also creates messages in conversations; Phase 03 does not add arbitrary
+follow-up messages or flexible chat routing.
+
+- `conversation_id`: unique identifier
+- `owner_username`: authenticated user who owns the conversation
+- `workflow_id`: fixed workflow that created the conversation, when applicable
+- `inputs`: accepted workflow inputs, when applicable
+- `output_language`: resolved `vi` or `en` captured at submission
+- `status`: queued, running, success, failed
+- `title`: user-facing conversation title
+- `created_at`, `started_at`, `completed_at`, `updated_at`: lifecycle timestamps
+- `messages`: ordered message ids
+- `stage_status`: visible safe workflow-stage state
+
+Rules:
+
+- An unavailable field, claim, chart, or section is output-level evidence state,
+  not a conversation terminal status. The rendered response must state the
+  affected item is unavailable without changing an otherwise successful
+  conversation.
+- A conversation is successful only when all planned workflow stages complete
+  safely. A timeout, interrupted execution, or failed planned stage makes the
+  conversation failed; the shared status contract does not use `partial`.
+- A submitted conversation may briefly be `queued` before execution and is
+  `running` while executing. If the service restarts, it must mark any persisted
+  `queued` or `running` conversation from the interrupted service instance as
+  `failed`, record `completed_at`, and retain a product-facing interruption
+  summary. It does not resume the interrupted workflow.
+- Conversations are owned by `owner_username`. Every conversation read, update,
+  and delete operation must authorize that owner; citations and artifacts are
+  reached only through an authorized conversation.
+- The conversation persists until its owner deletes it; Phase 03 has no
+  automatic time-based purge. Deleting a conversation cascade-deletes its
+  messages, the citation snapshots and artifacts owned by those messages, and
+  execution metadata, but never deletes shared canonical market-data records.
+  Deletion is allowed only after the conversation reaches `success` or `failed`;
+  deleting `queued` or `running` conversations is rejected because Phase 03 has
+  no cancellation.
+- Raw agent reasoning remains internal and is not included in user-facing
+  messages. The conversation store persists after an app restart; its database
+  configuration follows `FINMIND_DATABASE_URL` and fails closed when unavailable.
+
+### Message
+
+An ordered user-facing entry within one conversation.
+
+- `message_id`: unique identifier
+- `conversation_id`: owning conversation
+- `role`: `user` or `assistant`
+- `content`: user text or rendered response content
+- `created_at`: creation timestamp
+- `source_kind`: `workflow_result` or a future chat-message source
+- `workflow_id`: fixed workflow identifier when `source_kind` is
+  `workflow_result`
+- `status`: optional safe result/failure state for a workflow-result message
+
+Rules:
+
+- A workflow produces a `WorkflowResult`; it does not create a user-facing
+  message itself. The conversation adapter maps that result to one assistant
+  message in the new conversation, including a product-facing failure summary
+  when applicable.
+- Chat creates its own user and assistant messages through its future chatflow
+  path. Both workflow and chat messages use this same conversation/message
+  ownership model.
+- Citations and artifacts belong to the assistant message they support, not
+  directly to a workflow result or conversation. They are reached through that
+  message and its authorized conversation.
 
 ### Citation
 
@@ -216,7 +288,7 @@ User-visible source reference generated by the LLM from allowed data records and
 validated by runtime grounding rules.
 
 - `citation_id`: unique identifier
-- `run_id`: linked workflow or chatflow run
+- `message_id`: owning assistant message
 - `record_id`: linked data record
 - `record_type`: data record type
 - `source_id`: source connector or demo source identity
@@ -234,7 +306,7 @@ validated by runtime grounding rules.
 Rules:
 
 - Material user-facing claims require at least one citation or explicit unsupported/unavailable marking.
-- Cited citation ids must be a subset of the run's citation allowlist; otherwise
+- Cited citation ids must be a subset of the owning message's citation allowlist; otherwise
   the claim is an `uncited_claim` and grounding is `blocked`.
 - Citations are not artifacts and must resolve back to allowed data records.
 - The persisted citation row must be sufficient for UI inspection even when the
@@ -245,9 +317,10 @@ Rules:
 Parent model for generated outputs that users can open or download.
 
 - `artifact_id`: unique identifier
+- `message_id`: owning assistant message
 - `artifact_type`: `file` or `chart`
 - `title`: user-facing title
-- `inputs`: linked data and run inputs
+- `inputs`: linked data and conversation inputs
 - `source_refs`: linked citation ids
 - `status`: ready, unavailable, or failed
 - `reason`: optional unavailable or failure reason
@@ -278,7 +351,8 @@ Structured chart output rendered by trusted FinMind UI components.
 
 Rules:
 
-- File and chart artifacts must be traceable to canonical data and execution context.
+- File and chart artifacts must be traceable to canonical data and their owning
+  assistant message.
 - Chart artifacts must be rendered by trusted UI components and must not execute
   arbitrary generated HTML or JavaScript.
 - Citations are not artifacts; source inspection uses citation panel state.
@@ -295,7 +369,7 @@ Rules:
 
 - Artifact cards open artifact mode and show the full artifact viewer.
 - Inline citation chips open citations mode, show the complete source list for
-  the answer or run, and jump to the selected source.
+  the answer or conversation, and jump to the selected source.
 
 ### MockChatConversation
 
