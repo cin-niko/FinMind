@@ -28,6 +28,9 @@ owned by `../004-agentic-chatflow/`.
 - Gold source: `XAUUSD` is the sole supported Gold benchmark. Twelve Data
   supplies OHLC evidence through the dataflow connector contract; timestamps
   normalize to UTC and absent volume remains absent.
+- VN news source: Tavily searches an approved publisher-domain allowlist and
+  retrieves article content for bounded source excerpts. The workflow consumes
+  normalized source documents, never raw search or page payloads.
 - Runtime: retain the shared LangChain/LiteLLM-backed workflow runtime and its
   request-scoped SSE behavior. New workflow code must not bypass the dataflow,
   citation, grounding, or bounded-offload boundaries.
@@ -36,8 +39,9 @@ owned by `../004-agentic-chatflow/`.
 - UI: extend the existing workflow catalog, validation, transcript result,
   history, artifact, citation-panel, and server-persisted Vietnamese/English
   preference surfaces. On first authenticated use, persist the supported
-  browser language or English as the default. Do not activate production
-  chatflow UI behavior in this phase.
+  browser language or English as the default. Gold technical analysis is a
+  direct-run XAUUSD card with no market, symbol, or instrument form. Do not
+  activate production chatflow UI behavior in this phase.
 
 ## Constitution Check
 

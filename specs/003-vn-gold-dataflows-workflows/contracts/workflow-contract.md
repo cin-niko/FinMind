@@ -61,6 +61,10 @@ The request must reject or visibly mark:
 - undeclared dataset requests; and
 - unsafe, stale, or unsupported claim categories.
 
+The Gold technical-analysis workflow has no user-editable market, symbol, or
+instrument input. The server binds its collection request to `GOLD` and
+`XAUUSD`; client-provided overrides are rejected.
+
 ## Run Inspection Contract
 
 `GET /api/runs`, `GET /api/runs/{run_id}`, and

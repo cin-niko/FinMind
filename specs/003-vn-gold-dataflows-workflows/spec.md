@@ -99,13 +99,16 @@ evidence and contain no trading signal or verdict.
 
 **Acceptance Scenarios**:
 
-1. **Given** sufficient XAUUSD OHLC evidence, **When** the analyst runs Gold
+1. **Given** the analyst selects the Gold technical-analysis card, **When** the
+   analyst runs it, **Then** it uses the fixed XAUUSD benchmark without a market,
+   symbol, or instrument input control.
+2. **Given** sufficient XAUUSD OHLC evidence, **When** the analyst runs Gold
    technical analysis, **Then** the result presents cited, analysis-only
    technical context and a chart artifact where supported.
-2. **Given** insufficient Gold price history or stale evidence, **When** the
+3. **Given** insufficient Gold price history or stale evidence, **When** the
    workflow completes, **Then** affected technical claims and charts are marked
    unavailable rather than estimated.
-3. **Given** a Gold workflow is selected, **When** output is rendered, **Then**
+4. **Given** a Gold workflow is selected, **When** output is rendered, **Then**
    stock-only sections such as company fundamentals and equity valuation do not
    appear as supported gold output.
 
@@ -141,32 +144,6 @@ follow the persisted setting while evidence fields remain unchanged.
    browser language, or English when no supported browser language is detected.
 
 ---
-
-### User Story 5 - Compare, Validate, And Reinspect Workflows (Priority: P2)
-
-An authenticated analyst can distinguish VN stock and gold workflows, provide
-only the required inputs for each, and later reopen completed or partial runs
-with their evidence, artifacts, limitations, and language-preserved output.
-
-**Why this priority**: Market boundaries and auditable run history prevent
-misuse of research outputs and support repeated analyst review.
-
-**Independent Test**: Open the catalog, submit valid and invalid inputs for
-each workflow, and reopen completed and partial runs to verify scope, evidence,
-status, artifacts, and saved output remain clear.
-
-**Acceptance Scenarios**:
-
-1. **Given** the analyst opens the workflow catalog, **When** VN stock and gold
-   workflows are listed, **Then** each clearly states its market scope,
-   required inputs, expected evidence, and unavailable categories.
-2. **Given** the analyst submits an unsupported market, instrument, or missing
-   required input, **When** validation runs, **Then** the request is blocked
-   near the relevant field or request boundary without creating a fabricated
-   result.
-3. **Given** a workflow completed or was partial, **When** the analyst reopens
-   it, **Then** its saved output, citations, artifacts, source freshness, and
-   limitation states remain inspectable in the language used for that run.
 
 ### Edge Cases
 
@@ -234,11 +211,13 @@ status, artifacts, and saved output remain clear.
   limitations before users can rely on VN stock or gold workflow output.
 - **FR-015**: The system MUST generate chart artifacts only from available
   cited evidence and mark charts unavailable when evidence is insufficient.
-- **FR-016**: Workflow forms MUST render and validate every required VN stock
-  or gold input and block unsupported markets, instruments, and missing or
-  invalid values without creating a fabricated result.
+- **FR-016**: VN stock workflow forms MUST render and validate every required
+  input and block missing or invalid values without creating a fabricated
+  result. Gold technical analysis MUST have no user-editable market, symbol, or
+  instrument input and MUST run only for XAUUSD.
 - **FR-017**: The workflow catalog MUST state each workflow's market scope,
-  required inputs, supported sections, and unsupported categories.
+  required inputs, supported sections, and unsupported categories. The Gold
+  technical-analysis card MUST run its fixed XAUUSD scope directly.
 - **FR-018**: The web application MUST offer Vietnamese and English as
   server-persisted, authenticated-user language preferences. On first
   authenticated use, it MUST persist a supported browser language or English as
@@ -271,8 +250,8 @@ is the authoritative implementation target.
 | Phase 02 item | Phase 03 owner |
 |---|---|
 | Composite `stock-brief` workflow | FR-007 and User Story 2 |
-| Field-level input validation and unsupported-state behavior | FR-016 and User Story 5 |
-| Workflow history, detail, and citation reinspection | FR-021 and FR-022 and User Story 5 |
+| Field-level input validation and unsupported-state behavior | FR-016 |
+| Workflow history, detail, and citation reinspection | FR-021 and FR-022 |
 | Unfinished delivery, risk, safety, environment, and quickstart tasks | Phase 03 cross-cutting work |
 
 ### Key Entities

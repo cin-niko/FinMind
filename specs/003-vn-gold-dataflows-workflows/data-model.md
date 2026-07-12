@@ -38,6 +38,8 @@ Rules:
 
 - Requests for unsupported assets or undeclared datasets are rejected before
   collection.
+- The Gold technical-analysis workflow binds `instrument_id` to `XAUUSD`; users
+  do not submit a market, symbol, or instrument value for that workflow.
 - A collection request does not expose provider credentials or raw payloads.
 - Gold evidence timestamps are normalized to UTC. Source-specific symbol mapping
   remains inside the connector contract.

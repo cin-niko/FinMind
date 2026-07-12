@@ -74,11 +74,13 @@ methods and marks inapplicable methods unavailable.
 
 The news digest has a bounded 30-day window, declared source priority, visible
 publication timestamps, and one cited news record for each collected article.
-It uses a domain-restricted web-search connector rather than publisher APIs.
-Its useful output is a cited grouping of company, sector, macro, disclosure, and
-analyst developments with their evidence and limitations. Deduplication,
-sentiment scores, market signals, and investment recommendations are deferred
-beyond Phase 03.
+It uses Tavily to search approved domains and retrieve article content rather
+than publisher APIs. The connector normalizes an allowed article excerpt into a
+source document; raw search responses and raw page payloads are not sent to the
+workflow or model. Its useful output is a cited grouping of company, sector,
+macro, disclosure, and analyst developments with their evidence and limitations.
+Deduplication, sentiment scores, market signals, and investment recommendations
+are deferred beyond Phase 03.
 
 ## Decision: Keep Technical Output Analysis-Only
 
