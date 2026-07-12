@@ -26,7 +26,7 @@ def test_target_packages_are_importable() -> None:
 def test_fixture_market_data_provider_supports_company_profile_records() -> None:
     from datetime import UTC, datetime
 
-    from conftest import _FixtureMarketDataProvider
+    from tests.conftest import _FixtureMarketDataProvider
     from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
     from finmind_agents.models import CanonicalMarketDataRecord
 
