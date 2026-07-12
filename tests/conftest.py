@@ -80,12 +80,12 @@ class _FixtureMarketDataProvider:
 
 def _matches_requested_group(dataset_id: str, groups: tuple[DatasetGroup, ...]) -> bool:
     return (
-        DatasetGroup.MARKET_PRICE in groups
-        and dataset_id.endswith("_prices")
-        or DatasetGroup.FUNDAMENTAL in groups
-        and dataset_id.endswith("_fundamentals")
-        or DatasetGroup.COMPANY_PROFILE in groups
-        and dataset_id.endswith("_company_profile")
+        (DatasetGroup.MARKET_PRICE in groups and dataset_id.endswith("_prices"))
+        or (DatasetGroup.FUNDAMENTAL in groups and dataset_id.endswith("_fundamentals"))
+        or (
+            DatasetGroup.COMPANY_PROFILE in groups
+            and dataset_id.endswith("_company_profile")
+        )
     )
 
 
