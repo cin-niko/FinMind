@@ -55,7 +55,7 @@ def collect_workflow_data(
     )
     if not collection.records and not collection.source_documents:
         raise WorkflowValidationError(
-            "Market data provider is unavailable. Try again after the provider recovers."
+            f"No market data was returned for {symbol}. Check the symbol and try again."
         )
     return CollectedWorkflowData(
         records=collection.records,

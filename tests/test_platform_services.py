@@ -1370,7 +1370,9 @@ def test_missing_market_data_emits_failed_stream_event_and_failed_run(
     assert runs.status_code == 200
     assert run is None
     failed = _failed_event_from_events(events)
-    assert "Market data provider is unavailable" in failed["payload"]["message"]
+    assert failed["payload"]["message"] == (
+        "No market data was returned for ZZZ. Check the symbol and try again."
+    )
     assert runs.json()[0]["status"] == "failed"
 
 
