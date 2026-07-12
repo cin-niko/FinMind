@@ -39,15 +39,13 @@ class Settings:
             raise SettingsError(f"Missing required admin configuration: {', '.join(missing)}")
         if len(required["FINMIND_SESSION_SECRET"]) < 16:
             raise SettingsError("FINMIND_SESSION_SECRET must be at least 16 characters")
-        vn_data_provider = (
-            _env("FINMIND_VN_DATA_PROVIDER", dotenv)
-            or _env("VN_DATA_PROVIDER", dotenv)
-            or "vnstock"
+        vn_data_provider = _env(
+            "FINMIND_VN_DATA_PROVIDER",
+            dotenv,
+            "vnstock",
         ).strip().lower()
         if vn_data_provider != "vnstock":
-            raise SettingsError(
-                "FINMIND_VN_DATA_PROVIDER or VN_DATA_PROVIDER must be vnstock"
-            )
+            raise SettingsError("FINMIND_VN_DATA_PROVIDER must be vnstock")
         return cls(
             admin_username=required["FINMIND_ADMIN_USERNAME"],
             admin_password=required["FINMIND_ADMIN_PASSWORD"],

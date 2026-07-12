@@ -1036,27 +1036,8 @@ def test_vn_data_provider_env_defaults_to_vnstock(
     monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
     monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
     monkeypatch.delenv("FINMIND_VN_DATA_PROVIDER", raising=False)
-    monkeypatch.delenv("VN_DATA_PROVIDER", raising=False)
 
     assert Settings.from_env().vn_data_provider == "vnstock"
-
-
-def test_bare_vn_data_provider_env_rejects_offline_mode(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from finmind_api.settings import Settings, SettingsError
-
-    monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
-    monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
-    monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
-    monkeypatch.delenv("FINMIND_VN_DATA_PROVIDER", raising=False)
-    monkeypatch.setenv("VN_DATA_PROVIDER", "offline")
-
-    with pytest.raises(
-        SettingsError,
-        match="FINMIND_VN_DATA_PROVIDER or VN_DATA_PROVIDER must be vnstock",
-    ):
-        Settings.from_env()
 
 
 def test_vnstock_api_key_env_is_supported(

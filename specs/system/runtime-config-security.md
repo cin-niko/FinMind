@@ -36,6 +36,9 @@ remains deferred to Phase 04. Future market coverage is not valid user-facing
 scope until a bounded spec defines asset coverage, source eligibility, and
 safety behavior.
 
+VN provider selection uses `FINMIND_VN_DATA_PROVIDER` as its sole environment
+variable and accepts only `vnstock` in the current workflow foundation.
+
 Mock/demo surfaces are still user-facing scope surfaces. Controls must not present
 unsupported markets or assets as enabled runnable choices. If roadmap markets are
 shown for product preview, they must be disabled or clearly marked future/out-of-scope
