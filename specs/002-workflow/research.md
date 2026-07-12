@@ -441,11 +441,11 @@ breaks the transcript reading flow for chat-first use.
 Alternatives considered: exposing the data audit as a standalone workflow.
 Deferred until there is enough operational need for a diagnostics-focused view.
 
-## Decision: Fetch latest provider data with deterministic fallback
+## Decision: Surface provider failures without deterministic fallback
 
 Phase 02 should fetch latest available provider data for requested VN stock
 symbols before workflow analysis runs. Deterministic seeded records remain
-only for tests, local offline development, and explicit degraded fallback paths.
+test-fixture-only; provider failures produce visible unavailable or failed states.
 
 Rationale: User-facing workflows need current evidence to be useful as trading
 research support. Keeping provider output normalized behind canonical records
@@ -463,9 +463,9 @@ and future chatflow; it does not implement admin ingestion, scheduled backfill,
 warehouse storage, or a broad realtime data platform in Phase 02.
 
 Rationale: Workflows and chatflow both need current, evidence-ready finance data,
-but neither should know provider APIs or fallback rules. A dedicated collection
-boundary keeps provider selection, normalization, failure handling, and fallback
-labeling in one place while preserving the existing workflow runtime as the
+but neither should know provider APIs or substitution rules. A dedicated collection
+boundary keeps provider selection, normalization, and failure handling in one
+place while preserving the existing workflow runtime as the
 analysis/orchestration layer.
 
 Alternatives considered: keep provider calls in `workflows/collector.py`, build a
@@ -473,7 +473,7 @@ full ingestion/backfill platform, or copy TradingAgents-style dataflows directly
 Provider calls inside workflows would couple analysis to source mechanics. A full
 ingestion platform is beyond short-term scope. TradingAgents is useful as a
 reference, but FinMind needs stricter canonical contracts, provider status,
-fallback labeling, and no trading/autonomous action coupling.
+visible unavailable states, and no trading/autonomous action coupling.
 
 ## Decision: Use `vnstock` for VN market collection
 

@@ -206,9 +206,9 @@ Acceptance scenarios:
 - **FR-011**: Phase 02 MUST NOT enable workflow markets beyond its VN stock
   foundation. Gold workflow support is deferred to
   `../003-vn-gold-dataflows-workflows/`.
-- **FR-014**: System MUST maintain deterministic seeded/offline canonical records
-  for VN stock examples with source identity, market time, collection
-  time, and unique record keys for tests and provider-failure fallback.
+- **FR-014**: Test fixtures MUST provide deterministic VN stock records with
+  source identity, market time, collection time, and unique record keys. Product
+  provider failures must remain visible rather than substituting fixture data.
 - **FR-015**: Phase 02 workflows MUST NOT provide standalone news digest,
   catalyst analysis, or current-event claims unless a deterministic future source
   contract supplies auditable news records; unsupported news/catalyst categories
@@ -452,8 +452,8 @@ See `../system/state-model.md` for canonical entity definitions.
 - Record rendering templates may be shared across LLM input building and UI
   display, but template execution remains deterministic presentation logic only;
   calculation logic stays outside the template layer.
-- Deterministic seeded/offline VN stock records remain necessary to validate
-  workflow contracts without network or provider credentials.
+- Deterministic VN stock records remain test-fixture-only so workflow contracts
+  can be validated without network or provider credentials.
 - Phase 02 excludes standalone news digest, catalyst analysis, and standalone
   risk-review workflows; unsupported claim categories are marked unavailable.
 - Workflows provide advice support and evidence framing, not buy/sell decisions.

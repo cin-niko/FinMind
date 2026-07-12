@@ -143,20 +143,14 @@ def print_env_help(file: object) -> None:
 def create_workflow_service_from_env():
     from finmind_agents.dataflows.registry import build_default_provider_registry
     from finmind_agents.dataflows.service import DataflowService
-    from finmind_agents.memory import (
-        InMemoryMarketDataRepository,
-        InMemoryRunRepository,
-        create_workflow_catalog,
-    )
+    from finmind_agents.memory import InMemoryRunRepository, create_workflow_catalog
     from finmind_agents.runtime.service import AgentOrchestrator
     from finmind_agents.workflows.service import WorkflowService
 
-    market_data = InMemoryMarketDataRepository()
     dataflows = DataflowService(
         registry=build_default_provider_registry(
             vn_data_provider="vnstock",
             vnstock_api_key=os.getenv("FINMIND_VNSTOCK_API_KEY", "").strip(),
-            fallback_market_data=market_data,
         )
     )
     return WorkflowService(

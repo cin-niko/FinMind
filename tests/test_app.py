@@ -85,7 +85,6 @@ def _failed_event_from_events(events: list[dict[str, object]]) -> dict[str, obje
 
 @pytest.fixture
 def client(admin_env: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
     monkeypatch.setattr(
         "finmind_api.platform.build_default_agent_orchestrator",
         lambda: FakeAgentOrchestrator(),
@@ -234,7 +233,6 @@ def test_workflow_agent_runtime_error_returns_service_unavailable(
     admin_env: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
     monkeypatch.delenv("LITELLM_CHAT_MODEL", raising=False)
     app = create_app()
     with TestClient(app) as test_client:
@@ -350,7 +348,6 @@ def test_workflow_run_emits_run_stage_before_answer_delta(
     admin_env: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
     monkeypatch.setattr(
         "finmind_api.platform.build_default_agent_orchestrator",
         lambda: FakeAgentOrchestrator(),
@@ -394,7 +391,6 @@ def test_workflow_run_returns_429_when_per_user_stream_limit_is_reached(
     admin_env: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
     monkeypatch.setenv("FINMIND_STREAM_PER_USER_LIMIT", "1")
     monkeypatch.setattr(
         "finmind_api.platform.build_default_agent_orchestrator",

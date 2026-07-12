@@ -136,7 +136,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
     monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
     monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
-    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
     monkeypatch.setattr(
         "finmind_api.platform.build_default_agent_orchestrator",
         lambda: FakeAgentOrchestrator(),
@@ -395,7 +394,6 @@ def test_dataflow_service_passes_effective_groups_to_provider() -> None:
             symbol="DXG",
             requested_by="test",
             data_requirements=(DataRequirement(dataset="ohlcv"),),
-            allow_fallback=False,
         )
     )
 
@@ -450,7 +448,6 @@ def test_workflow_passes_rendered_data_records_without_raw_price_series(
     monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
     monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
     monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
-    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
     monkeypatch.setattr(
         "finmind_api.platform.build_default_agent_orchestrator",
         lambda: orchestrator,
@@ -494,7 +491,6 @@ def test_fundamental_analysis_request_marks_fundamental_record_audited(
     monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
     monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
     monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
-    monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
     monkeypatch.setattr(
         "finmind_api.platform.build_default_agent_orchestrator",
         lambda: orchestrator,
@@ -955,7 +951,7 @@ def test_dataflow_registry_selects_providers_by_market_and_dataset_group() -> No
         market=Market.VN_STOCK,
         dataset_groups=(DatasetGroup.MARKET_PRICE, DatasetGroup.FUNDAMENTAL),
     )
-    assert {provider.provider_id for provider in vn_providers} >= {"vnstock", "offline_fallback"}
+    assert {provider.provider_id for provider in vn_providers} == {"vnstock"}
 
 
 def test_smoke_script_builds_workflow_service_without_removed_provider_kwargs() -> None:
@@ -971,24 +967,18 @@ def test_smoke_script_builds_workflow_service_without_removed_provider_kwargs() 
     assert workflow_service.list_workflows()
 
 
-def test_vn_data_provider_env_can_disable_vnstock(
+def test_vn_data_provider_env_rejects_offline_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from finmind_agents.dataflows.models import DatasetGroup
-    from finmind_api.platform import create_demo_platform
+    from finmind_api.settings import Settings, SettingsError
 
     monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
     monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
     monkeypatch.setenv("FINMIND_SESSION_SECRET", "session-secret-with-length")
     monkeypatch.setenv("FINMIND_VN_DATA_PROVIDER", "offline")
 
-    platform = create_demo_platform()
-    providers = platform.dataflow_service.registry.providers_for(
-        market=Market.VN_STOCK,
-        dataset_groups=(DatasetGroup.MARKET_PRICE,),
-    )
-
-    assert {provider.provider_id for provider in providers} == {"offline_fallback"}
+    with pytest.raises(SettingsError, match="must be vnstock"):
+        Settings.from_env()
 
 
 def test_vn_data_provider_env_defaults_to_vnstock(
@@ -1005,10 +995,10 @@ def test_vn_data_provider_env_defaults_to_vnstock(
     assert Settings.from_env().vn_data_provider == "vnstock"
 
 
-def test_bare_vn_data_provider_env_is_supported(
+def test_bare_vn_data_provider_env_rejects_offline_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from finmind_api.settings import Settings
+    from finmind_api.settings import Settings, SettingsError
 
     monkeypatch.setenv("FINMIND_ADMIN_USERNAME", "analyst")
     monkeypatch.setenv("FINMIND_ADMIN_PASSWORD", "secret-pass")
@@ -1016,7 +1006,8 @@ def test_bare_vn_data_provider_env_is_supported(
     monkeypatch.delenv("FINMIND_VN_DATA_PROVIDER", raising=False)
     monkeypatch.setenv("VN_DATA_PROVIDER", "offline")
 
-    assert Settings.from_env().vn_data_provider == "offline"
+    with pytest.raises(SettingsError, match="must be vnstock"):
+        Settings.from_env()
 
 
 def test_vnstock_api_key_env_is_supported(
@@ -1367,7 +1358,7 @@ def test_missing_market_data_emits_failed_stream_event_and_failed_run(
     assert runs.status_code == 200
     assert run is None
     failed = _failed_event_from_events(events)
-    assert "Required market data is missing" in failed["payload"]["message"]
+    assert "Market data provider is unavailable" in failed["payload"]["message"]
     assert runs.json()[0]["status"] == "failed"
 
 

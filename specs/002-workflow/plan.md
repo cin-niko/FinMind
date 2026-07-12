@@ -52,17 +52,17 @@ that is open while work is running and collapsed after completion.
 - Backend dependencies: FastAPI, Pydantic, LangChain, Deep Agents
   (`deepagents`), `langchain-openai` for OpenAI-compatible endpoints and `langchain-litellm` for provider-routed models as the multi-provider model
   adapter, `httpx` as a runtime dependency for async provider clients,
-  collection-first dataflow adapters, async run repositories, in-memory fallback
+  collection-first dataflow adapters, async run repositories, in-memory test
   repositories, pytest. LangGraph is intentionally deferred for the current MVP.
 - Market-data providers: `vnstock` (4.x unified API) adapter for VN stock
   latest price and fundamentals, using the `vci` source (the legacy `kbs`
-  endpoints reset connections); deterministic offline fallback for tests and
-  provider outage paths. US market providers are unsupported in the current
-  product plan.
+  endpoints reset connections); provider outages surface visible unavailable or
+  failed states. Deterministic provider fixtures are test-only. US market
+  providers are unsupported in the current product plan.
 - Frontend dependencies: React/Vite, existing app shell, existing workflow/result
   pages, existing chat transcript surface, Lightweight Charts.
-- Storage: in-memory canonical record cache for Phase 02 provider results
-  plus deterministic offline fallback records; completed workflow runs
+- Storage: in-memory canonical record cache for Phase 02 provider results;
+  completed workflow runs
   persist to PostgreSQL via async `psycopg` support (one `runs` table,
   `kind` discriminator), bootstrapped with idempotent DDL. Reusable
   `price_series` base data and cited citation snapshots should be persisted in
@@ -94,7 +94,7 @@ that is open while work is running and collapsed after completion.
   closed when unavailable; async handlers must not directly perform blocking
   provider, database, filesystem, or model work.
 - Scale/scope: latest provider fetch for one requested symbol per run, small
-  canonical in-memory cache/fallback datasets, authenticated multi-user internal
+  canonical in-memory cache, authenticated multi-user internal
   workbench, request-scoped async streaming execution for MVP, and persisted
   final run state for result inspection.
 
@@ -142,7 +142,7 @@ Gate result: pass. No constitution violations require exception.
 - `src/finmind_agents/skills/`: own skill loading and skill assets in
   `<skill-name>/SKILL.md` and `DATA_REQUIREMENTS.yaml`.
 - `src/finmind_agents/dataflows/`: own provider selection, latest data fetch,
-  normalization, fallback policy, provider status, and canonical collection
+  normalization, provider status, and canonical collection
   results. It remains shared by workflows now and chatflow later. Provider
   adapters should be async where possible; unavoidable sync libraries such as
   `vnstock` must run through bounded offload wrappers with timeout/failure
@@ -259,7 +259,7 @@ Execution rules:
   declared by the skill must be attempted; optional data may be attempted when
   allowed by policy and timeout budget.
 - Agent-planned collection is only a request. FinMind validates market, symbol,
-  dataset ids, required/optional status, fallback permission, and tool policy
+  dataset ids, required/optional status, and tool policy
   before executing the collection.
 - SKILL.md may define how to interpret the deterministic records, cite them,
   and label unsupported claims, but it must not define a tool-driven dataflow
@@ -464,7 +464,6 @@ src/finmind_agents/dataflows/
   models.py
   service.py
   registry.py
-  fallback.py
   normalizers.py
   providers/
     __init__.py
@@ -479,7 +478,6 @@ Responsibilities:
 - `service.py`: one `DataflowService.collect(...)` entry point for workflows
   and future chatflow.
 - `registry.py`: provider selection by market and dataset group.
-- `fallback.py`: deterministic offline fallback policy and fallback labeling.
 - `normalizers.py`: provider payload to canonical records/source documents.
 - `providers/`: provider adapters only; no workflow or UI behavior.
 
@@ -516,10 +514,8 @@ Rules:
   chatflow endpoints or chat-specific output schemas.
 - Provider raw responses, API keys, credentials, hidden prompts, and unsafe
   diagnostics never reach user-facing responses.
-- Provider failure returns `partial`, `failed`, or `fallback`; it never fabricates
-  successful evidence.
-- Fallback records are labeled as fallback and remain distinguishable from live
-  provider data.
+- Provider failure returns `partial` or `failed`; it never fabricates successful
+  evidence or substitutes deterministic fixture data.
 - The LLM-facing bundle is intentionally smaller than the raw collection result;
   the runtime should chunk records for evidence use, not expose full provider
   dumps to the skill.
@@ -547,8 +543,8 @@ Resolved in `research.md`:
 - Spend implementation effort on dataflows, grounding, citations, validators,
   and synthesis prompts; do not rebuild planning/delegation primitives unless
   the framework proves too hard to control.
-- Use latest real provider data for VN stocks, with deterministic seeded/offline
-  fallback for tests and degraded provider paths.
+- Use latest real provider data for VN stocks. Deterministic records are
+  test-fixture-only, and degraded provider paths return visible limitations.
 - Keep data collection and quality checks internal but visible through status.
 - Keep data packaging deterministic so the same raw inputs produce the same
   derived records, citation ids, and model-visible claims.

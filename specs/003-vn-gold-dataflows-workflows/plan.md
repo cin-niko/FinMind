@@ -70,7 +70,7 @@ decision and contract validation tasks are complete.
 ## Delivery Sequence
 
 1. Resolve the supported gold instrument, source eligibility, datasets,
-   freshness expectation, and fallback policy.
+   freshness expectation, and provider-failure behavior.
 2. Extend shared dataflow and market validation contracts for `GOLD`.
 3. Build gold evidence collection and its deterministic records before any gold
    workflow can generate claims.

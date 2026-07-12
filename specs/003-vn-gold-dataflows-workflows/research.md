@@ -27,7 +27,7 @@ gold prompts. Rejected because both would duplicate or bypass safety controls.
 
 Phase 03 will support a bounded gold instrument or benchmark only after its
 provider, licensing/usage eligibility, timezone, currency/unit, expected
-freshness, fallback labeling, and available datasets are explicitly selected.
+freshness, provider-failure behavior, and available datasets are explicitly selected.
 
 Rationale: a generic "gold" feed does not define an auditable user-facing
 instrument or safe claim boundary.

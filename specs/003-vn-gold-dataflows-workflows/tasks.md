@@ -15,7 +15,7 @@ adr_refs: []
 
 ## Phase 1: Gold Scope And Foundation
 
-- [ ] T001 Define the supported gold instrument/benchmark, source eligibility, datasets, freshness target, units, and fallback policy in `specs/003-vn-gold-dataflows-workflows/research.md`
+- [ ] T001 Define the supported gold instrument/benchmark, source eligibility, datasets, freshness target, units, and provider-failure behavior in `specs/003-vn-gold-dataflows-workflows/research.md`
 - [x] T002 [P] Define Phase 03 market, record, and workflow usage in `specs/003-vn-gold-dataflows-workflows/data-model.md`
 - [x] T003 [P] Define catalog, gold collection, run, inspection, and safety API behavior in `specs/003-vn-gold-dataflows-workflows/contracts/workflow-contract.md`
 - [x] T004 Update shared active-market scope and runtime configuration validation in `specs/system/state-model.md` and `specs/system/runtime-config-security.md`

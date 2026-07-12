@@ -17,7 +17,6 @@ class Settings:
     vn_data_provider: str = "vnstock"
     vnstock_api_key: str = ""
     dataflow_provider_timeout_seconds: float = 15.0
-    dataflow_allow_fallback: bool = True
     database_url: str = ""
     stream_global_limit: int = 32
     stream_per_user_limit: int = 4
@@ -45,8 +44,8 @@ class Settings:
             or _env("VN_DATA_PROVIDER", dotenv)
             or "vnstock"
         ).strip().lower()
-        if vn_data_provider not in {"vnstock", "offline"}:
-            raise SettingsError("FINMIND_VN_DATA_PROVIDER must be one of: offline, vnstock")
+        if vn_data_provider != "vnstock":
+            raise SettingsError("FINMIND_VN_DATA_PROVIDER must be vnstock")
         return cls(
             admin_username=required["FINMIND_ADMIN_USERNAME"],
             admin_password=required["FINMIND_ADMIN_PASSWORD"],
@@ -56,12 +55,6 @@ class Settings:
             dataflow_provider_timeout_seconds=float(
                 _env("FINMIND_DATAFLOW_PROVIDER_TIMEOUT_SECONDS", dotenv, "15")
             ),
-            dataflow_allow_fallback=_env(
-                "FINMIND_DATAFLOW_ALLOW_FALLBACK",
-                dotenv,
-                "true",
-            ).lower()
-            not in {"0", "false", "no"},
             database_url=_env("FINMIND_DATABASE_URL", dotenv, "").strip(),
             stream_global_limit=max(
                 1,

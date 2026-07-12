@@ -94,7 +94,7 @@ npm run build
    `DATA_REQUIREMENTS.yaml`, derives the collection plan under workflow policy,
    and then requests data through `dataflows`.
 3. Confirm `dataflows` attempts latest VN provider collection through the
-   `vnstock` adapter before deterministic fallback is used.
+   `vnstock` adapter without substituting deterministic fixture data.
 4. Confirm stages include:
    - `collect_data`
    - `data-audit`
@@ -132,17 +132,17 @@ npm run build
 2. Confirm the request is rejected or clearly marked unsupported before data
    collection or result creation.
 
-## Scenario 4: Provider Failure Or Fallback
+## Scenario 4: Provider Failure
 
 1. Run a workflow with live provider credentials disabled or with a forced
    provider failure in tests.
-2. Confirm `collection.status` is `partial`, `failed`, or `fallback`.
-3. Confirm `collection.provider_results` identifies the failed/skipped/fallback
+2. Confirm `collection.status` is `partial` or `failed`.
+3. Confirm `collection.provider_results` identifies the failed or skipped
    provider without raw provider payloads or secrets.
 4. Confirm affected skill steps are `unavailable` and `grounding.grounding_status`
    is `blocked`.
 5. Confirm blocked claim categories are omitted or marked unavailable.
-6. Confirm fallback data is labeled as fallback and not presented as live data.
+6. Confirm no deterministic fixture data is presented as live provider evidence.
 
 ## Scenario 5: Grounding Gate
 

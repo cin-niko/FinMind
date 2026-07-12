@@ -61,8 +61,7 @@ Validation:
   metadata or valuation confidence is blocked/qualified.
 - Provider records must preserve market/effective timestamp and collection
   timestamp separately.
-- Deterministic fallback records must use source ids that make fallback status
-  visible, not pretend to be live provider data.
+- Deterministic records used by tests are not available to product collection.
 
 ## DataRecord
 
@@ -317,8 +316,6 @@ Fields:
 - `symbol`
 - `dataset_groups`: `market_price`, `fundamental`.
 - `lookback`: optional period/window for price history.
-- `allow_fallback`: whether deterministic fallback may be used when live
-  providers are unavailable.
 - `requested_by`: workflow id or future chatflow request id.
 
 Validation:
@@ -326,7 +323,8 @@ Validation:
 - Dataset groups must be requested through an agent collection plan derived from
   skill-owned `DATA_REQUIREMENTS.yaml` or future chatflow collection needs.
 - Unsupported markets or symbols are rejected before provider calls.
-- Fallback use must be explicit and visible in the collection result.
+- Product collection must not substitute deterministic fixture data after a
+  provider failure.
 
 ## DataflowCollectionResult
 
@@ -344,7 +342,7 @@ Fields:
   for Phase 02 standalone news records.
 - `started_at`
 - `completed_at`
-- `status`: success, partial, failed, fallback.
+- `status`: success, partial, or failed.
 - `warnings`
 - `failure_reasons`
 - `records_collected`
@@ -354,7 +352,8 @@ Validation:
 
 - Provider failures, missing API keys, timeouts, rate limits, and unsupported
   symbols must be represented in `warnings` or `failure_reasons`.
-- A fallback run must not be marked as fresh live provider data.
+- Failed collection must preserve safe provider warnings or failure reasons for
+  user-visible unavailable states.
 - Raw provider payloads and secrets must not be returned.
 
 ## DataflowProviderResult
@@ -363,9 +362,9 @@ Status for one provider attempt within a collection.
 
 Fields:
 
-- `provider_id`: e.g. `vnstock` or `offline_fallback`.
+- `provider_id`: e.g. `vnstock`.
 - `dataset_groups`
-- `status`: success, partial, failed, skipped, fallback.
+- `status`: success, partial, failed, or skipped.
 - `source_ids`
 - `started_at`
 - `completed_at`
@@ -572,7 +571,6 @@ Fields:
 - `fields`
 - `lookback`
 - `periods`
-- `fallback_policy`
 
 Validation:
 
@@ -983,8 +981,8 @@ Step kinds:
   canonical records carrying `dataset_id`, `source_id`, and `market_time`.
   Collection is the only source of ground truth; skill steps never fetch
   directly. In workflow mode, tool selection is config-driven: a
-  mapping from market and dataset type to a concrete tool. Provider fallback
-  (switching tools on failure) is not implemented yet; a failed tool yields a
+  mapping from market and dataset type to a concrete tool. Provider substitution
+  on failure is not implemented; a failed tool yields a
   missing dataset. Agent-driven tool selection in chatflow mode is owned by
   `../004-agentic-chatflow/`.
 - `build_data_bundle`: deterministic packaging phase. Converts collected

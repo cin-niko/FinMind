@@ -100,14 +100,14 @@ Required catalog ids:
       }
     ],
     "steps": [
-      { "id": "collect_data", "kind": "collect_data", "status": "fallback", "warnings": [] },
+      { "id": "collect_data", "kind": "collect_data", "status": "partial", "warnings": ["provider_unavailable"] },
       { "id": "vn-financial-data-auditor", "kind": "skill", "status": "success", "warnings": [] },
       { "id": "vn-fundamental-analysis", "kind": "skill", "status": "partial", "warnings": ["unsupported_news_scope"] }
     ],
     "collection": {
       "status": "partial",
       "collection_id": "collection_abc123",
-      "providers": ["vnstock", "offline_fallback"],
+      "providers": ["vnstock"],
       "requested_dataset_groups": ["market_price", "fundamental"],
       "provider_results": [
         {
@@ -227,8 +227,8 @@ Step and grounding contract:
 
 - `steps` is the ordered `step_sequence` execution trace. Each step has `kind`
   `collect_data` or `skill`, a `status`, and `warnings`.
-- `collect_data` step status is informational only (`success`, `partial`,
-  `failed`, `fallback`); run status is derived from skill steps.
+- `collect_data` step status is informational only (`success`, `partial`, or
+  `failed`); run status is derived from skill steps.
 - Skill step `status` values: `success`, `partial`, `failed`. There is no
   pre-skill fail-fast: a skill runs on whatever `collect_data` returned and
   resolves which claims it can support, reporting `blocked_claims` for the rest.
@@ -254,11 +254,10 @@ Step and grounding contract:
 
 Collection contract:
 
-- `collection.status` values: `success`, `partial`, `failed`, `fallback`.
+- `collection.status` values: `success`, `partial`, or `failed`.
 - `collection` is produced by `src/finmind_agents/dataflows/` after a
   FinMind-validated collection plan, not direct workflow or agent provider calls.
-- `providers` may include `vnstock` and `offline_fallback`; US market provider
-  ids are unsupported.
+- `providers` may include configured live source providers such as `vnstock`.
 - `requested_dataset_groups` values are `market_price` and `fundamental` for
   Phase 02.
 - Requested dataset groups are derived from the referenced skills'
@@ -269,9 +268,8 @@ Collection contract:
   provider payloads.
 - Provider API keys, credentials, raw responses, hidden prompts, and unsafe
   diagnostics must never appear in API responses.
-- If live provider collection fails and fallback data is used, the response must
-  preserve the fallback provider id and quality warnings so user-facing claims
-  are caveated or marked unavailable.
+- If live provider collection fails, the response must preserve safe warnings or
+  failure reasons so affected claims are marked unavailable.
 
 Evidence and citation contract:
 

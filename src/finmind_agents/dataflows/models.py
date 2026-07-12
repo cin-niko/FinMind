@@ -16,7 +16,6 @@ class CollectionStatus(StrEnum):
     SUCCESS = "success"
     PARTIAL = "partial"
     FAILED = "failed"
-    FALLBACK = "fallback"
     SKIPPED = "skipped"
 
 
@@ -79,7 +78,6 @@ class DataflowCollectionRequest:
     dataset_groups: tuple[DatasetGroup, ...] = ()
     data_requirements: tuple[DataRequirement, ...] = ()
     lookback: str | None = None
-    allow_fallback: bool = True
 
     def effective_dataset_groups(self) -> tuple[DatasetGroup, ...]:
         groups: list[DatasetGroup] = []
