@@ -48,17 +48,18 @@ Alternatives considered: citation bundle artifacts or separate citation drawer.
 Rejected because the shared right panel already supports contextual inspection,
 and citation bundles would duplicate the evidence model.
 
-## Decision: VN stocks and US stocks are current workflow scope
+## Decision: VN stocks are Phase 02 workflow scope
 
-VN and US stocks prove the current equity research workflow surface while keeping
-gold, BTC, and other assets out of active scope.
+VN stocks prove the Phase 02 equity research workflow surface while keeping US
+stocks and other assets out of active scope. Gold dataflows and gold
+workflows are deferred to `../003-vn-gold-dataflows-workflows/`.
 
 Rationale: The product goal is agentic financial trading research advice, but data
 access and safety scope must stay bounded. Two equity markets are enough for the
 current workflow contract.
 
-Alternatives considered: VN stocks plus gold, all markets, or crypto. Rejected
-because the current scope is VN stocks and US stocks only.
+Alternatives considered: VN stocks plus gold or all markets.
+Rejected for Phase 02 because the current foundation scope is VN stocks only.
 
 ## Decision: Use fixed workflow execution before flexible chatflow
 
@@ -81,7 +82,7 @@ Rationale: If workflows are agents that use skills, keeping a separate workflow
 orchestrator and chatflow orchestrator would duplicate the hardest parts:
 grounding, citations, dataflow tool access, model invocation, output validation,
 and no-raw-reasoning guarantees. A shared runtime lets Phase 02 validate the
-agent substrate on bounded workflow runs before Phase 03 adds flexible Q&A.
+agent substrate on bounded workflow runs before Phase 04 adds flexible Q&A.
 
 Alternatives considered: separate workflow and chatflow runtimes, a hard-coded
 workflow-only runner, or an unguarded agent framework. Rejected because separate
@@ -440,11 +441,11 @@ breaks the transcript reading flow for chat-first use.
 Alternatives considered: exposing the data audit as a standalone workflow.
 Deferred until there is enough operational need for a diagnostics-focused view.
 
-## Decision: Fetch latest provider data with deterministic fallback
+## Decision: Surface provider failures without deterministic fallback
 
-Phase 02 should fetch latest available provider data for requested VN and US
-stock symbols before workflow analysis runs. Deterministic seeded records remain
-only for tests, local offline development, and explicit degraded fallback paths.
+Phase 02 should fetch latest available provider data for requested VN stock
+symbols before workflow analysis runs. Deterministic seeded records remain
+test-fixture-only; provider failures produce visible unavailable or failed states.
 
 Rationale: User-facing workflows need current evidence to be useful as trading
 research support. Keeping provider output normalized behind canonical records
@@ -462,9 +463,9 @@ and future chatflow; it does not implement admin ingestion, scheduled backfill,
 warehouse storage, or a broad realtime data platform in Phase 02.
 
 Rationale: Workflows and chatflow both need current, evidence-ready finance data,
-but neither should know provider APIs or fallback rules. A dedicated collection
-boundary keeps provider selection, normalization, failure handling, and fallback
-labeling in one place while preserving the existing workflow runtime as the
+but neither should know provider APIs or substitution rules. A dedicated collection
+boundary keeps provider selection, normalization, and failure handling in one
+place while preserving the existing workflow runtime as the
 analysis/orchestration layer.
 
 Alternatives considered: keep provider calls in `workflows/collector.py`, build a
@@ -472,7 +473,7 @@ full ingestion/backfill platform, or copy TradingAgents-style dataflows directly
 Provider calls inside workflows would couple analysis to source mechanics. A full
 ingestion platform is beyond short-term scope. TradingAgents is useful as a
 reference, but FinMind needs stricter canonical contracts, provider status,
-fallback labeling, and no trading/autonomous action coupling.
+visible unavailable states, and no trading/autonomous action coupling.
 
 ## Decision: Use `vnstock` for VN market collection
 
@@ -491,25 +492,11 @@ Alternatives considered: scraping individual VN websites first, manual CSVs, or
 demo-only VN data. Rejected because they are less reusable, harder to normalize,
 or not current enough for workflow output.
 
-## Decision: Use Alpha Vantage plus SEC EDGAR for US market collection
+## Decision: US Market Collection Is Unsupported
 
-The US provider layer should use Alpha Vantage for latest/daily prices and market
-news/sentiment when an API key is configured, and SEC EDGAR company facts for
-public-company fundamentals where available. Provider output must be normalized
-into canonical price, fundamental, and source-document records.
-
-Rationale: Alpha Vantage provides documented stock time-series and news endpoints
-with API-key authentication suitable for an adapter boundary. SEC EDGAR company
-facts are public company fundamentals from the primary disclosure source. This
-combination avoids relying on unofficial Yahoo Finance access for production
-contracts while still allowing a future yfinance adapter if licensing and usage
-constraints are explicitly accepted.
-
-Alternatives considered: yfinance, Stooq, Polygon, Finnhub, IEX Cloud, Nasdaq
-Data Link, and demo-only US data. yfinance is useful for prototyping but its
-project documentation points users to Yahoo terms and personal-use constraints,
-so it should not be the default production contract. Paid/commercial APIs can be
-added later behind the same provider interface.
+Non-VN collection and provider adapters are outside the current product plan.
+The active scope is VN stocks and gold; Phase 03 tasks retire US choices from
+workflow validation, catalog, and active provider configuration.
 
 ## Source Review: TradingAgents
 

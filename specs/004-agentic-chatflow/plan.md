@@ -1,5 +1,5 @@
 ---
-id: SPEC-FEAT-003-PLAN
+id: SPEC-FEAT-004-PLAN
 feature: agentic-chatflow
 status: draft
 owner: solo
@@ -26,7 +26,19 @@ are finalized.
 - Unknowns to resolve before implementation: trusted source list, collection
   strategy, provider/data rights, model/tool policy, evaluation set, and latency
   targets.
-- Current market scope: VN stocks and US stocks only.
+- Future market scope starts from the mature VN stock and gold workflow scope
+  unless a later spec expands it before implementation.
+- Response language is derived per user message. The persisted Vietnamese or
+  English user preference established by Phase 03 is the fallback when a
+  message language is ambiguous.
+- Inherited foundation: Phase 02 established shared safe SSE event semantics,
+  bounded sync offload, citation snapshots, artifact inspection, and persisted
+  run foundations. Phase 04 defines chat-specific conversation, message,
+  routing, persistence, and frontend behavior on top of those foundations.
+- Moved Phase 02 scope: chatflow stream API coverage, completion/reinspection,
+  fail-closed adapter validation, client reconciliation, services, routes,
+  metadata persistence, mock-stream decision, and persisted reopen behavior are
+  owned by this feature's `tasks.md`.
 
 ## Constitution Check
 

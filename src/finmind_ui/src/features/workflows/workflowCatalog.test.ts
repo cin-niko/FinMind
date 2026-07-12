@@ -1,6 +1,11 @@
 import { strict as assert } from "node:assert";
 import type { Workflow } from "../../api/client";
-import { summarizeWorkflow } from "./workflowCatalog";
+import {
+  formatWorkflowMarket,
+  isSupportedWorkflowMarket,
+  marketLabel,
+  summarizeWorkflow,
+} from "./workflowCatalog";
 
 const workflow: Workflow = {
   id: "vn-financial-data-collector",
@@ -37,3 +42,6 @@ assert.deepEqual(summary.stages, ["data-collector", "data-quality-check"]);
 assert.deepEqual(summary.sections, ["Data Quality", "Collected Data"]);
 assert.equal(summary.citationLabel, "Citations required");
 assert.equal(summary.chartLabel, "Price trend");
+assert.equal(marketLabel("GOLD"), "Gold");
+assert.equal(formatWorkflowMarket("FUTURE_MARKET"), "Unsupported market");
+assert.equal(isSupportedWorkflowMarket("FUTURE_MARKET"), false);

@@ -2,14 +2,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from finmind_agents.dataflows.models import DatasetGroup
-from finmind_agents.dataflows.fallback import OfflineFallbackProvider
-from finmind_agents.dataflows.providers.alpha_vantage import AlphaVantageProvider
 from finmind_agents.dataflows.providers.base import DataflowProvider
-from finmind_agents.dataflows.providers.sec_edgar import SecEdgarProvider
 from finmind_agents.dataflows.providers.vnstock import VnstockProvider
-from finmind_agents.memory import InMemoryMarketDataRepository
 from finmind_agents.models import Market
-from finmind_agents.repositories import MarketDataRepository
 
 
 @dataclass(frozen=True)
@@ -37,14 +32,8 @@ def build_default_provider_registry(
     *,
     vn_data_provider: str = "vnstock",
     vnstock_api_key: str = "",
-    alpha_vantage_api_key: str = "",
-    sec_edgar_user_agent: str = "",
-    fallback_market_data: MarketDataRepository | None = None,
     extra_providers: Iterable[DataflowProvider] = (),
 ) -> DataflowProviderRegistry:
-    fallback_provider = OfflineFallbackProvider(
-        fallback_market_data or InMemoryMarketDataRepository()
-    )
     vn_providers: tuple[DataflowProvider, ...]
     if vn_data_provider == "vnstock":
         vn_providers = (VnstockProvider(api_key=vnstock_api_key),)
@@ -53,9 +42,6 @@ def build_default_provider_registry(
     return DataflowProviderRegistry(
         providers=(
             *vn_providers,
-            AlphaVantageProvider(api_key=alpha_vantage_api_key),
-            SecEdgarProvider(user_agent=sec_edgar_user_agent),
-            fallback_provider,
             *tuple(extra_providers),
         )
     )

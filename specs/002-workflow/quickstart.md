@@ -30,9 +30,6 @@ adr_refs:
     gateways or provider deployments that require a custom base URL.
   - `FINMIND_VNSTOCK_API_KEY` optionally registers the backend runtime with
     vnstock before VN provider fetches. Leave it empty for guest access.
-  - `FINMIND_US_ALPHA_VANTAGE_API_KEY` for US price collection.
-  - SEC EDGAR requests must use a configured User-Agent/contact setting before
-    live US fundamentals collection is enabled.
   - VN collection uses the `vnstock` adapter.
 - Optional stream concurrency limits:
   - `FINMIND_STREAM_GLOBAL_LIMIT`
@@ -68,7 +65,7 @@ UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest t
 ```
 
 Async/streaming verification should include API tests that use an async HTTP
-client or ASGI test client to submit workflow/chatflow stream requests, consume
+client or ASGI test client to submit workflow stream requests, consume
 SSE events from the same response, and assert no blocking sync work occurs in
 request handlers.
 
@@ -97,7 +94,7 @@ npm run build
    `DATA_REQUIREMENTS.yaml`, derives the collection plan under workflow policy,
    and then requests data through `dataflows`.
 3. Confirm `dataflows` attempts latest VN provider collection through the
-   `vnstock` adapter before deterministic fallback is used.
+   `vnstock` adapter without substituting deterministic fixture data.
 4. Confirm stages include:
    - `collect_data`
    - `data-audit`
@@ -129,27 +126,23 @@ npm run build
 8. Confirm no raw model reasoning, hidden prompts, provider secrets, or raw
    provider payloads appear in the exported report or API response.
 
-## Scenario 3: US Stock Workflow
+## Scenario 3: Unsupported Market Request
 
-1. Run `technical-analysis` or `stock-brief` with `market=US_STOCK` and a
-   supported symbol such as `AAPL`.
-2. Confirm `collect_data` requests data through `dataflows`, and `dataflows`
-   attempts latest US provider collection through Alpha Vantage for prices
-   when configured and SEC EDGAR company facts for fundamentals where available.
-3. Confirm output uses US stock records, not VN stock defaults.
-4. Confirm citations reference US datasets and provider/fallback source identity.
+1. Submit a workflow request with an unsupported `market` value.
+2. Confirm the request is rejected or clearly marked unsupported before data
+   collection or result creation.
 
-## Scenario 4: Provider Failure Or Fallback
+## Scenario 4: Provider Failure
 
 1. Run a workflow with live provider credentials disabled or with a forced
    provider failure in tests.
-2. Confirm `collection.status` is `partial`, `failed`, or `fallback`.
-3. Confirm `collection.provider_results` identifies the failed/skipped/fallback
+2. Confirm `collection.status` is `partial` or `failed`.
+3. Confirm `collection.provider_results` identifies the failed or skipped
    provider without raw provider payloads or secrets.
 4. Confirm affected skill steps are `unavailable` and `grounding.grounding_status`
    is `blocked`.
 5. Confirm blocked claim categories are omitted or marked unavailable.
-6. Confirm fallback data is labeled as fallback and not presented as live data.
+6. Confirm no deterministic fixture data is presented as live provider evidence.
 
 ## Scenario 5: Grounding Gate
 
@@ -187,7 +180,7 @@ npm run build
 
 ## Scenario 6: Unsupported Asset
 
-1. Attempt to run gold, BTC, crypto, or another unsupported asset.
+1. Attempt to run an unsupported asset.
 2. Confirm execution is blocked or clearly marked unavailable.
 3. Confirm no successful fabricated run is created.
 
@@ -247,28 +240,16 @@ npm run build
    switches to the citations list, shows all sources for the answer or run, and
    scrolls to the clicked source.
 
-## Scenario 9: Async Chatflow Stream
+## Scenario 9: Chatflow Deferred
 
-1. Create or select a chat owned by the authenticated user, for example through
-   `POST /api/chatflow/chats`.
-2. Submit `POST /api/chatflow/chats/{chat_id}/messages` with a message and
-   optional bounded market context such as `market=VN_STOCK`, `symbol=VCB`.
-3. Confirm the response is `200 OK` with `Content-Type: text/event-stream`.
-4. Consume the same response stream and confirm status events arrive while the
-   chatflow run executes.
-5. Confirm answer deltas arrive in order and reconcile with the final stored
-   answer.
-6. Configure a non-streaming adapter in a negative test and confirm runtime
-   validation fails closed before returning a degraded answer.
-7. Confirm material financial claims in the final answer include citations or are
-   marked unsupported/unavailable.
-8. When Phase 02 uses deterministic mock chatflow output, confirm the mock output
-   still arrives through the same stream event contract.
+1. Confirm Phase 02 exposes no runnable `/api/chatflow/...` contract.
+2. Confirm production chatflow validation is deferred to
+   `../004-agentic-chatflow/`.
 
 ## Scenario 10: Multi-User Non-Blocking Execution
 
 1. Start at least 10 authenticated test clients.
-2. Submit a mix of direct workflow and chatflow streaming requests.
+2. Submit a mix of direct workflow streaming requests.
 3. Hold each client's SSE response stream open until completion or timeout.
 4. Confirm each client receives its first safe event promptly and no client is
    delayed by another client's provider/model call.
@@ -282,7 +263,7 @@ npm run build
 
 ## Scenario 11: Disconnect And Restart Safety
 
-1. Submit a long-running async workflow or chatflow stream.
+1. Submit a long-running async workflow stream.
 2. Close the client connection before completion.
 3. Confirm request-scoped execution is cancelled cooperatively where possible.
 4. Confirm no raw reasoning or unsafe diagnostics are emitted during disconnect.

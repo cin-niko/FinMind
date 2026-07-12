@@ -1,5 +1,5 @@
 ---
-id: SPEC-FEAT-003
+id: SPEC-FEAT-004
 feature: agentic-chatflow
 status: draft
 owner: solo
@@ -18,7 +18,18 @@ The chatflow will answer user questions using trusted source data, citations (wi
 dataset id, and timestamp), artifacts, and explicit safety guardrails.
 
 This feature is draft. The current deterministic mock chat UI remains owned by
-`../001-mvp-ui/`. Fixed workflow execution remains owned by `../002-workflow/`.
+`../001-mvp-ui/`. Fixed Phase 02 workflow execution remains owned by
+`../002-workflow/`, and mature VN stock plus gold workflows are owned by
+`../003-vn-gold-dataflows-workflows/`.
+
+This feature also owns the chatflow streaming, chat persistence, service, route,
+frontend reconciliation, and evaluation work moved out of Phase 02. It remains
+separate from the deterministic mock chat surface until its source and planning
+gates are satisfied.
+
+Phase 04 also owns chat response-language behavior. It uses the individual user
+message as the primary language signal and the authenticated user's persisted
+web-language preference only when that message has no reliable language signal.
 
 ## User Scenarios & Testing
 
@@ -27,7 +38,7 @@ This feature is draft. The current deterministic mock chat UI remains owned by
 An authenticated internal user asks a finance research question and receives an
 answer grounded in trusted sources with citations.
 
-**Independent Test**: Ask a supported VN or US stock research question and verify
+**Independent Test**: Ask a supported VN stock or gold research question and verify
 that the answer includes cited claims, provenance (source id, dataset id,
 timestamp), and unsupported markers where evidence is missing.
 
@@ -72,12 +83,34 @@ Acceptance scenarios:
 2. Given the system provides advice support, when output appears, then the user can
    see evidence, confidence boundaries, and limitations.
 
+### User Story 4 - Respond In The User's Message Language (Priority: P2)
+
+An authenticated user can converse in Vietnamese or English and receives each
+chat response in the language of that individual message.
+
+**Independent Test**: Submit separate Vietnamese and English messages under the
+same saved web-language preference and verify each response follows its own
+message language; submit an ambiguous message and verify the response uses the
+saved preference.
+
+Acceptance scenarios:
+
+1. Given the user writes a Vietnamese message, when chatflow responds, then the
+   response is in Vietnamese even if the saved web-language preference is
+   English.
+2. Given the user writes an English message, when chatflow responds, then the
+   response is in English even if the saved web-language preference is
+   Vietnamese.
+3. Given the message language cannot be determined reliably, when chatflow
+   responds, then it uses the authenticated user's saved web-language
+   preference.
+
 ## Functional Requirements
 
 - **FR-001**: Chatflow MUST answer supported finance research questions using
   trusted source data and citations.
-- **FR-002**: Chatflow MUST support VN stock and US stock questions only until a
-  later spec expands market scope.
+- **FR-002**: Chatflow MUST start from the supported VN stock and gold research
+  scope established before Phase 04 unless a later spec expands market scope.
 - **FR-003**: Chatflow MUST mark unsupported markets, unsupported assets, stale
   data, missing evidence, failed tools, and unavailable providers before user
   reliance.
@@ -95,6 +128,14 @@ Acceptance scenarios:
   the user responsible for final judgment.
 - **FR-010**: Chatflow MUST record enough execution status for users to understand
   tool, collection, citation, and artifact availability.
+- **FR-011**: Chatflow MUST determine each response language from its individual
+  user message when that language is reliably identifiable.
+- **FR-012**: Chatflow MUST use the authenticated user's persisted Vietnamese or
+  English web-language preference when a message has no reliable language
+  signal.
+- **FR-013**: Chatflow language behavior MUST NOT translate or alter evidence
+  identifiers, citations, timestamps, numeric values, market symbols, or saved
+  evidence snapshots.
 
 ## Key Entities
 
@@ -112,20 +153,25 @@ require new production chat entities during planning.
 
 ## Edge Cases
 
-- User asks about gold, BTC, crypto, commodities, options, or other unsupported
-  assets: scope limitation is shown.
+- User asks about an unsupported asset: scope limitation is shown.
 - User asks for a decision or order: autonomous action is refused.
 - Trusted sources disagree: answer shows disagreement and cites both sides.
 - Source is unavailable or uncited: answer marks the claim ungrounded or
   unavailable.
 - Artifact generation fails: artifact is marked unavailable.
+- User message mixes languages or contains only identifiers: response uses the
+  persisted web-language preference when a reliable primary language cannot be
+  determined.
 
 ## Assumptions
 
 - The MVP UI shell exists from `../001-mvp-ui/`.
-- Fixed workflow contracts exist from `../002-workflow/`.
+- Fixed workflow contracts exist from `../002-workflow/` and mature VN stock plus
+  gold workflow scope exists from `../003-vn-gold-dataflows-workflows/`.
 - Trusted source access, collection policy, and data rights require planning before
   implementation.
+- The persisted Vietnamese or English web-language preference is established by
+  Phase 03 before chatflow implementation begins.
 
 ## Success Criteria
 
@@ -137,8 +183,10 @@ require new production chat entities during planning.
   irreversible financial actions.
 - **SC-004**: Users can inspect citations, grounding, and artifact status for
   generated answers without reading logs.
-- **SC-005**: Supported answers remain within the current VN stock and US stock
-  market scope.
+- **SC-005**: Supported answers remain within the current VN stock and gold
+  research scope.
+- **SC-006**: 100% of Vietnamese, English, and ambiguous-message language
+  acceptance tests use the required response-language policy.
 
 ## Out Of Scope
 
@@ -147,4 +195,4 @@ require new production chat entities during planning.
 - Broker connectivity, trade execution, portfolio order management, and autonomous
   decisions.
 - Native realtime data/news platform unless specified by a later bounded feature.
-- Gold, BTC, crypto, commodities, options, futures, and other non-current assets.
+- Unsupported assets.

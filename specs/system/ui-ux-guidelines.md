@@ -1,7 +1,7 @@
 ---
 id: SPEC-SYSTEM-UI-UX-GUIDELINES-FINMIND
 status: active
-last_review: 2026-06-26
+last_review: 2026-07-11
 implements:
   - src/finmind_ui
 validated_by: []
@@ -14,9 +14,10 @@ adr_refs:
 FinMind is an internal financial research platform, not a marketing site. The
 first screen after login must be the usable application shell. Current active
 surfaces are the chat-first shell, workflows entry points, and mock artifact
-detail. Fixed workflow execution belongs to `../002-workflow/`, while production
-agentic chatflow, native market data, admin ingestion, and external plugin
-surfaces are roadmap concepts until bounded specs make them canonical.
+detail. Phase 02 supplies the fixed-workflow foundation, and Phase 03 owns the
+active VN stock and gold workflow experience. Production agentic chatflow,
+native market data, admin ingestion, and external plugin surfaces remain roadmap
+concepts until their bounded specs make them canonical.
 
 ## Product Classification
 
@@ -103,8 +104,13 @@ Navigation is roadmap-aware:
 ### Workflow
 
 - Workflow catalog cards for fixed system-defined workflows
-- Market/instrument inputs expose only supported seeded/demo VN stock and US stock
-  choices as enabled runnable selections for `002-workflow`.
+- Market/instrument inputs expose only supported VN stock and gold choices as
+  enabled runnable selections for `003-vn-gold-dataflows-workflows`.
+- Market identifiers in catalog summaries and selectors use human-readable
+  labels rather than raw contract values; each supported market maps through a
+  shared, closed UI label mapping. An unsupported market is a contract error
+  and MUST render as a generic unavailable label without exposing or humanizing
+  its raw identifier. Unsupported selections are disabled and cannot run.
 - Roadmap market or asset choices may appear only as disabled or clearly marked
   future/out-of-scope preview options; users must not be able to select them and
   discover the limitation only after clicking Run.

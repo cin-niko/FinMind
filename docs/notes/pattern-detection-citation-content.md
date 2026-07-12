@@ -123,4 +123,4 @@
 - Citation content: delivered-per-citation vs canonical-per-dataset (đề xuất delivered).
 - Price citation content: year-end only hay +recent bars.
 - PROFILE reachable trong 002 (cần input mode/question) — để sau.
-- Có nên thêm deterministic pattern feature cho US/other markets hay chỉ VN trước.
+- Có nên thêm deterministic pattern feature cho các thị trường khác hay chỉ VN trước.

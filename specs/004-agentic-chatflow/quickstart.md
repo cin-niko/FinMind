@@ -1,5 +1,5 @@
 ---
-id: SPEC-FEAT-003-QUICKSTART
+id: SPEC-FEAT-004-QUICKSTART
 feature: agentic-chatflow
 status: draft
 owner: solo

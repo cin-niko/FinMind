@@ -6,7 +6,11 @@ import {
   type Workflow,
 } from "../../api/client";
 import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
-import { summarizeWorkflow } from "./workflowCatalog";
+import {
+  formatWorkflowMarket,
+  isSupportedWorkflowMarket,
+  summarizeWorkflow,
+} from "./workflowCatalog";
 
 type Props = {
   onRunStart: (workflowId: string, symbol: string, market: string) => void;
@@ -44,7 +48,11 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
   const requiresSymbol = Boolean(symbolInput?.required);
 
   function handleRun() {
-    if (!selected || !selectedMarket || (requiresSymbol && !symbolValue)) {
+    if (
+      !selected ||
+      !isSupportedWorkflowMarket(selectedMarket) ||
+      (requiresSymbol && !symbolValue)
+    ) {
       return;
     }
     onRunStart(selected.id, symbolValue, selectedMarket);
@@ -100,13 +108,14 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
                 Market
                 <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
                   {selected.market_scope.map((scope) => (
-                    <option key={scope} value={scope}>
-                      {scope === "VN_STOCK" ? "VN stocks" : "US stocks"}
+                    <option
+                      key={scope}
+                      value={scope}
+                      disabled={!isSupportedWorkflowMarket(scope)}
+                    >
+                      {formatWorkflowMarket(scope)}
                     </option>
                   ))}
-                  <option disabled value="BTC">
-                    BTC (future)
-                  </option>
                 </select>
               </label>
               {symbolInput ? (
@@ -123,7 +132,10 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
             </div>
             <button
               className="primaryButton"
-              disabled={!selectedMarket || (requiresSymbol && !symbolValue)}
+              disabled={
+                !isSupportedWorkflowMarket(selectedMarket) ||
+                (requiresSymbol && !symbolValue)
+              }
               onClick={handleRun}
               type="button"
             >

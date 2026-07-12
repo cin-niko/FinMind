@@ -27,30 +27,11 @@ class DataflowService:
             market=request.market,
             dataset_groups=dataset_groups,
         )
-        fallback_providers = [
-            provider for provider in providers if provider.provider_id == "offline_fallback"
-        ]
-        live_providers = [
-            provider for provider in providers if provider.provider_id != "offline_fallback"
-        ]
-        for provider in live_providers:
+        for provider in providers:
             result = provider.fetch(provider_request)
             fetch_results.append(result)
             records.extend(result.records)
             source_documents.extend(result.source_documents)
-
-        missing_groups = _missing_groups(
-            requested_groups=dataset_groups,
-            records=tuple(records),
-            source_document_count=len(source_documents),
-        )
-        if missing_groups and request.allow_fallback:
-            fallback_request = replace(provider_request, dataset_groups=missing_groups)
-            for provider in fallback_providers:
-                result = provider.fetch(fallback_request)
-                fetch_results.append(result)
-                records.extend(result.records)
-                source_documents.extend(result.source_documents)
 
         provider_results = tuple(result.provider_result for result in fetch_results)
         warnings = tuple(
@@ -93,32 +74,5 @@ def _result_status(
         return CollectionStatus.FAILED
     if CollectionStatus.SUCCESS in provider_statuses and not warnings:
         return CollectionStatus.SUCCESS
-    if CollectionStatus.FALLBACK in provider_statuses and not warnings:
-        return CollectionStatus.FALLBACK
     return CollectionStatus.PARTIAL
-
-
-def _missing_groups(
-    requested_groups: tuple,
-    records: tuple,
-    source_document_count: int,
-) -> tuple:
-    missing = []
-    for group in requested_groups:
-        if group.value == "market_price" and not any(
-            record.dataset_id.endswith("_prices") for record in records
-        ):
-            missing.append(group)
-        if group.value == "fundamental" and not any(
-            record.dataset_id.endswith("_fundamentals") for record in records
-        ):
-            missing.append(group)
-        if group.value == "company_profile" and not any(
-            record.dataset_id == "vn_company_profile" for record in records
-        ):
-            missing.append(group)
-        if group.value == "news" and source_document_count == 0:
-            missing.append(group)
-    return tuple(missing)
-
 

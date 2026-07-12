@@ -1,5 +1,5 @@
 ---
-id: SPEC-FEAT-003-CHECKLIST
+id: SPEC-FEAT-004-CHECKLIST
 feature: agentic-chatflow
 status: draft
 owner: solo

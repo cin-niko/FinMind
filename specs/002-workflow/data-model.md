@@ -22,17 +22,17 @@ Represents a supported equity instrument.
 
 Fields:
 
-- `instrument_id`: stable symbol or index id such as `VCB`, `VNINDEX`, `AAPL`.
+- `instrument_id`: stable symbol or index id such as `VCB` or `VNINDEX`.
 - `symbol`: user-facing symbol.
-- `market`: `VN_STOCK` or `US_STOCK`.
+- `market`: `VN_STOCK`.
 - `display_name`: user-facing label.
 - `currency`: quote currency.
 - `status`: active, inactive, unsupported.
 
 Validation:
 
-- Phase 02 accepts only `VN_STOCK` and `US_STOCK`.
-- Gold, BTC, crypto, commodities, options, and futures are unsupported.
+- Phase 02 accepts only `VN_STOCK`.
+- Other market and asset types are unsupported.
 
 ## CanonicalMarketDataRecord
 
@@ -61,8 +61,7 @@ Validation:
   metadata or valuation confidence is blocked/qualified.
 - Provider records must preserve market/effective timestamp and collection
   timestamp separately.
-- Deterministic fallback records must use source ids that make fallback status
-  visible, not pretend to be live provider data.
+- Deterministic records used by tests are not available to product collection.
 
 ## DataRecord
 
@@ -78,7 +77,7 @@ Fields:
 - `record_type`: one of `price_summary_record`, `indicator_record`,
   `pattern_evidence_record`, `pattern_setup_record`, `company_profile_record`,
   or `fundamental_record`.
-- `market`: `VN_STOCK` or `US_STOCK`.
+- `market`: `VN_STOCK`.
 - `symbol`
 - `period`: date, reporting period, or lookback window represented.
 - `source_record_ids`: canonical market data record ids used to produce this
@@ -313,12 +312,10 @@ Input contract for retrieving evidence-ready finance data.
 
 Fields:
 
-- `market`: `VN_STOCK` or `US_STOCK`.
+- `market`: `VN_STOCK`.
 - `symbol`
 - `dataset_groups`: `market_price`, `fundamental`.
 - `lookback`: optional period/window for price history.
-- `allow_fallback`: whether deterministic fallback may be used when live
-  providers are unavailable.
 - `requested_by`: workflow id or future chatflow request id.
 
 Validation:
@@ -326,7 +323,8 @@ Validation:
 - Dataset groups must be requested through an agent collection plan derived from
   skill-owned `DATA_REQUIREMENTS.yaml` or future chatflow collection needs.
 - Unsupported markets or symbols are rejected before provider calls.
-- Fallback use must be explicit and visible in the collection result.
+- Product collection must not substitute deterministic fixture data after a
+  provider failure.
 
 ## DataflowCollectionResult
 
@@ -335,7 +333,7 @@ Output contract returned by `DataflowService.collect(...)`.
 Fields:
 
 - `collection_id`
-- `market`: `VN_STOCK` or `US_STOCK`.
+- `market`: `VN_STOCK`.
 - `symbol`
 - `requested_dataset_groups`: `market_price`, `fundamental`.
 - `provider_results`: provider status records.
@@ -344,7 +342,7 @@ Fields:
   for Phase 02 standalone news records.
 - `started_at`
 - `completed_at`
-- `status`: success, partial, failed, fallback.
+- `status`: success, partial, or failed.
 - `warnings`
 - `failure_reasons`
 - `records_collected`
@@ -354,7 +352,8 @@ Validation:
 
 - Provider failures, missing API keys, timeouts, rate limits, and unsupported
   symbols must be represented in `warnings` or `failure_reasons`.
-- A fallback run must not be marked as fresh live provider data.
+- Failed collection must preserve safe provider warnings or failure reasons for
+  user-visible unavailable states.
 - Raw provider payloads and secrets must not be returned.
 
 ## DataflowProviderResult
@@ -363,10 +362,9 @@ Status for one provider attempt within a collection.
 
 Fields:
 
-- `provider_id`: e.g. `vnstock`, `alpha_vantage`, `sec_edgar`,
-  `offline_fallback`.
+- `provider_id`: e.g. `vnstock`.
 - `dataset_groups`
-- `status`: success, partial, failed, skipped, fallback.
+- `status`: success, partial, failed, or skipped.
 - `source_ids`
 - `started_at`
 - `completed_at`
@@ -471,7 +469,7 @@ Validation:
 ## FinMindAgentRuntime
 
 Shared runtime boundary for workflow agents in Phase 02 and future chatflow
-agents in Phase 03.
+agents in Phase 04.
 
 Fields:
 
@@ -502,11 +500,11 @@ Execution policy envelope for one runtime mode.
 
 Fields:
 
-- `policy_id`: e.g. `workflow_strict` or `chatflow_research`.
-- `mode`: workflow or chatflow.
+- `policy_id`: e.g. `workflow_strict`.
+- `mode`: workflow for Phase 02; chatflow is deferred to Phase 04.
 - `allowed_tools`: tool ids the agent may call.
 - `allowed_skills`: skill ids the agent may load.
-- `allowed_markets`: `VN_STOCK` and `US_STOCK` for Phase 02.
+- `allowed_markets`: `VN_STOCK` for Phase 02.
 - `allowed_dataset_groups`: dataset groups the policy permits.
 - `allow_optional_collection`: whether optional skill data may be requested.
 - `max_iterations`
@@ -521,7 +519,7 @@ Validation:
 
 - Workflow policy must restrict skills to the YAML workflow contract and
   datasets to the loaded skill's `DATA_REQUIREMENTS.yaml`.
-- Chatflow policy may be broader later but still must require data-driven,
+- Chatflow policy may be broader in Phase 04 but still must require data-driven,
   citation-backed answers.
 - Policies must block unsupported assets and irreversible financial actions.
 - Phase 02 model/provider adapters must support streaming through
@@ -573,7 +571,6 @@ Fields:
 - `fields`
 - `lookback`
 - `periods`
-- `fallback_policy`
 
 Validation:
 
@@ -668,79 +665,11 @@ Validation:
 - Request execution must be async. Any unavoidable sync tool/provider/model call
   must run through a bounded offload wrapper, not directly on the event loop.
 
-## ChatflowRunRequest
+## Chatflow Models
 
-Input passed from chatflow API routes to the direct async stream runtime
-transport. Phase 02 defines the transport and safety envelope and may return
-deterministic mock chatflow output; production flexible Q&A behavior is owned by
-`../003-agentic-chatflow/`.
-
-Fields:
-
-- `run_id`
-- `mode`: chatflow.
-- `conversation_id`
-- `message_id`
-- `user_message`
-- `market_context`: optional bounded market/symbol hints.
-- `policy_id`
-- `streaming_requested`
-- `prior_messages`: safe persisted chat messages, never raw reasoning.
-- `output_schema`
-
-Validation:
-
-- Chatflow runs must use authenticated user/session ownership.
-- The source chat is identified by `chat_id` in the route path, not by a request
-  body routing field.
-- Chatflow output must follow advice-only, citation, unsupported-claim, and
-  no-raw-reasoning rules.
-- Dynamic tool/skill behavior broader than the Phase 02 workflow policy remains
-  out of scope until `../003-agentic-chatflow/` specifies it.
-
-## ChatflowConversation
-
-Authenticated conversation resource used by the Phase 02 chatflow transport.
-
-Fields:
-
-- `chat_id`
-- `owner_user_id`
-- `title`
-- `created_at`
-- `updated_at`
-- `status`: active or archived.
-
-Validation:
-
-- Chat ownership is checked before accepting or returning messages.
-- Phase 02 may keep the chat model minimal, but the URL shape must treat chat as
-  the resource being appended to.
-
-## ChatflowMessage
-
-Safe persisted chat message visible to the authenticated owner.
-
-Fields:
-
-- `message_id`
-- `chat_id`
-- `run_id`: optional assistant generation run linked to the message.
-- `role`: user, assistant, or system_status.
-- `content`
-- `market_context`: optional bounded market/symbol hints.
-- `citations`
-- `created_at`
-- `status`: submitted, streaming, completed, partial, or failed.
-
-Validation:
-
-- User messages are appended through
-  `POST /api/chatflow/chats/{chat_id}/messages`.
-- Assistant messages are streamed as safe events and reconciled with the final
-  persisted message/run output.
-- Raw reasoning, hidden prompts, provider secrets, and unsafe diagnostics are
-  never persisted as chat messages.
+Phase 02 does not own chatflow request, conversation, message, or persistence
+models. The canonical Phase 04 draft is
+`../004-agentic-chatflow/data-model.md`.
 
 ## AgentRunResult
 
@@ -905,7 +834,8 @@ Workflow run record.
 Base fields:
 
 - `run_id`
-- `kind`: workflow or chatflow.
+- `kind`: workflow for Phase 02; Phase 04 defines chatflow use of the shared run
+  model.
 - `owner_user_id`
 - `conversation_id`: optional for chat-linked workflow output.
 - `status`: running, success, partial, or failed.
@@ -953,7 +883,7 @@ Validation:
 
 ## StreamEvent
 
-Ordered, safe event emitted on the active workflow or chatflow SSE response.
+Ordered, safe event emitted on the active Phase 02 workflow SSE response.
 
 Fields:
 
@@ -977,14 +907,14 @@ Validation:
 
 ## StreamingRequestContext
 
-Transient request-scoped context for one workflow or chatflow streaming response.
+Transient request-scoped context for one Phase 02 workflow streaming response.
 
 Fields:
 
 - `request_id`
 - `run_id`
 - `owner_user_id`
-- `kind`: workflow or chatflow.
+- `kind`: workflow.
 - `connected_at`
 - `transport`: sse for Phase 02.
 - `heartbeat_interval_seconds`
@@ -1046,15 +976,15 @@ Step kinds:
   (union, not duplicated at the workflow level) and fulfills each requirement
   with one or more concrete collect tools selected by market, provider, and
   dataset type (for example `collect_vnstock_fundamental_data`,
-  `collect_alpha_vantage_balance_sheet`). Skills stay provider-agnostic: they
+  `collect_vn_balance_sheet`). Skills stay provider-agnostic: they
   declare dataset contracts, never tool or provider names. Each tool returns
   canonical records carrying `dataset_id`, `source_id`, and `market_time`.
   Collection is the only source of ground truth; skill steps never fetch
   directly. In workflow mode, tool selection is config-driven: a
-  mapping from market and dataset type to a concrete tool. Provider fallback
-  (switching tools on failure) is not implemented yet; a failed tool yields a
+  mapping from market and dataset type to a concrete tool. Provider substitution
+  on failure is not implemented; a failed tool yields a
   missing dataset. Agent-driven tool selection in chatflow mode is owned by
-  `../003-agentic-chatflow/`.
+  `../004-agentic-chatflow/`.
 - `build_data_bundle`: deterministic packaging phase. Converts collected
   canonical records and prior deterministic outputs into data records,
   assigns citation ids, persists records/citations, and selects the compact

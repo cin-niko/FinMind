@@ -20,12 +20,10 @@ def parse_market(value: object) -> Market:
     aliases = {
         "VN": Market.VN_STOCK,
         "VN_STOCK": Market.VN_STOCK,
-        "US": Market.US_STOCK,
-        "US_STOCK": Market.US_STOCK,
     }
     market = aliases.get(normalized)
     if market is None:
-        raise WorkflowValidationError("Phase 02 supports VN stocks and US stocks only")
+        raise WorkflowValidationError("This workflow supports VN stocks only")
     return market
 
 
@@ -36,7 +34,7 @@ def validate_workflow_inputs(
     market = parse_market(inputs.get("market"))
     if market not in workflow.market_scope:
         raise WorkflowValidationError(
-            "Phase 02 supports VN stocks and US stocks only for this workflow"
+            "This workflow supports VN stocks only"
         )
     return ValidatedWorkflowInputs(
         market=market,

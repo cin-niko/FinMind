@@ -341,15 +341,12 @@ function marketLabelForInputs(inputs?: Record<string, string>): string | null {
   if (market === "VN_STOCK") {
     return "VN stock";
   }
-  if (market === "US_STOCK") {
-    return "US stock";
-  }
   return null;
 }
 
 function humanizeStepId(stepId: string): string {
   return stepId
-    .replace(/^vn-|^us-/, "")
+    .replace(/^vn-/, "")
     .replace(/-/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }

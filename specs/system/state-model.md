@@ -1,7 +1,7 @@
 ---
 id: SPEC-SYSTEM-STATE-FINMIND
 status: active
-last_review: 2026-06-18
+last_review: 2026-07-12
 implements:
   - src/finmind_agents
 validated_by:
@@ -16,10 +16,11 @@ This spec defines stable domain state shared across FinMind features. Feature fo
 
 ## Market Scope
 
-`002-workflow` uses seeded/demo VN stock and US stock records to validate the workflow,
-citation, grounding, and chart contracts. Future market scope is not
-canonical until a new bounded feature spec defines supported assets, source
-eligibility, and safety behavior.
+`002-workflow` establishes the workflow, citation, grounding, and chart
+contracts. `003-vn-gold-dataflows-workflows` defines the active user-facing
+workflow scope as VN stocks and gold. Future market
+scope is not canonical until a bounded feature spec defines supported assets,
+source eligibility, and safety behavior.
 
 ## Entities
 
@@ -40,6 +41,28 @@ Rules:
 - The account is bootstrapped from `FINMIND_ADMIN_USERNAME`, `FINMIND_ADMIN_PASSWORD`, and `FINMIND_SESSION_SECRET`.
 - Missing or invalid bootstrap environment values fail closed before protected app access is available.
 
+### UserLanguagePreference
+
+Represents the authenticated user's persisted web-language preference.
+
+- `username`: linked internal admin user
+- `language`: `vi` or `en`
+- `updated_at`: latest preference update timestamp
+
+Rules:
+
+- The preference is owned by the authenticated user and persisted server-side;
+  it remains available across browser sessions and devices.
+- On first authenticated use, the app detects a supported Vietnamese or English
+  browser language and persists it as the preference. It persists English when
+  no supported browser language is available.
+- A later explicit user choice replaces the initially detected preference.
+- The preference controls web-visible copy and generated Phase 03 workflow
+  narrative. Source identifiers, citations, timestamps, numeric values, and
+  market symbols remain unchanged.
+- A workflow captures the preference in effect when it is submitted. Changing a
+  later preference does not rewrite saved workflow output.
+
 ### Session
 
 Represents cookie-backed authenticated web access.
@@ -57,11 +80,12 @@ Rules:
 
 ### MarketInstrument
 
-Represents a supported VN stock or US stock instrument.
+Represents a supported workflow instrument: a VN stock or configured gold
+benchmark.
 
 - `instrument_id`: stable internal identifier
 - `symbol`: market symbol or commodity code
-- `market`: `VN_STOCK` or `US_STOCK`
+- `market`: `VN_STOCK` or `GOLD`
 - `display_name`: user-facing name
 - `currency`: quote currency
 - `status`: active, inactive, unsupported
@@ -70,7 +94,7 @@ Represents a supported VN stock or US stock instrument.
 
 Normalized market data item used by workflows, charts, indicators, and evidence.
 
-- `dataset_id`: dataset/source grouping such as VN or US price series
+- `dataset_id`: dataset/source grouping such as VN stock or gold price series
 - `record_key`: unique logical key within dataset
 - `instrument_id`: linked instrument
 - `market_time`: effective market timestamp
@@ -94,7 +118,7 @@ workflow and chatflow answers.
   `pattern_evidence_record`, `pattern_setup_record`, `company_profile_record`,
   or `fundamental_record`
 - `symbol`: market symbol
-- `market`: `VN_STOCK` or `US_STOCK`
+- `market`: `VN_STOCK` or `GOLD`
 - `period`: effective period or window represented by the record
 - `source_record_ids`: linked canonical/raw record ids used to produce it
 - `payload`: compact model-visible facts
@@ -169,6 +193,8 @@ Common record for workflow and chat execution.
 - `status`: queued, running, success, partial, failed
 - `requested_by`: admin user
 - `inputs`: user inputs or question
+- `output_language`: workflow language captured when the run is accepted, when
+  applicable
 - `started_at`: start timestamp
 - `completed_at`: completion timestamp when available
 - `output`: linked result output

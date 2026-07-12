@@ -1,5 +1,5 @@
 ---
-id: SPEC-FEAT-003-RESEARCH
+id: SPEC-FEAT-004-RESEARCH
 feature: agentic-chatflow
 status: draft
 owner: solo
@@ -21,7 +21,7 @@ because it would overstate implemented behavior.
 
 ## Open Research
 
-- Trusted source inventory for VN and US stocks.
+- Trusted source inventory for VN stocks and gold.
 - Data rights and licensing constraints.
 - Collection and citation strategy.
 - Freshness and stale-data handling.

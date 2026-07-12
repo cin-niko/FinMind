@@ -54,7 +54,9 @@ def collect_workflow_data(
         )
     )
     if not collection.records and not collection.source_documents:
-        raise WorkflowValidationError("Required market data is missing")
+        raise WorkflowValidationError(
+            f"No market data was returned for {symbol}. Check the symbol and try again."
+        )
     return CollectedWorkflowData(
         records=collection.records,
         source_documents=collection.source_documents,
