@@ -1,3 +1,14 @@
+---
+id: SPEC-FEAT-003-CHECKLIST
+feature: vn-gold-dataflows-workflows
+status: complete
+owner: solo
+created: 2026-07-11
+implements: []
+validated_by: []
+adr_refs: []
+---
+
 # Specification Quality Checklist: VN And Gold Dataflows And Workflows
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
