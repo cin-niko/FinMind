@@ -216,7 +216,7 @@ def test_workflow_validation_rejects_unsupported_market_and_missing_symbol(
 
     unsupported_market = client.post(
         "/api/workflows/vn-financial-data-collector/runs",
-        json={"market": "INVALID_MARKET", "symbol": "INVALID"},
+        json={"market": "US_STOCK", "symbol": "INVALID"},
     )
     missing_symbol = client.post(
         "/api/workflows/vn-financial-data-collector/runs",

@@ -6,7 +6,11 @@ import {
   type Workflow,
 } from "../../api/client";
 import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
-import { marketLabel, parseWorkflowMarket, summarizeWorkflow } from "./workflowCatalog";
+import {
+  formatWorkflowMarket,
+  isSupportedWorkflowMarket,
+  summarizeWorkflow,
+} from "./workflowCatalog";
 
 type Props = {
   onRunStart: (workflowId: string, symbol: string, market: string) => void;
@@ -44,7 +48,11 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
   const requiresSymbol = Boolean(symbolInput?.required);
 
   function handleRun() {
-    if (!selected || !selectedMarket || (requiresSymbol && !symbolValue)) {
+    if (
+      !selected ||
+      !isSupportedWorkflowMarket(selectedMarket) ||
+      (requiresSymbol && !symbolValue)
+    ) {
       return;
     }
     onRunStart(selected.id, symbolValue, selectedMarket);
@@ -100,8 +108,12 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
                 Market
                 <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
                   {selected.market_scope.map((scope) => (
-                    <option key={scope} value={scope}>
-                      {marketLabel(parseWorkflowMarket(scope))}
+                    <option
+                      key={scope}
+                      value={scope}
+                      disabled={!isSupportedWorkflowMarket(scope)}
+                    >
+                      {formatWorkflowMarket(scope)}
                     </option>
                   ))}
                 </select>
@@ -120,7 +132,10 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
             </div>
             <button
               className="primaryButton"
-              disabled={!selectedMarket || (requiresSymbol && !symbolValue)}
+              disabled={
+                !isSupportedWorkflowMarket(selectedMarket) ||
+                (requiresSymbol && !symbolValue)
+              }
               onClick={handleRun}
               type="button"
             >

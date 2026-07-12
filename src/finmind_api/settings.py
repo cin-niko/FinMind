@@ -45,7 +45,9 @@ class Settings:
             or "vnstock"
         ).strip().lower()
         if vn_data_provider != "vnstock":
-            raise SettingsError("FINMIND_VN_DATA_PROVIDER must be vnstock")
+            raise SettingsError(
+                "FINMIND_VN_DATA_PROVIDER or VN_DATA_PROVIDER must be vnstock"
+            )
         return cls(
             admin_username=required["FINMIND_ADMIN_USERNAME"],
             admin_password=required["FINMIND_ADMIN_PASSWORD"],

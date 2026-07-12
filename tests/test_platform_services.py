@@ -23,6 +23,40 @@ def test_target_packages_are_importable() -> None:
     assert finmind_api.__doc__
 
 
+def test_fixture_market_data_provider_supports_company_profile_records() -> None:
+    from datetime import UTC, datetime
+
+    from conftest import _FixtureMarketDataProvider
+    from finmind_agents.dataflows.models import DataflowCollectionRequest, DatasetGroup
+    from finmind_agents.models import CanonicalMarketDataRecord
+
+    provider = _FixtureMarketDataProvider()
+    provider._market_data._records.append(
+        CanonicalMarketDataRecord(
+            dataset_id="vn_company_profile",
+            record_key="VCB-company-profile",
+            instrument_id="VCB",
+            market_time=datetime(2026, 6, 18, 7, 0, tzinfo=UTC),
+            collected_at=datetime(2026, 6, 18, 8, 0, tzinfo=UTC),
+            source_id="test_company_profile",
+            payload={"company_name": "Vietcombank"},
+        )
+    )
+
+    result = provider.fetch(
+        DataflowCollectionRequest(
+            market=Market.VN_STOCK,
+            symbol="VCB",
+            dataset_groups=(DatasetGroup.COMPANY_PROFILE,),
+            requested_by="test",
+        )
+    )
+
+    assert result.provider_result.status.value == "success"
+    assert result.provider_result.warnings == ()
+    assert [record.dataset_id for record in result.records] == ["vn_company_profile"]
+
+
 def test_finmind_agent_runtime_policy_fails_closed_without_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1018,7 +1052,10 @@ def test_bare_vn_data_provider_env_rejects_offline_mode(
     monkeypatch.delenv("FINMIND_VN_DATA_PROVIDER", raising=False)
     monkeypatch.setenv("VN_DATA_PROVIDER", "offline")
 
-    with pytest.raises(SettingsError, match="must be vnstock"):
+    with pytest.raises(
+        SettingsError,
+        match="FINMIND_VN_DATA_PROVIDER or VN_DATA_PROVIDER must be vnstock",
+    ):
         Settings.from_env()
 
 
@@ -1330,7 +1367,7 @@ def test_invalid_workflow_input_does_not_create_successful_run(
 ) -> None:
     response = client.post(
         "/api/workflows/vn-financial-data-collector/runs",
-        json={"market": "INVALID_MARKET", "symbol": "INVALID"},
+        json={"market": "US_STOCK", "symbol": "INVALID"},
     )
 
     assert response.status_code == 422
@@ -1341,7 +1378,7 @@ def test_invalid_workflow_input_does_not_create_successful_run(
 @pytest.mark.parametrize(
     ("payload", "expected_detail"),
     [
-        ({"market": "INVALID_MARKET", "symbol": "INVALID"}, "supports VN stocks only"),
+        ({"market": "US_STOCK", "symbol": "INVALID"}, "supports VN stocks only"),
         ({"market": "VN_STOCK"}, "symbol is required"),
     ],
 )
@@ -1397,7 +1434,7 @@ def test_unsupported_market_validation_stops_before_dataflow_calls(
 
     response = client.post(
         "/api/workflows/vn-financial-data-collector/runs",
-        json={"market": "INVALID_MARKET", "symbol": "INVALID"},
+        json={"market": "US_STOCK", "symbol": "INVALID"},
     )
 
     assert response.status_code == 422

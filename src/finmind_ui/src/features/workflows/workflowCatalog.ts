@@ -23,12 +23,12 @@ export function marketLabel(market: WorkflowMarket): string {
   return MARKET_LABELS[market];
 }
 
-export function parseWorkflowMarket(market: string): WorkflowMarket {
-  if (market === "VN_STOCK" || market === "GOLD") {
-    return market;
-  }
+export function isSupportedWorkflowMarket(market: string): market is WorkflowMarket {
+  return market === "VN_STOCK" || market === "GOLD";
+}
 
-  throw new Error(`Unsupported workflow market: ${market}`);
+export function formatWorkflowMarket(market: string): string {
+  return isSupportedWorkflowMarket(market) ? marketLabel(market) : "Unsupported market";
 }
 
 export function summarizeWorkflow(workflow: Workflow): WorkflowCatalogSummary {
@@ -36,7 +36,7 @@ export function summarizeWorkflow(workflow: Workflow): WorkflowCatalogSummary {
     id: workflow.id,
     title: workflow.title,
     description: workflow.description,
-    markets: workflow.market_scope.map(parseWorkflowMarket).map(marketLabel),
+    markets: workflow.market_scope.map(formatWorkflowMarket),
     requiredInputs: workflow.required_inputs.map((input) => input.name),
     stages: workflow.stages,
     sections: workflow.output_sections,

@@ -84,6 +84,8 @@ def _matches_requested_group(dataset_id: str, groups: tuple[DatasetGroup, ...]) 
         and dataset_id.endswith("_prices")
         or DatasetGroup.FUNDAMENTAL in groups
         and dataset_id.endswith("_fundamentals")
+        or DatasetGroup.COMPANY_PROFILE in groups
+        and dataset_id.endswith("_company_profile")
     )
 
 
@@ -97,6 +99,11 @@ def _group_has_data(
     if group == DatasetGroup.FUNDAMENTAL:
         return any(
             record.dataset_id.endswith("_fundamentals")
+            for record in records
+        )
+    if group == DatasetGroup.COMPANY_PROFILE:
+        return any(
+            record.dataset_id.endswith("_company_profile")
             for record in records
         )
     if group == DatasetGroup.NEWS:

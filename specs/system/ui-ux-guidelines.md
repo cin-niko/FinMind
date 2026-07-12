@@ -109,7 +109,8 @@ Navigation is roadmap-aware:
 - Market identifiers in catalog summaries and selectors use human-readable
   labels rather than raw contract values; each supported market maps through a
   shared, closed UI label mapping. An unsupported market is a contract error
-  and MUST NOT be rendered by humanizing or exposing its raw identifier.
+  and MUST render as a generic unavailable label without exposing or humanizing
+  its raw identifier. Unsupported selections are disabled and cannot run.
 - Roadmap market or asset choices may appear only as disabled or clearly marked
   future/out-of-scope preview options; users must not be able to select them and
   discover the limitation only after clicking Run.
