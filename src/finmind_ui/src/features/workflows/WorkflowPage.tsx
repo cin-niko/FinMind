@@ -6,7 +6,7 @@ import {
   type Workflow,
 } from "../../api/client";
 import { EmptyState, ErrorAlert, LoadingState } from "../../components/layout";
-import { marketLabel, summarizeWorkflow } from "./workflowCatalog";
+import { marketLabel, parseWorkflowMarket, summarizeWorkflow } from "./workflowCatalog";
 
 type Props = {
   onRunStart: (workflowId: string, symbol: string, market: string) => void;
@@ -101,7 +101,7 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
                 <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
                   {selected.market_scope.map((scope) => (
                     <option key={scope} value={scope}>
-                      {marketLabel(scope)}
+                      {marketLabel(parseWorkflowMarket(scope))}
                     </option>
                   ))}
                 </select>

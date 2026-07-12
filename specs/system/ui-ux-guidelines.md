@@ -108,7 +108,8 @@ Navigation is roadmap-aware:
   enabled runnable selections for `003-vn-gold-dataflows-workflows`.
 - Market identifiers in catalog summaries and selectors use human-readable
   labels rather than raw contract values; each supported market maps through a
-  shared UI label mapping.
+  shared, closed UI label mapping. An unsupported market is a contract error
+  and MUST NOT be rendered by humanizing or exposing its raw identifier.
 - Roadmap market or asset choices may appear only as disabled or clearly marked
   future/out-of-scope preview options; users must not be able to select them and
   discover the limitation only after clicking Run.

@@ -1,5 +1,7 @@
 import type { Workflow } from "../../api/client";
 
+export type WorkflowMarket = "VN_STOCK" | "GOLD";
+
 export type WorkflowCatalogSummary = {
   id: string;
   title: string;
@@ -12,18 +14,21 @@ export type WorkflowCatalogSummary = {
   chartLabel: string;
 };
 
-const MARKET_LABELS: Record<string, string> = {
+const MARKET_LABELS: Record<WorkflowMarket, string> = {
   VN_STOCK: "VN stocks",
   GOLD: "Gold",
 };
 
-export function marketLabel(market: string): string {
-  const knownLabel = MARKET_LABELS[market];
-  if (knownLabel) {
-    return knownLabel;
+export function marketLabel(market: WorkflowMarket): string {
+  return MARKET_LABELS[market];
+}
+
+export function parseWorkflowMarket(market: string): WorkflowMarket {
+  if (market === "VN_STOCK" || market === "GOLD") {
+    return market;
   }
-  const humanized = market.replaceAll("_", " ").toLowerCase();
-  return humanized.charAt(0).toUpperCase() + humanized.slice(1);
+
+  throw new Error(`Unsupported workflow market: ${market}`);
 }
 
 export function summarizeWorkflow(workflow: Workflow): WorkflowCatalogSummary {
@@ -31,7 +36,7 @@ export function summarizeWorkflow(workflow: Workflow): WorkflowCatalogSummary {
     id: workflow.id,
     title: workflow.title,
     description: workflow.description,
-    markets: workflow.market_scope.map(marketLabel),
+    markets: workflow.market_scope.map(parseWorkflowMarket).map(marketLabel),
     requiredInputs: workflow.required_inputs.map((input) => input.name),
     stages: workflow.stages,
     sections: workflow.output_sections,
