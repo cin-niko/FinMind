@@ -295,8 +295,14 @@ remains available.
   initial selection MUST be Auto-detect. Auto-detect MUST resolve the first
   supported entry in the browser's ordered language list after normalizing
   `vi-*` to `vi` and `en-*` to `en`, or resolve to English when none is
-  supported.
-- **FR-019**: The resolved web language MUST control web-visible copy. At each
+  supported. The selection MUST be available from an authenticated Settings
+  surface without adding a primary navigation item, and it MUST save immediately.
+- **FR-019**: The resolved web language MUST control all FinMind-owned
+  web-visible copy, including navigation, controls, validation and failure
+  messages, workflow catalog text, deterministic workflow progress step and
+  status labels, artifact chrome, and generated narrative. Presentation code
+  MUST resolve stable keys or codes through a typed locale catalog rather than
+  treating English display strings as API or workflow contracts. At each
   workflow submission, the UI MUST send the resolved `vi` or `en` value; the
   backend MUST reject another value, capture the accepted value with the
   conversation,
@@ -304,9 +310,14 @@ remains available.
   user-facing narrative, including titles, sections, limitations, and research
   framing. A narrative that cannot honor that captured language MUST fail safely
   rather than silently falling back to another language.
-- **FR-020**: Language selection MUST NOT translate, alter, or obscure source
-  identifiers, citations, timestamps, numeric values, market symbols, or saved
-  evidence snapshots.
+- **FR-020**: Language selection MUST NOT translate, alter, or obscure canonical
+  records or citation evidence. Record field names and content, citation titles,
+  excerpts/content, publisher names, URLs, source identifiers, timestamps,
+  numeric values, market symbols, and saved evidence snapshots remain in
+  English or their canonical source representation. FinMind-owned controls
+  surrounding those records and citations MAY be localized. Unsupported or
+  missing presentation keys MUST fall back to English without changing the
+  canonical evidence payload.
 - **FR-021**: Starting an accepted workflow MUST always create a new
   authenticated-user-owned conversation before execution. The workflow MUST
   produce a `WorkflowResult`; a conversation adapter MUST map that result to the

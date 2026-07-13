@@ -26,6 +26,8 @@ The authenticated app shell consumes JSON APIs for:
 - Conversation inspection and deletion: `GET /api/conversations`,
   `GET /api/conversations/{conversation_id}`, and
   `DELETE /api/conversations/{conversation_id}`
+- Language preference: `GET /api/preferences/language`,
+  `PUT /api/preferences/language`
 
 All protected APIs require an active cookie-backed session. Raw agent reasoning is never returned.
 
@@ -99,6 +101,10 @@ User-facing execution status may include:
 - Failure summaries and unavailable sections
 
 User-facing execution status must not include hidden model reasoning transcripts.
+Workflow stage and status payloads expose stable identifiers such as stage ids
+and status codes. Clients localize FinMind-owned presentation labels from those
+identifiers and must not use a server-supplied English title as the behavioral
+contract. Canonical record and citation evidence remains unchanged by locale.
 
 ## Provider Abstraction
 

@@ -45,6 +45,21 @@ def validate_agent_content(content: str) -> None:
         )
 
 
+def validate_response_language(content: str, language: str) -> None:
+    """Fail closed when the narrative clearly violates the captured language."""
+    normalized = f" {content.lower()} "
+    vietnamese_markers = (
+        "đ", "ă", "â", "ê", "ô", "ơ", "ư", "á", "à", "ả", "ã", "ạ",
+        "é", "è", "ẻ", "ẽ", "ẹ", "í", "ì", "ỉ", "ĩ", "ị", "ó", "ò",
+        "ú", "ù", "ý", "ỳ", " chứng khoán ", " dữ liệu ", " không ", " và ",
+    )
+    has_vietnamese = any(marker in normalized for marker in vietnamese_markers)
+    if language == "vi" and not has_vietnamese:
+        raise AgentValidationError("Workflow response did not honor Vietnamese output language")
+    if language == "en" and has_vietnamese:
+        raise AgentValidationError("Workflow response did not honor English output language")
+
+
 def validate_agent_metadata(
     metadata: AgentMetadataResult,
     citation_ids: tuple[str, ...],

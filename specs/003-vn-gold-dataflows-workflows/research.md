@@ -134,8 +134,12 @@ language`. It does not rely on the model to infer language. If the generated
 narrative cannot honor the captured language, it fails safely rather than
 silently switching language.
 
-Language does not alter source identifiers, citations, timestamps, numeric
-values, market symbols, or saved historical output. An Auto-detect selection can
+Language does not alter canonical record field names/content, citation titles
+or content, publisher names, URLs, source identifiers, timestamps, numeric
+values, market symbols, or saved historical output. FinMind-owned UI chrome,
+workflow progress, deterministic system messages, and generated narrative use
+typed locale keys with English fallback; workflow and API boundaries continue
+to expose stable codes rather than localized labels. An Auto-detect selection can
 resolve differently in a different browser; each submitted conversation remains
 pinned to the value captured when it was submitted.
 

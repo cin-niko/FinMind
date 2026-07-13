@@ -80,7 +80,8 @@ Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail
   workflow-run history or split history by relative dates in V1.
 - Top context bar is compact, pinned inside the primary content pane, and aligned with the artifact detail header when the artifact panel is open. In chat, it shows only the active conversation title matching the History label, falling back to `New Chat` before a conversation exists. Other surfaces show their current surface title only; surface metadata and filters belong inside the active work area.
 - Chat artifact detail headers are compact and pinned inside the right-side artifact panel. They use the same small title size as the chat header and show the artifact title plus close control only; artifact kind and metadata belong in the panel body.
-- The logout control belongs in the left rail footer with the current role/session summary, not in the top context bar.
+- The left rail footer contains the current role/session summary, a Settings
+  control, and logout; neither control belongs in the top context bar.
 - Desktop shell scrolling is separated by panel: the left rail keeps brand/nav and logout visible while history scrolls; the primary content pane keeps its header visible; chat keeps the composer pinned to the bottom while only messages scroll; the right artifact panel keeps its header visible while only artifact body content scrolls.
 - Desktop left rail may collapse to a compact icon rail. The right artifact/citation panel may fully collapse so the primary pane reclaims the width; selecting a citation or artifact opens it again. Collapse controls belong in the respective panel headers, use icon-only buttons with accessible labels, and must not destroy the active chat, artifact, or citation selection state.
 - No large hero areas.
@@ -145,6 +146,27 @@ Navigation is roadmap-aware:
   safe failure summary
 - Failed workflow-created conversations distinguishable from successful ones;
   unavailable evidence and limitations remain visible in either outcome
+
+### Settings
+
+- Settings opens from the left rail footer without adding a primary navigation
+  item.
+- The Phase 03 settings surface offers exactly Auto-detect, English, and
+  Vietnamese. The active selection is visible, changes save immediately for the
+  authenticated user, and UI copy updates to the resolved language.
+- Auto-detect uses the browser's first supported Vietnamese or English language
+  and falls back to English. The language field does not show persistent helper
+  text below the selector. Changing it does not alter saved conversation
+  messages or evidence.
+- All FinMind-owned interface copy uses typed locale keys with English fallback.
+  This includes workflow names and descriptions, progress steps and statuses,
+  controls, validation, errors, empty states, and artifact/citation panel
+  chrome. API and workflow contracts expose stable codes or identifiers, not
+  localized labels.
+- Canonical record field names/content and citation evidence remain English or
+  in their canonical source representation. The interface may therefore show
+  English evidence inside Vietnamese application chrome; it must not imply that
+  source evidence was translated.
 
 ### Chat
 

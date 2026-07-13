@@ -2,6 +2,12 @@ import { CandlestickSeries, LineSeries, createChart, type IChartApi } from "ligh
 import { ChartNoAxesCombined, SlidersVertical } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChartArtifact } from "../../api/client";
+import { useI18n } from "../settings/i18n";
+
+const ARTIFACT_REASON_KEYS = {
+  missing_price_series: "missingPriceSeries",
+  unsupported_chart_requirement: "unsupportedChartRequirement"
+} as const;
 
 type ChartPoint = { date: string; value: number; change_percent?: number };
 
@@ -12,6 +18,7 @@ export function MarketChart({
   artifact: ChartArtifact;
   showDownloads?: boolean;
 }) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const supportedViews = artifact.spec.supported_views;
   const [view, setView] = useState(() => artifact.spec.default_view);
@@ -20,6 +27,9 @@ export function MarketChart({
   const canShowCandles = supportedViews.includes("candlestick") && candles.length > 0;
   const activeView = view === "candlestick" && canShowCandles ? "candlestick" : "line";
   const isReady = (artifact.status ?? "ready") === "ready" && (firstSeries.length > 0 || canShowCandles);
+  const reasonKey = artifact.reason
+    ? ARTIFACT_REASON_KEYS[artifact.reason as keyof typeof ARTIFACT_REASON_KEYS]
+    : undefined;
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -71,14 +81,14 @@ export function MarketChart({
   return (
     <section className="panel">
       <h2>{artifact.title}</h2>
-      <div className="chartToolbar" aria-label="Chart controls">
+      <div className="chartToolbar" aria-label={t("chartControls")}>
         {supportedViews.includes("line") ? (
           <button
             className={activeView === "line" ? "chartToggle active" : "chartToggle"}
             onClick={() => setView("line")}
             type="button"
-            aria-label="Line chart"
-            title="Line chart"
+            aria-label={t("lineChart")}
+            title={t("lineChart")}
           >
             <ChartNoAxesCombined size={16} />
           </button>
@@ -88,8 +98,8 @@ export function MarketChart({
             className={activeView === "candlestick" ? "chartToggle active" : "chartToggle"}
             onClick={() => setView("candlestick")}
             type="button"
-            aria-label="Candlestick chart"
-            title="Candlestick chart"
+            aria-label={t("candleChart")}
+            title={t("candleChart")}
           >
             <SlidersVertical size={16} />
           </button>
@@ -98,13 +108,13 @@ export function MarketChart({
       {isReady ? (
         <div className="chartBox" ref={containerRef} />
       ) : (
-        <div className="freshness">Chart unavailable: {artifact.reason ?? "missing data"}</div>
+        <div className="freshness">{t("chartUnavailable")}: {reasonKey ? t(reasonKey) : t("missingData")}</div>
       )}
       {showDownloads && artifact.downloads.length ? (
         <div className="downloadRow">
           {artifact.downloads.map((download) => (
             <a className="downloadChip" href={download.url} key={download.url}>
-              Download {download.format?.toUpperCase() ?? download.filename}
+              {t("download")} {download.format?.toUpperCase() ?? download.filename}
             </a>
           ))}
         </div>

@@ -1304,6 +1304,34 @@ button:focus-visible {
     0 4px 14px rgba(41, 37, 31, 0.12);
 }
 
+.settingsDialog {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  padding: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-lg);
+}
+
+.settingsDialog h2 { margin: 0 0 20px; }
+
+.settingsField {
+  display: grid;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.settingsField select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-0);
+  color: var(--text-primary);
+}
+
 .workflowDialogBody {
   display: grid;
   gap: 8px;

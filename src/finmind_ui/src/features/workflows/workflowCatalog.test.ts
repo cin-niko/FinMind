@@ -5,7 +5,7 @@ import {
   isSupportedWorkflowMarket,
   marketLabel,
   summarizeWorkflow,
-} from "./workflowCatalog";
+} from "./workflowCatalog.ts";
 
 const workflow: Workflow = {
   id: "vn-financial-data-collector",
@@ -35,7 +35,7 @@ const summary = summarizeWorkflow(workflow);
 
 assert.equal(summary.id, "vn-financial-data-collector");
 assert.equal(summary.title, "VN Financial Data Collector");
-assert.equal(summary.description, "Collects and checks VN stock financial data.");
+assert.equal(summary.description, "Collects and checks VN stock financial data before analysis.");
 assert.deepEqual(summary.markets, ["VN stocks"]);
 assert.deepEqual(summary.requiredInputs, ["market", "symbol"]);
 assert.deepEqual(summary.stages, ["data-collector", "data-quality-check"]);
@@ -45,3 +45,10 @@ assert.equal(summary.chartLabel, "Price trend");
 assert.equal(marketLabel("GOLD"), "Gold");
 assert.equal(formatWorkflowMarket("FUTURE_MARKET"), "Unsupported market");
 assert.equal(isSupportedWorkflowMarket("FUTURE_MARKET"), false);
+
+const viSummary = summarizeWorkflow(workflow, "vi");
+assert.equal(viSummary.title, "Thu thập dữ liệu tài chính VN");
+assert.equal(viSummary.markets[0], "Cổ phiếu VN");
+assert.deepEqual(viSummary.requiredInputs, ["thị trường", "mã"]);
+assert.equal(viSummary.citationLabel, "Yêu cầu trích dẫn");
+assert.equal(viSummary.chartLabel, "Xu hướng giá");

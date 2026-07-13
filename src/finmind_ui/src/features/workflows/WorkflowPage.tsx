@@ -11,6 +11,7 @@ import {
   isSupportedWorkflowMarket,
   summarizeWorkflow,
 } from "./workflowCatalog";
+import { useI18n } from "../settings/i18n";
 
 type Props = {
   onRunStart: (workflowId: string, symbol: string, market: string) => void;
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
+  const { language, t } = useI18n();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [market, setMarket] = useState("VN_STOCK");
@@ -35,7 +37,7 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
           onSessionExpired();
           return;
         }
-        setError(caught instanceof Error ? caught.message : "Failed to load workflows");
+        setError(t("workflowLoadFailed"));
       })
       .finally(() => setLoading(false));
   }, [onSessionExpired]);
@@ -63,7 +65,7 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
   }
 
   if (!workflows.length) {
-    return <EmptyState message="No workflows available." />;
+    return <EmptyState message={t("noWorkflows")} />;
   }
 
   return (
@@ -95,7 +97,7 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
               className="dialogCloseButton"
               onClick={() => setSelectedId(null)}
               type="button"
-              aria-label="Close workflow details"
+              aria-label={t("closeWorkflowDetails")}
             >
               <X size={16} />
             </button>
@@ -105,7 +107,7 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
             {error ? <ErrorAlert message={error} /> : null}
             <div className="workflowRunOptions">
               <label>
-                Market
+                {t("market")}
                 <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
                   {selected.market_scope.map((scope) => (
                     <option
@@ -113,14 +115,14 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
                       value={scope}
                       disabled={!isSupportedWorkflowMarket(scope)}
                     >
-                      {formatWorkflowMarket(scope)}
+                      {formatWorkflowMarket(scope, language)}
                     </option>
                   ))}
                 </select>
               </label>
               {symbolInput ? (
                 <label>
-                  Symbol
+                  {t("symbol")}
                   <input
                     autoCapitalize="characters"
                     value={symbol}
@@ -139,7 +141,7 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
               onClick={handleRun}
               type="button"
             >
-              <Play size={16} /> Run
+              <Play size={16} /> {t("run")}
             </button>
           </section>
         </div>
@@ -169,30 +171,31 @@ function WorkflowSummary({
   workflow: Workflow;
   titleId?: string;
 }) {
-  const summary = summarizeWorkflow(workflow);
+  const { language, t } = useI18n();
+  const summary = summarizeWorkflow(workflow, language);
   return (
     <>
       <h2 id={titleId}>{summary.title}</h2>
       <p>{summary.description}</p>
       <dl className="workflowMeta">
         <div>
-          <dt>Markets</dt>
+          <dt>{t("markets")}</dt>
           <dd>{summary.markets.join(", ")}</dd>
         </div>
         <div>
-          <dt>Inputs</dt>
+          <dt>{t("inputs")}</dt>
           <dd>{summary.requiredInputs.join(", ")}</dd>
         </div>
         <div>
-          <dt>Stages</dt>
+          <dt>{t("stages")}</dt>
           <dd>{summary.stages.join(" -> ")}</dd>
         </div>
         <div>
-          <dt>Sections</dt>
+          <dt>{t("sections")}</dt>
           <dd>{summary.sections.join(", ")}</dd>
         </div>
         <div>
-          <dt>Evidence</dt>
+          <dt>{t("evidence")}</dt>
           <dd>
             {summary.citationLabel}; {summary.chartLabel}
           </dd>
