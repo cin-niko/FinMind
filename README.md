@@ -56,7 +56,8 @@ without `FINMIND_DATABASE_URL`):
 docker compose up postgres
 ```
 
-`.env` already sets `FINMIND_DATABASE_URL=postgresql://finmind:finmind@localhost:5432/finmind`.
+Copy `.env.sample` to `.env` and replace the provider credentials and secrets.
+The sample includes the local PostgreSQL URL and the Gemini/Twelve Data settings.
 
 Run the backend tests:
 
