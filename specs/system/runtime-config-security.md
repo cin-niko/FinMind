@@ -39,6 +39,12 @@ safety behavior.
 VN provider selection uses `FINMIND_VN_DATA_PROVIDER` as its sole environment
 variable and accepts only `vnstock` in the current workflow foundation.
 
+Gold provider selection uses `FINMIND_GOLD_DATA_PROVIDER` and accepts only
+`twelvedata` in Phase 03. `FINMIND_TWELVE_DATA_API_KEY` supplies the connector
+credential, and `FINMIND_DATAFLOW_PROVIDER_TIMEOUT_SECONDS` bounds each provider
+attempt. Missing or rejected credentials fail the Gold collection without a
+fallback source; credentials must never appear in output or logs.
+
 Mock/demo surfaces are still user-facing scope surfaces. Controls must not present
 unsupported markets or assets as enabled runnable choices. If roadmap markets are
 shown for product preview, they must be disabled or clearly marked future/out-of-scope

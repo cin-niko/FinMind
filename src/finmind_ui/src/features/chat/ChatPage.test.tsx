@@ -146,17 +146,17 @@ assert.doesNotMatch(completedMarkup, /step\(s\)/);
 
 const pendingMessage = createPendingAssistantMessage(1, "DXG");
 pendingMessage.streamState = {
-  label: "Working",
+  label: "working",
   complete: false,
   answer: "Collecting data",
   steps: [
     {
       id: "collect_data",
-      title: "Collect VN stock data",
       kind: "collect_data",
       status: "running",
       warnings: [],
-      inputContext: "DXG"
+      inputContext: "DXG",
+      market: "VN_STOCK"
     }
   ],
   citations: [],
@@ -254,7 +254,7 @@ const completedMessage: ChatMessage = {
   artifacts: [],
   workflowRun: completedRun,
   streamState: {
-    label: "Completed 0 steps",
+    label: "completed",
     complete: true,
     steps: [],
     answer: completedRun.output.sections[0].content,

@@ -1,5 +1,8 @@
+import { useI18n } from "../features/settings/i18n";
+
 export function LoadingState() {
-  return <div className="stateBox">Loading</div>;
+  const { t } = useI18n();
+  return <div className="stateBox">{t("loading")}</div>;
 }
 
 export function EmptyState({ message }: { message: string }) {

@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  deleteRun,
+  deleteConversation,
+  getConversation,
+  getLanguagePreference,
   getSession,
   isUnauthorizedError,
-  listRuns,
+  listConversations,
   logout,
-  renameRun,
-  runWorkflow,
+  saveLanguagePreference,
+  startWorkflowConversation,
   type Artifact,
+  type ConversationDetail,
+  type LanguageSelection,
   type SessionState,
   type WorkflowRun,
   type WorkflowStreamEvent
@@ -21,7 +25,7 @@ import {
   createNewConversation,
   createPendingAssistantMessage,
   inputContextForInputs,
-  titleForStep,
+  mapArtifactsToCards,
   workflowStreamStateFromRun,
   createWorkflowAssistantMessage,
   createUserMessage,
@@ -34,6 +38,7 @@ import {
 import { AppShell } from "./features/shell/AppShell";
 import { WorkflowPage } from "./features/workflows/WorkflowPage";
 import { workflowPromptTemplate } from "./features/workflows/workflowTemplates";
+import { I18nProvider, resolveLanguageSelection, translate } from "./features/settings/i18n";
 
 type View = "chat" | "workflows";
 
@@ -48,6 +53,7 @@ export function App() {
   const [citationFlashKey, setCitationFlashKey] = useState(0);
   const [selectedLive, setSelectedLive] = useState<LiveEvidence | null>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [languageSelection, setLanguageSelection] = useState<LanguageSelection>("auto");
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession({ authenticated: false }));
@@ -64,10 +70,12 @@ export function App() {
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    listRuns()
-      .then((runs) => {
+    Promise.all([listConversations(), getLanguagePreference()])
+      .then(async ([summaries, preference]) => {
+        setLanguageSelection(preference.selection);
+        const details = await Promise.all(summaries.map((item) => getConversation(item.id)));
         setConversations((items) => {
-          const hydrated = runs.map(runToConversation).reverse();
+          const hydrated = details.map(conversationToChat).reverse();
           const hydratedIds = new Set(hydrated.map((conversation) => conversation.id));
           const pending = items.filter((conversation) =>
             conversation.messages.some((message) => message.pending) &&
@@ -81,8 +89,9 @@ export function App() {
       });
   }, [handleSessionExpired, session]);
 
-  if (!session) return <LoadingState />;
-  if (!session.authenticated) return <LoginPage onAuthenticated={setSession} />;
+  const uiLanguage = resolveLanguage(languageSelection);
+  if (!session) return <I18nProvider language={uiLanguage}><LoadingState /></I18nProvider>;
+  if (!session.authenticated) return <I18nProvider language={uiLanguage}><LoginPage onAuthenticated={setSession} /></I18nProvider>;
 
   async function handleLogout() {
     const next = await logout().catch(() => ({ authenticated: false }) as const);
@@ -95,12 +104,13 @@ export function App() {
   }
 
   async function handleRunStart(workflowId: string, symbol: string, market: string) {
-    const userMessage = workflowPromptTemplate(workflowId)(symbol || market);
+    const userMessage = workflowPromptTemplate(workflowId, uiLanguage)(symbol || market);
     const conversation = createNewConversation(userMessage);
     const conversationId = conversation.id;
     const streamInputs = {
       market,
-      ...(symbol ? { symbol } : {})
+      ...(symbol ? { symbol } : {}),
+      language: resolveLanguage(languageSelection)
     };
     const pendingMessage = createPendingAssistantMessage(1);
     const nextConversation = { ...conversation, isWorkflowRun: true, messages: [...conversation.messages, pendingMessage] };
@@ -109,11 +119,11 @@ export function App() {
     setSelectedArtifact(null);
     setView("chat");
     try {
-      const run = await runWorkflow(workflowId, streamInputs, (event: WorkflowStreamEvent) => {
+      const result = await startWorkflowConversation(workflowId, streamInputs, (event: WorkflowStreamEvent) => {
         if (
-          event.kind !== "answer.delta" &&
-          event.kind !== "run.stage" &&
-          event.kind !== "run.completed" &&
+          event.kind !== "message.delta" &&
+          event.kind !== "conversation.stage" &&
+          event.kind !== "conversation.completed" &&
           event.kind !== "citation" &&
           event.kind !== "artifact"
         ) {
@@ -127,7 +137,7 @@ export function App() {
               messages: conv.messages.map((message) => {
                 if (!message.pending) return message;
                 const currentState = message.streamState ?? {
-                  label: "Working",
+                  label: "working",
                   complete: false,
                   steps: [],
                   answer: "",
@@ -135,13 +145,13 @@ export function App() {
                   artifacts: []
                 };
                 let nextState;
-                if (event.kind === "answer.delta") {
+                if (event.kind === "message.delta") {
                   nextState = {
                     ...currentState,
                     answer: `${currentState.answer}${String(event.payload.text ?? "")}`
                   };
-                } else if (event.kind === "run.completed") {
-                  nextState = workflowStreamStateFromRun(event.payload.run as WorkflowRun);
+                } else if (event.kind === "conversation.completed") {
+                  nextState = workflowStreamStateFromRun(resultToRun(event.payload.result as WorkflowRun["output"], event.payload.conversation as { id: string; title: string; inputs: Record<string, string> }));
                 } else if (event.kind === "citation") {
                   const citation = event.payload as unknown as LiveCitation;
                   const exists = currentState.citations.some(
@@ -178,11 +188,12 @@ export function App() {
       setConversations((items) =>
         items.map((conv) => {
           if (conv.id !== conversationId) return conv;
+          const run = resultToRun(result.result, result.conversation);
           const assistantMessage = createWorkflowAssistantMessage(run, 1);
-          return { ...conv, id: run.id, messages: [...conv.messages.filter((m) => !m.pending), assistantMessage] };
+          return { ...conv, id: result.conversation.id, title: result.conversation.title, messages: [...conv.messages.filter((m) => !m.pending), assistantMessage] };
         })
       );
-      setCurrentConversationId(run.id);
+      setCurrentConversationId(result.conversation.id);
     } catch (caught) {
       if (isUnauthorizedError(caught)) {
         handleSessionExpired();
@@ -191,7 +202,7 @@ export function App() {
       setConversations((items) =>
         items.map((conv) => {
           if (conv.id !== conversationId) return conv;
-          const msg = caught instanceof Error ? caught.message : "Workflow failed";
+          const msg = translate(uiLanguage, "workflowFailed");
           const errorMsg = {
             id: `assistant-err-1`,
             role: "assistant" as const,
@@ -224,7 +235,7 @@ export function App() {
     setRightPanelCollapsed(false);
     if (!currentConversationId) {
       const conversation = createNewConversation(message);
-      const response = createMockResponse(message);
+      const response = createMockResponse(message, uiLanguage);
       const nextConversation = { ...conversation, messages: [...conversation.messages, response] };
       setConversations((items) => [nextConversation, ...items]);
       setCurrentConversationId(nextConversation.id);
@@ -236,7 +247,7 @@ export function App() {
         const nextIndex = conversation.messages.filter((item) => item.role === "user").length + 1;
         return {
           ...conversation,
-          messages: [...conversation.messages, createUserMessage(message, nextIndex), createMockResponse(message)]
+          messages: [...conversation.messages, createUserMessage(message, nextIndex), createMockResponse(message, uiLanguage)]
         };
       })
     );
@@ -247,24 +258,9 @@ export function App() {
     if (!conversation) return;
     const trimmed = title.trim();
     if (!trimmed) return;
-    if (conversation.isWorkflowRun) {
-      try {
-        const updated = await renameRun(conversationId, trimmed);
-        setConversations((items) =>
-          items.map((item) =>
-            item.id === conversationId ? { ...item, title: updated.title ?? trimmed } : item
-          )
-        );
-      } catch (caught) {
-        if (isUnauthorizedError(caught)) handleSessionExpired();
-      }
-    } else {
-      setConversations((items) =>
-        items.map((item) =>
-          item.id === conversationId ? { ...item, title: trimmed } : item
-        )
-      );
-    }
+    setConversations((items) =>
+      items.map((item) => item.id === conversationId ? { ...item, title: trimmed } : item)
+    );
   }
 
   async function handleDeleteConversation(conversationId: string) {
@@ -272,7 +268,7 @@ export function App() {
     if (!conversation) return;
     if (conversation.isWorkflowRun) {
       try {
-        await deleteRun(conversationId);
+        await deleteConversation(conversationId);
       } catch (caught) {
         if (isUnauthorizedError(caught)) {
           handleSessionExpired();
@@ -311,11 +307,12 @@ export function App() {
     conversations.find((conversation) => conversation.id === currentConversationId) ?? null;
 
   const titleByView: Record<View, string> = {
-    chat: getChatHeaderTitle(currentConversation),
-    workflows: "Workflows"
+    chat: getChatHeaderTitle(currentConversation, uiLanguage),
+    workflows: translate(uiLanguage, "workflows")
   };
 
   return (
+    <I18nProvider language={uiLanguage}>
     <AppShell
       active={view}
       role={session.role}
@@ -325,6 +322,13 @@ export function App() {
       onNavigate={handleNavigate}
       onRenameConversation={handleRenameConversation}
       onDeleteConversation={handleDeleteConversation}
+      languageSelection={languageSelection}
+      onLanguageSelectionChange={(selection) => {
+        setLanguageSelection(selection);
+        saveLanguagePreference(selection).catch((caught) => {
+          if (isUnauthorizedError(caught)) handleSessionExpired();
+        });
+      }}
       onSelectChat={(conversationId) => {
         setCurrentConversationId(conversationId);
         setSelectedArtifact(null);
@@ -378,6 +382,7 @@ export function App() {
         />
       </div>
     </AppShell>
+    </I18nProvider>
   );
 }
 
@@ -390,13 +395,13 @@ function updateStreamState(
   const inputContext = inputContextForInputs(inputs);
   const nextStep = {
     id: stageId,
-    title: titleForStep(stageId, inputs),
     kind: String(event.payload.kind ?? "skill") === "collect_data" ? "collect_data" as const : "skill" as const,
     status: String(event.payload.status ?? "running"),
     warnings: Array.isArray(event.payload.warnings)
       ? event.payload.warnings.map((warning) => String(warning))
       : [],
-    inputContext
+    inputContext,
+    market: inputs?.market
   };
   const steps = currentState.steps.some((step) => step.id === stageId)
     ? currentState.steps.map((step) => (step.id === stageId ? nextStep : step))
@@ -404,20 +409,47 @@ function updateStreamState(
   const completedSteps = steps.filter((step) => step.status !== "running").length;
   return {
     ...currentState,
-    label: completedSteps > 0 && completedSteps === steps.length ? `Completed ${completedSteps} steps` : "Working",
+    label: completedSteps > 0 && completedSteps === steps.length ? "completed" : "working",
     complete: completedSteps > 0 && completedSteps === steps.length,
     steps
   };
 }
 
-export function getChatHeaderTitle(conversation: ChatConversation | null): string {
-  return conversation ? getConversationTitle(conversation) : "Chat";
+export function getChatHeaderTitle(
+  conversation: ChatConversation | null,
+  language: "en" | "vi" = "en"
+): string {
+  return conversation ? getConversationTitle(conversation) : translate(language, "chat");
 }
 
-function runToConversation(run: WorkflowRun): ChatConversation {
+function conversationToChat(conversation: ConversationDetail): ChatConversation {
+  const message = conversation.messages.find((item) => item.role === "assistant");
+  const run = message?.workflow_result
+    ? resultToRun(message.workflow_result, conversation)
+    : null;
+  if (!run) {
+    return {
+      id: conversation.id,
+      title: conversation.title,
+      isWorkflowRun: true,
+      messages: message
+        ? [{
+            id: message.id,
+            role: "assistant",
+            content: message.content,
+            blocks: [{ kind: "text", content: message.content }],
+            artifacts: mapArtifactsToCards(message.artifacts, conversation.id, conversation.language)
+          }]
+        : []
+    };
+  }
+  return runToConversation(run, conversation.language);
+}
+
+function runToConversation(run: WorkflowRun, language: "en" | "vi" = "en"): ChatConversation {
   const workflowId = inferWorkflowId(run);
   const symbol = (run.inputs?.symbol ?? "").toUpperCase();
-  const userMessage = workflowPromptTemplate(workflowId)(symbol || (run.inputs?.market ?? ""));
+  const userMessage = workflowPromptTemplate(workflowId, language)(symbol || (run.inputs?.market ?? ""));
   const assistantMessage = createWorkflowAssistantMessage(run, 1);
   return {
     id: run.id,
@@ -425,6 +457,24 @@ function runToConversation(run: WorkflowRun): ChatConversation {
     isWorkflowRun: true,
     messages: [createUserMessage(userMessage, 1), assistantMessage]
   };
+}
+
+function resultToRun(
+  output: WorkflowRun["output"],
+  conversation: { id: string; title: string; inputs: Record<string, string> }
+): WorkflowRun {
+  return {
+    id: conversation.id,
+    kind: "workflow",
+    status: "success",
+    title: conversation.title,
+    inputs: conversation.inputs,
+    output
+  };
+}
+
+function resolveLanguage(selection: LanguageSelection): "en" | "vi" {
+  return resolveLanguageSelection(selection, navigator.languages);
 }
 
 function inferWorkflowId(run: WorkflowRun): string {

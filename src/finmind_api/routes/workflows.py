@@ -20,45 +20,24 @@ def list_workflows(
     return request.app.state.platform.workflow_service.list_workflows()
 
 
-@router.post("/workflows/{workflow_id}/runs")
-async def run_workflow(
+@router.post("/workflows/{workflow_id}/conversations")
+async def start_workflow_conversation(
     workflow_id: str,
     payload: dict[str, Any],
     request: Request,
     session: Annotated[Session, Depends(require_session)],
 ) -> StreamingResponse:
-    lease = await request.app.state.stream_limiter.acquire(session.username)
-    if lease is None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": {
-                    "code": "concurrency_limit_exceeded",
-                    "message": (
-                        "Too many active workflow or chatflow streams. "
-                        "Retry after a short delay."
-                    ),
-                    "retry_after_seconds": 5,
-                }
-            },
-        )
+    language = payload.pop("language", "en")
+    if language not in {"en", "vi"}:
+        raise HTTPException(status_code=422, detail="language must be en or vi")
     try:
-        request.app.state.platform.workflow_service.prepare_workflow_run(
-            workflow_id=workflow_id,
-            inputs=payload,
-        )
-        event_source = request.app.state.platform.workflow_service.stream_workflow(
-            workflow_id=workflow_id,
-            inputs=payload,
-            requested_by=session.username,
+        conversation = request.app.state.platform.conversation_service.start(
+            workflow_id, payload, session.username, language
         )
         heartbeat_seconds = float(getattr(request.app.state, "stream_heartbeat_seconds", 5.0))
         response = StreamingResponse(
-            _guarded_event_source(
-                request,
-                event_source,
-                request.app.state.stream_limiter,
-                lease,
+            _conversation_event_source(
+                request.app.state.platform.conversation_service.events(conversation.conversation_id),
                 heartbeat_seconds,
             ),
             media_type="text/event-stream",
@@ -67,33 +46,19 @@ async def run_workflow(
         response.headers["X-Accel-Buffering"] = "no"
         return response
     except KeyError as error:
-        await request.app.state.stream_limiter.release(lease)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except WorkflowValidationError as error:
-        await request.app.state.stream_limiter.release(lease)
         raise HTTPException(status_code=422, detail=str(error)) from error
     except AgentOrchestratorError as error:
-        await request.app.state.stream_limiter.release(lease)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
         ) from error
 
 
-async def _guarded_event_source(
-    request: Request,
+async def _conversation_event_source(
     event_source: object,
-    limiter: object,
-    lease: object,
     heartbeat_seconds: float = 5.0,
 ) -> object:
-    try:
-        async for frame in with_heartbeats(
-            sse_event_stream(event_source),
-            heartbeat_seconds,
-        ):
-            if await request.is_disconnected():
-                break
-            yield frame
-    finally:
-        await limiter.release(lease)
+    async for frame in with_heartbeats(sse_event_stream(event_source), heartbeat_seconds):
+        yield frame

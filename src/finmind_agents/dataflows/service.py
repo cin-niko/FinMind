@@ -29,6 +29,11 @@ class DataflowService:
         )
         for provider in providers:
             result = provider.fetch(provider_request)
+            if request.market.value == "GOLD" and _is_retryable_gold_failure(result):
+                for _attempt in range(2):
+                    result = provider.fetch(provider_request)
+                    if not _is_retryable_gold_failure(result):
+                        break
             fetch_results.append(result)
             records.extend(result.records)
             source_documents.extend(result.source_documents)
@@ -76,3 +81,9 @@ def _result_status(
         return CollectionStatus.SUCCESS
     return CollectionStatus.PARTIAL
 
+
+def _is_retryable_gold_failure(result: ProviderFetchResult) -> bool:
+    return (
+        result.provider_result.status == CollectionStatus.FAILED
+        and result.provider_result.failure_reason == "gold_provider_request_failed"
+    )

@@ -1,8 +1,6 @@
 from pydantic import BaseModel
 
-from finmind_agents.serialization import serialize_run
-
-__all__ = ["CitationResponse", "LoginRequest", "serialize_run"]
+__all__ = ["CitationResponse", "LoginRequest"]
 
 
 class LoginRequest(BaseModel):

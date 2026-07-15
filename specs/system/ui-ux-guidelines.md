@@ -83,7 +83,12 @@ Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail
 - The left rail footer contains the current role/session summary, a Settings
   control, and logout; neither control belongs in the top context bar.
 - Desktop shell scrolling is separated by panel: the left rail keeps brand/nav and logout visible while history scrolls; the primary content pane keeps its header visible; chat keeps the composer pinned to the bottom while only messages scroll; the right artifact panel keeps its header visible while only artifact body content scrolls.
-- Desktop left rail may collapse to a compact icon rail. The right artifact/citation panel may fully collapse so the primary pane reclaims the width; selecting a citation or artifact opens it again. Collapse controls belong in the respective panel headers, use icon-only buttons with accessible labels, and must not destroy the active chat, artifact, or citation selection state.
+- Desktop left rail may collapse to a compact icon rail. Footer actions remain
+  fully contained in the compact rail and use icon-only buttons with accessible
+  labels. The right artifact/citation panel may fully collapse so the primary
+  pane reclaims the width; selecting a citation or artifact opens it again.
+  Collapse controls belong in the respective panel headers and must not destroy
+  the active chat, artifact, or citation selection state.
 - No large hero areas.
 
 Navigation is roadmap-aware:

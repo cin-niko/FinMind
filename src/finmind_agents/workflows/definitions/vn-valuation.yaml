@@ -1,0 +1,15 @@
+{
+  "workflow_id": "vn-valuation",
+  "version": "1.0.0",
+  "title": "VN Valuation Research",
+  "description": "Presents eligible, cited valuation methods and sensitivity ranges without a recommendation.",
+  "workflow_type": "atomic",
+  "market_scope": ["VN_STOCK"],
+  "required_inputs": [{"name": "market", "type": "string", "required": true}, {"name": "symbol", "type": "string", "required": true}],
+  "stages": ["collect_data", "vn-valuation"],
+  "skill_refs": ["src/finmind_agents/workflows/skills/vn-valuation/SKILL.md"],
+  "output_sections": ["Valuation Research"],
+  "citation_policy": "material_claims_require_citations",
+  "chart_requirements": [],
+  "step_sequence": ["collect_data", "vn-valuation"]
+}

@@ -351,7 +351,9 @@ button:focus-visible {
 
 .shell.leftCollapsed .railFooter {
   width: 100%;
+  flex-direction: column;
   justify-content: center;
+  gap: 8px;
   padding-inline: 0;
 }
 

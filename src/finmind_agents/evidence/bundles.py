@@ -29,6 +29,17 @@ def skill_data_bundle(skill_id: str, bundle: DataBundle) -> DataBundle:
                 ),
             )
         )
+    elif skill_id == "vn-news-digest":
+        records = tuple(
+            record for record in bundle.records if record.dataset_id == "vn_news"
+        )
+    elif skill_id == "vn-valuation":
+        records = tuple(
+            record
+            for record in bundle.records
+            if isinstance(record, (FundamentalRecord, PriceSeriesRecord))
+            or record.dataset_id == "vn_valuation"
+        )
     else:
         records = tuple(
             record

@@ -16,6 +16,8 @@ class Settings:
     session_ttl_seconds: int = 8 * 60 * 60
     vn_data_provider: str = "vnstock"
     vnstock_api_key: str = ""
+    gold_data_provider: str = "twelvedata"
+    twelve_data_api_key: str = ""
     dataflow_provider_timeout_seconds: float = 15.0
     database_url: str = ""
     stream_global_limit: int = 32
@@ -46,12 +48,25 @@ class Settings:
         ).strip().lower()
         if vn_data_provider != "vnstock":
             raise SettingsError("FINMIND_VN_DATA_PROVIDER must be vnstock")
+        gold_data_provider = _env(
+            "FINMIND_GOLD_DATA_PROVIDER",
+            dotenv,
+            "twelvedata",
+        ).strip().lower()
+        if gold_data_provider != "twelvedata":
+            raise SettingsError("FINMIND_GOLD_DATA_PROVIDER must be twelvedata")
         return cls(
             admin_username=required["FINMIND_ADMIN_USERNAME"],
             admin_password=required["FINMIND_ADMIN_PASSWORD"],
             session_secret=required["FINMIND_SESSION_SECRET"],
             vn_data_provider=vn_data_provider,
             vnstock_api_key=_env("FINMIND_VNSTOCK_API_KEY", dotenv, "").strip(),
+            gold_data_provider=gold_data_provider,
+            twelve_data_api_key=_env(
+                "FINMIND_TWELVE_DATA_API_KEY",
+                dotenv,
+                "",
+            ).strip(),
             dataflow_provider_timeout_seconds=float(
                 _env("FINMIND_DATAFLOW_PROVIDER_TIMEOUT_SECONDS", dotenv, "15")
             ),

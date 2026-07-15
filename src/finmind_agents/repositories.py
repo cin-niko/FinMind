@@ -3,10 +3,12 @@ from typing import Protocol
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
     Citation,
-    ExecutionRun,
     Market,
     SourceDocument,
     WorkflowSpecification,
+    Conversation,
+    ConversationStatus,
+    Message,
 )
 
 
@@ -23,25 +25,40 @@ class MarketDataRepository(Protocol):
     ) -> list[SourceDocument]: ...
 
 
-class RunRepository(Protocol):
-    def save(self, run: ExecutionRun) -> None: ...
+class ConversationRepository(Protocol):
+    """Persistence boundary for the user-visible conversation model."""
 
-    def save_citations(self, run_id: str, citations: tuple[Citation, ...]) -> None: ...
+    def save_conversation(self, conversation: Conversation) -> None: ...
 
-    def list_citations(self, run_id: str) -> list[Citation]: ...
+    def get_conversation(self, conversation_id: str, owner: str) -> Conversation | None: ...
+
+    def list_conversations(self, owner: str) -> list[Conversation]: ...
+
+    def update_conversation_status(
+        self,
+        conversation_id: str,
+        owner: str,
+        status: ConversationStatus,
+        *,
+        failure_message: str | None = None,
+    ) -> Conversation | None: ...
+
+    def save_message(self, message: Message) -> None: ...
+
+    def list_messages(self, conversation_id: str, owner: str) -> list[Message]: ...
+
+    def delete_conversation(self, conversation_id: str, owner: str) -> bool: ...
 
     def save_price_series(
         self,
         records: tuple[CanonicalMarketDataRecord, ...],
     ) -> None: ...
 
-    def get(self, run_id: str) -> ExecutionRun | None: ...
+    def reconcile_interrupted(self) -> int: ...
 
-    def list(self) -> list[ExecutionRun]: ...
+    def get_language_preference(self, owner: str) -> str | None: ...
 
-    def delete(self, run_id: str) -> bool: ...
-
-    def update_title(self, run_id: str, title: str) -> ExecutionRun | None: ...
+    def save_language_preference(self, owner: str, selection: str) -> str: ...
 
 
 class WorkflowRepository(Protocol):

@@ -289,7 +289,8 @@ remains available.
   instrument input and MUST run only for XAUUSD.
 - **FR-017**: The workflow catalog MUST state each workflow's market scope,
   required inputs, supported sections, and unsupported categories. The Gold
-  technical-analysis card MUST run its fixed XAUUSD scope directly.
+  technical-analysis card MUST open the same confirmation dialog as other
+  workflows, then run its fixed XAUUSD scope without editable inputs.
 - **FR-018**: The web application MUST offer exactly Auto-detect, Vietnamese,
   and English as server-persisted, authenticated-user language selections. The
   initial selection MUST be Auto-detect. Auto-detect MUST resolve the first

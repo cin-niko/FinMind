@@ -1,0 +1,1 @@
+{"required": [{"dataset": "fundamental", "purpose": "period-consistent financial inputs"}, {"dataset": "market_price", "purpose": "cited current market context"}]}

@@ -26,7 +26,8 @@ gold prompts. Rejected because both would duplicate or bypass safety controls.
 ## Decision: Use Daily XAUUSD OHLC Evidence
 
 Phase 03 supports only the world-gold `XAUUSD` benchmark. The configured Gold
-connector fetches one daily OHLC price series for each workflow-created
+connector uses Twelve Data's daily time-series API and fetches one daily OHLC
+price series for each workflow-created
 conversation and upserts it through the same canonical price-series model used
 for VN prices. It retains
 the fullest daily history returned within the source's supported limit. The
@@ -174,6 +175,38 @@ chat-language detection, or chat streams. Those are Phase 04 responsibilities.
 Rationale: bounded dataflows and repeatable workflows establish grounded market
 behavior before flexible research interaction is introduced.
 
+## Decision: Keep Workflow Results Separate From Messages
+
+A workflow produces a transient `WorkflowResult` containing safe status, output,
+stage state, citations, artifacts, and language. It does not persist a message
+or own user history. A `ConversationAdapter` maps that result to the first
+assistant message in the newly created workflow conversation and assigns the
+citations/artifacts to that message.
+
+Rationale: workflow execution and user conversation are different ownership
+boundaries. This lets later chat create the same `Message` type without making
+chat depend on a workflow result, while keeping citations/artifacts adjacent to
+the answer they support.
+
+Alternatives considered: persist `WorkflowResult` as the history root, or attach
+citations/artifacts directly to the conversation. Rejected because each would
+blur message ownership and make multi-message conversations ambiguous.
+
+## Decision: Replace Legacy Run History Without Data Migration
+
+Phase 03 removes the persisted `runs`/`run_citations` product contract and
+starts conversation history empty. The database migration retains shared
+canonical market data such as price-series records but does not translate legacy
+run history into conversations.
+
+Rationale: V1 is single-user and existing run history is development data. A
+lossless conversion cannot reliably infer the new message ownership model.
+
+Alternatives considered: retain run endpoints as aliases, or migrate each run
+to a conversation/message pair. Rejected because aliases preserve two product
+roots and migration creates unverified history semantics. This decision must be
+revisited before production data requires preservation.
+
 ## Blindspot Pass: Decisions Required Before Implementation
 
 This section records open Phase 03 planning gates discovered by reviewing the
@@ -203,6 +236,10 @@ The provider's valid daily rows are authoritative, so correction, duplicate, and
 malformed-candle reconciliation are deferred. A chart and analysis claim use the
 same daily series and show its source timestamp consistently; collection time
 must not be presented as the market-observation time.
+
+The runtime selects this connector with `FINMIND_GOLD_DATA_PROVIDER=twelvedata`
+and supplies its credential through `FINMIND_TWELVE_DATA_API_KEY`. Missing or
+invalid configuration fails closed; it never selects another provider.
 
 ### Provider Operation, Rights, And Failure Policy
 

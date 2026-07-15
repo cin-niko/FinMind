@@ -13,10 +13,10 @@ router = APIRouter(prefix="/api", tags=["artifacts"])
 def download_artifact(
     artifact_id: str,
     request: Request,
-    _session: Annotated[Session, Depends(require_session)],
+    session: Annotated[Session, Depends(require_session)],
     format: str = "csv",
 ) -> Response:
-    artifact = _find_artifact(request, artifact_id)
+    artifact = _find_artifact(request, artifact_id, session.username)
     if artifact is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -45,11 +45,16 @@ def download_artifact(
     )
 
 
-def _find_artifact(request: Request, artifact_id: str) -> dict[str, Any] | None:
-    for run in request.app.state.platform.workflow_service.list_runs():
-        for artifact in run.get("output", {}).get("artifacts", []):
-            if artifact.get("artifact_id") == artifact_id:
-                return artifact
+def _find_artifact(request: Request, artifact_id: str, owner: str) -> dict[str, Any] | None:
+    service = request.app.state.platform.conversation_service
+    for summary in service.list(owner):
+        detail = service.get(str(summary["id"]), owner)
+        if detail is None:
+            continue
+        for message in detail.get("messages", []):
+            for artifact in message.get("artifacts", []):
+                if artifact.get("artifact_id") == artifact_id:
+                    return artifact
     return None
 
 

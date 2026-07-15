@@ -105,33 +105,35 @@ export function WorkflowPage({ onRunStart, onSessionExpired }: Props) {
               <WorkflowSummary workflow={selected} titleId="workflow-dialog-title" />
             </div>
             {error ? <ErrorAlert message={error} /> : null}
-            <div className="workflowRunOptions">
-              <label>
-                {t("market")}
-                <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
-                  {selected.market_scope.map((scope) => (
-                    <option
-                      key={scope}
-                      value={scope}
-                      disabled={!isSupportedWorkflowMarket(scope)}
-                    >
-                      {formatWorkflowMarket(scope, language)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {symbolInput ? (
+            {selected.id !== "gold-technical-analysis" ? (
+              <div className="workflowRunOptions">
                 <label>
-                  {t("symbol")}
-                  <input
-                    autoCapitalize="characters"
-                    value={symbol}
-                    onChange={(event) => setSymbol(event.target.value)}
-                    placeholder="VCB"
-                  />
+                  {t("market")}
+                  <select value={selectedMarket} onChange={(event) => setMarket(event.target.value)}>
+                    {selected.market_scope.map((scope) => (
+                      <option
+                        key={scope}
+                        value={scope}
+                        disabled={!isSupportedWorkflowMarket(scope)}
+                      >
+                        {formatWorkflowMarket(scope, language)}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-              ) : null}
-            </div>
+                {symbolInput ? (
+                  <label>
+                    {t("symbol")}
+                    <input
+                      autoCapitalize="characters"
+                      value={symbol}
+                      onChange={(event) => setSymbol(event.target.value)}
+                      placeholder="VCB"
+                    />
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
             <button
               className="primaryButton"
               disabled={

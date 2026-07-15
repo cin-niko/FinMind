@@ -6,19 +6,19 @@ from finmind_agents.models import utc_now
 
 
 class StreamEventKind(StrEnum):
-    RUN_STARTED = "run.started"
-    RUN_STAGE = "run.stage"
-    ANSWER_DELTA = "answer.delta"
+    WORKFLOW_STARTED = "workflow.started"
+    WORKFLOW_STAGE = "workflow.stage"
+    MESSAGE_DELTA = "message.delta"
     CITATION = "citation"
     ARTIFACT = "artifact"
-    RUN_COMPLETED = "run.completed"
-    RUN_FAILED = "run.failed"
+    WORKFLOW_COMPLETED = "workflow.completed"
+    WORKFLOW_FAILED = "workflow.failed"
 
 
 @dataclass(frozen=True)
 class StreamEvent:
     event_id: str
-    run_id: str
+    conversation_id: str
     sequence: int
     kind: StreamEventKind
     created_at: str
@@ -31,7 +31,7 @@ class StreamEvent:
     def to_payload(self) -> dict[str, Any]:
         return {
             "event_id": self.event_id,
-            "run_id": self.run_id,
+            "conversation_id": self.conversation_id,
             "sequence": self.sequence,
             "kind": self.kind.value,
             "created_at": self.created_at,
@@ -40,14 +40,14 @@ class StreamEvent:
 
 
 def build_stream_event(
-    run_id: str,
+    conversation_id: str,
     sequence: int,
     kind: StreamEventKind,
     payload: dict[str, Any],
 ) -> StreamEvent:
     return StreamEvent(
         event_id=f"evt_{sequence:04d}",
-        run_id=run_id,
+        conversation_id=conversation_id,
         sequence=sequence,
         kind=kind,
         created_at=utc_now().isoformat(),

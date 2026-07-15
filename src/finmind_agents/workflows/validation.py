@@ -20,10 +20,11 @@ def parse_market(value: object) -> Market:
     aliases = {
         "VN": Market.VN_STOCK,
         "VN_STOCK": Market.VN_STOCK,
+        "GOLD": Market.GOLD,
     }
     market = aliases.get(normalized)
     if market is None:
-        raise WorkflowValidationError("This workflow supports VN stocks only")
+        raise WorkflowValidationError("This workflow supports VN stocks or Gold only")
     return market
 
 
@@ -34,11 +35,18 @@ def validate_workflow_inputs(
     market = parse_market(inputs.get("market"))
     if market not in workflow.market_scope:
         raise WorkflowValidationError(
-            "This workflow supports VN stocks only"
+            "This workflow does not support the selected market"
         )
+    if market is Market.GOLD and "symbol" in inputs:
+        supplied = inputs.get("symbol")
+        if supplied not in (None, "", "XAUUSD"):
+            raise WorkflowValidationError("Gold workflows only support XAUUSD")
+    validated_symbol = _validate_symbol(workflow, inputs)
+    if market is Market.GOLD and validated_symbol not in {None, "XAUUSD"}:
+        raise WorkflowValidationError("Gold workflows only support XAUUSD")
     return ValidatedWorkflowInputs(
         market=market,
-        symbol=_validate_symbol(workflow, inputs),
+        symbol=validated_symbol or ("XAUUSD" if market is Market.GOLD else None),
     )
 
 

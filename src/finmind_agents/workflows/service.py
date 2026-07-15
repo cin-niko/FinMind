@@ -27,16 +27,13 @@ from finmind_agents.streaming.models import (
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
     Citation,
-    ExecutionRun,
-    RunStatus,
+    WorkflowResult,
     WorkflowSpecification,
-    utc_now,
 )
 from finmind_agents.repositories import (
-    RunRepository,
+    ConversationRepository,
     WorkflowRepository,
 )
-from finmind_agents.serialization import serialize_run
 from finmind_agents.workflows.indicators import compute_indicators
 from finmind_agents.workflows.collector import (
     collect_workflow_data,
@@ -50,6 +47,7 @@ from finmind_agents.workflows.grounding import (
     uncited_citations,
 )
 from finmind_agents.workflows.validation import validate_workflow_inputs
+from finmind_agents.workflows.valuation import build_valuation_record
 
 COLLECT_STEP = "collect_data"
 
@@ -60,6 +58,7 @@ class PreparedWorkflowRun:
     run_inputs: dict[str, object]
     validated_market: object
     validated_symbol: str | None
+    language: str
 
 
 @dataclass(frozen=True)
@@ -67,7 +66,7 @@ class WorkflowService:
     workflows: WorkflowRepository
     dataflows: DataflowService
     agent_orchestrator: AgentOrchestratorProtocol
-    runs: RunRepository
+    records: ConversationRepository
 
     def list_workflows(self) -> list[dict[str, object]]:
         return [
@@ -96,8 +95,9 @@ class WorkflowService:
         workflow_id: str,
         inputs: dict[str, object],
         requested_by: str,
+        language: str = "en",
     ) -> AsyncIterator[StreamEvent]:
-        prepared = self.prepare_workflow_run(workflow_id, inputs)
+        prepared = self.prepare_workflow_run(workflow_id, inputs, language)
         async for event in self._stream_workflow_events(prepared, requested_by):
             yield event
 
@@ -105,6 +105,7 @@ class WorkflowService:
         self,
         workflow_id: str,
         inputs: dict[str, object],
+        language: str = "en",
     ) -> PreparedWorkflowRun:
         workflow = self.workflows.get(workflow_id)
         if workflow is None:
@@ -118,6 +119,7 @@ class WorkflowService:
             run_inputs=run_inputs,
             validated_market=validated_inputs.market,
             validated_symbol=validated_inputs.symbol,
+            language=language if language in {"en", "vi"} else "en",
         )
 
     async def _stream_workflow_events(
@@ -125,8 +127,7 @@ class WorkflowService:
         prepared: PreparedWorkflowRun,
         requested_by: str,
     ) -> AsyncIterator[StreamEvent]:
-        started_at = utc_now()
-        run_id = f"run_{uuid4().hex[:12]}"
+        execution_id = f"exec_{uuid4().hex[:12]}"
         sequence = 0
         steps: list[dict[str, object]] = []
         sections: list[dict[str, object]] = []
@@ -147,14 +148,14 @@ class WorkflowService:
             nonlocal sequence
             sequence += 1
             return build_stream_event(
-                run_id=run_id,
+                conversation_id=execution_id,
                 sequence=sequence,
                 kind=kind,
                 payload=payload,
             )
 
         yield emit(
-            StreamEventKind.RUN_STARTED,
+            StreamEventKind.WORKFLOW_STARTED,
             {
                 "workflow_id": prepared.workflow.workflow_id,
                 "inputs": dict(prepared.run_inputs),
@@ -165,7 +166,7 @@ class WorkflowService:
             for step_id in _ordered_steps(prepared.workflow):
                 step_kind = "collect_data" if step_id == COLLECT_STEP else "skill"
                 yield emit(
-                    StreamEventKind.RUN_STAGE,
+                    StreamEventKind.WORKFLOW_STAGE,
                     _stage_payload(
                         prepared.workflow,
                         step_id,
@@ -184,6 +185,9 @@ class WorkflowService:
                     )
                     records = collected.records
                     records = _enrich_with_indicators(records, prepared.workflow)
+                    valuation_record = build_valuation_record(records)
+                    if valuation_record is not None:
+                        records = (*records, valuation_record)
                     data_bundle = build_data_bundle(records)
                     citations_by_id.update(
                         {
@@ -191,7 +195,7 @@ class WorkflowService:
                             for citation in build_citations(data_bundle.records)
                         }
                     )
-                    self.runs.save_price_series(_price_series_records(records))
+                    self.records.save_price_series(_price_series_records(records))
                     collection_output = collected.collection.to_output()
                     prior_outputs[COLLECT_STEP] = collection_output
                     steps.append(
@@ -203,7 +207,7 @@ class WorkflowService:
                         )
                     )
                     yield emit(
-                        StreamEventKind.RUN_STAGE,
+                        StreamEventKind.WORKFLOW_STAGE,
                         _stage_payload(
                             prepared.workflow,
                             step_id,
@@ -236,11 +240,12 @@ class WorkflowService:
                         "data_bundle": skill_bundle.to_prompt_payload(),
                         "records": [record.to_prompt_record() for record in skill_records],
                         "prior_outputs": prior_outputs,
+                        "language": prepared.language,
                     },
                     citation_ids=build_citation_allowlist(skill_records),
                 )
                 yield emit(
-                    StreamEventKind.RUN_STAGE,
+                    StreamEventKind.WORKFLOW_STAGE,
                     _stage_payload(
                         prepared.workflow,
                         skill_id,
@@ -262,7 +267,7 @@ class WorkflowService:
                         and _is_visible_output_step(prepared.workflow, skill_id)
                     ):
                         yield emit(
-                            StreamEventKind.ANSWER_DELTA,
+                            StreamEventKind.MESSAGE_DELTA,
                             {
                                 "section_title": _visible_output_title(
                                     prepared.workflow,
@@ -314,7 +319,7 @@ class WorkflowService:
                     if citation is not None:
                         yield emit(StreamEventKind.CITATION, _citation_payload(citation))
                 yield emit(
-                    StreamEventKind.RUN_STAGE,
+                    StreamEventKind.WORKFLOW_STAGE,
                     _stage_payload(
                         prepared.workflow,
                         skill_id,
@@ -344,138 +349,47 @@ class WorkflowService:
             if chart is not None:
                 yield emit(StreamEventKind.ARTIFACT, _chart_payload(chart))
 
-            run = ExecutionRun(
-                run_id=run_id,
-                kind="workflow",
-                status=_run_status(steps),
-                requested_by=requested_by,
+            result = WorkflowResult(
+                workflow_id=prepared.workflow.workflow_id,
                 inputs=prepared.run_inputs,
-                started_at=started_at,
-                completed_at=utc_now(),
-                output={
-                    "sections": sections,
-                    "steps": steps,
-                    "collection": prior_outputs.get(COLLECT_STEP, {}),
-                    "citations": [
-                        _citation_payload(citations_by_id[citation_id])
-                        for citation_id in sorted(used_citation_ids)
-                        if citation_id in citations_by_id
-                    ],
-                    "artifacts": [
-                        _chart_payload(artifact) for artifact in chart_artifacts
-                    ],
-                    "grounding": {
-                        "grounding_status": grounding.grounding_status,
-                        "blocked_claims": list(grounding.blocked_claims),
-                        "uncited_claims": list(grounding.uncited_claims),
-                    },
-                },
-                logs=[
-                    {
-                        "event": "workflow_started",
-                        "stage": prepared.workflow.stages[0]
-                        if prepared.workflow.stages
-                        else COLLECT_STEP,
-                    },
-                    *(
-                        [{"event": "artifact_created", "artifact_id": chart.artifact_id}]
-                        if chart is not None
-                        else []
-                    ),
-                    {"event": "workflow_completed", "status": _run_status(steps).value},
-                ],
-            )
-            self.runs.save(run)
-            self.runs.save_citations(
-                run.run_id,
-                tuple(
+                sections=tuple(sections),
+                steps=tuple(steps),
+                collection=dict(prior_outputs.get(COLLECT_STEP, {})),
+                citations=tuple(
                     citations_by_id[citation_id]
                     for citation_id in sorted(used_citation_ids)
                     if citation_id in citations_by_id
                 ),
+                artifacts=tuple(chart_artifacts),
+                grounding={
+                    "grounding_status": grounding.grounding_status,
+                    "blocked_claims": list(grounding.blocked_claims),
+                    "uncited_claims": list(grounding.uncited_claims),
+                },
+                language=prepared.language,
             )
-            serialized = serialize_run(run)
             yield emit(
-                StreamEventKind.RUN_COMPLETED,
+                StreamEventKind.WORKFLOW_COMPLETED,
                 {
-                    "status": run.status.value,
-                    "completed_steps": len(run.output["steps"]),
-                    "run": serialized,
+                    "status": "success",
+                    "completed_steps": len(result.steps),
+                    "result": result,
                 },
             )
         except Exception as error:
-            partial_run = ExecutionRun(
-                run_id=run_id,
-                kind="workflow",
-                status=RunStatus.FAILED,
-                requested_by=requested_by,
-                inputs=prepared.run_inputs,
-                started_at=started_at,
-                completed_at=utc_now(),
-                output={
-                    "sections": sections,
-                    "steps": steps,
-                    "collection": prior_outputs.get(COLLECT_STEP, {}),
-                    "citations": [],
-                    "artifacts": [],
-                    "grounding": {
-                        "grounding_status": "blocked",
-                        "blocked_claims": list(grounding_blocked),
-                        "uncited_claims": list(grounding_uncited),
-                    },
-                },
-                logs=[{"event": "workflow_failed", "message": str(error)}],
-            )
-            self.runs.save(partial_run)
             yield emit(
-                StreamEventKind.RUN_FAILED,
+                StreamEventKind.WORKFLOW_FAILED,
                 {
-                    "status": partial_run.status.value,
+                    "status": "failed",
                     "message": str(error),
-                    "run": serialize_run(partial_run),
                 },
             )
-
-    def get_run(self, run_id: str) -> dict[str, object] | None:
-        run = self.runs.get(run_id)
-        if run is None:
-            return None
-        return serialize_run(run)
-
-    def list_runs(self) -> list[dict[str, object]]:
-        return [serialize_run(run) for run in self.runs.list()]
-
-    def list_citations(self, run_id: str) -> list[dict[str, object]]:
-        return [
-            _citation_payload(citation)
-            for citation in self.runs.list_citations(run_id)
-        ]
-
-    def delete_run(self, run_id: str) -> bool:
-        return self.runs.delete(run_id)
-
-    def rename_run(self, run_id: str, title: str) -> dict[str, object] | None:
-        run = self.runs.update_title(run_id, title)
-        if run is None:
-            return None
-        return serialize_run(run)
 
 
 def _ordered_steps(workflow: WorkflowSpecification) -> tuple[str, ...]:
     if workflow.step_sequence:
         return workflow.step_sequence
     return (COLLECT_STEP, primary_skill_id(workflow))
-
-
-def _run_status(steps: list[dict[str, object]]) -> RunStatus:
-    skill_statuses = [
-        step["status"] for step in steps if step["kind"] == "skill"
-    ]
-    if any(status == "failed" for status in skill_statuses):
-        return RunStatus.FAILED
-    if any(status in ("unavailable", "partial") for status in skill_statuses):
-        return RunStatus.PARTIAL
-    return RunStatus.SUCCESS
 
 
 def _step(

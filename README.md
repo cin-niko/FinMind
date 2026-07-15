@@ -45,6 +45,8 @@ You can override it by exporting environment variables before starting the API:
 export FINMIND_ADMIN_USERNAME=admin
 export FINMIND_ADMIN_PASSWORD=admin
 export FINMIND_SESSION_SECRET=session-secret-with-length
+export FINMIND_GOLD_DATA_PROVIDER=twelvedata
+export FINMIND_TWELVE_DATA_API_KEY=your-twelve-data-key
 ```
 
 Run the PostgreSQL run store for local development (the API fails closed

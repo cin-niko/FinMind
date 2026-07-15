@@ -158,4 +158,5 @@ def _filename_prefix(record_key: str, title: str) -> str:
 
 CHART_BUILDERS: dict[str, ChartBuilder] = {
     "price_trend": build_price_trend_chart,
+    "gold_price_trend": build_price_trend_chart,
 }

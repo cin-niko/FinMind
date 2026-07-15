@@ -32,23 +32,61 @@ export type Workflow = {
 export type WorkflowRunInput = {
   market: string;
   symbol?: string;
+  language: "en" | "vi";
 };
 
 export type WorkflowStreamEvent = {
   event_id: string;
-  run_id: string;
+  conversation_id: string;
   sequence: number;
   kind:
-    | "run.started"
-    | "run.stage"
-    | "answer.delta"
+    | "conversation.started"
+    | "conversation.stage"
+    | "message.delta"
     | "citation"
     | "artifact"
-    | "run.completed"
-    | "run.failed";
+    | "message.created"
+    | "conversation.completed"
+    | "conversation.failed";
   created_at: string;
   payload: Record<string, unknown>;
 };
+
+export type ConversationMessage = {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  source_kind: "workflow_result" | "chat";
+  content: string;
+  created_at: string;
+  workflow_id?: string | null;
+  citations: WorkflowRun["output"]["citations"];
+  artifacts: Artifact[];
+  workflow_result?: WorkflowRun["output"] | null;
+};
+
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  status: "queued" | "running" | "success" | "failed";
+  workflow_id?: string | null;
+  inputs: Record<string, string>;
+  language: "en" | "vi";
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+  failure_message?: string | null;
+};
+
+export type ConversationDetail = ConversationSummary & { messages: ConversationMessage[] };
+
+export type WorkflowConversationResult = {
+  conversation: ConversationSummary;
+  message: ConversationMessage;
+  result: WorkflowRun["output"];
+};
+
+export type LanguageSelection = "auto" | "en" | "vi";
 
 export type WorkflowRun = {
   id: string;
@@ -201,30 +239,34 @@ export function listWorkflows(): Promise<Workflow[]> {
   return request<Workflow[]>("/api/workflows");
 }
 
-export function runWorkflow(
+export function startWorkflowConversation(
   workflowId: string,
   inputs: WorkflowRunInput,
   onEvent?: (event: WorkflowStreamEvent) => void
-): Promise<WorkflowRun> {
-  return requestEventStream(`/api/workflows/${workflowId}/runs`, inputs, onEvent);
+): Promise<WorkflowConversationResult> {
+  return requestEventStream(`/api/workflows/${workflowId}/conversations`, inputs, onEvent);
 }
 
-export function listRuns(): Promise<WorkflowRun[]> {
-  return request<WorkflowRun[]>("/api/runs");
+export function listConversations(): Promise<ConversationSummary[]> {
+  return request<ConversationSummary[]>("/api/conversations");
 }
 
-export function getRun(runId: string): Promise<WorkflowRun> {
-  return request<WorkflowRun>(`/api/runs/${runId}`);
+export function getConversation(conversationId: string): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/api/conversations/${conversationId}`);
 }
 
-export function deleteRun(runId: string): Promise<void> {
-  return request<void>(`/api/runs/${runId}`, { method: "DELETE" });
+export function deleteConversation(conversationId: string): Promise<void> {
+  return request<void>(`/api/conversations/${conversationId}`, { method: "DELETE" });
 }
 
-export function renameRun(runId: string, title: string): Promise<WorkflowRun> {
-  return request<WorkflowRun>(`/api/runs/${runId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ title })
+export function getLanguagePreference(): Promise<{ selection: LanguageSelection }> {
+  return request<{ selection: LanguageSelection }>("/api/preferences/language");
+}
+
+export function saveLanguagePreference(selection: LanguageSelection): Promise<{ selection: LanguageSelection }> {
+  return request<{ selection: LanguageSelection }>("/api/preferences/language", {
+    method: "PUT",
+    body: JSON.stringify({ selection })
   });
 }
 
@@ -277,10 +319,10 @@ async function requestEventStream<T>(
       const event = parseSseFrame(frame);
       if (!event) continue;
       onEvent?.(event);
-      if (event.kind === "run.completed") {
-        finalResult = event.payload.run as T;
+      if (event.kind === "conversation.completed") {
+        finalResult = event.payload as T;
       }
-      if (event.kind === "run.failed") {
+      if (event.kind === "conversation.failed") {
         throw new ApiError(String(event.payload.message ?? "Workflow failed"), response.status);
       }
     }

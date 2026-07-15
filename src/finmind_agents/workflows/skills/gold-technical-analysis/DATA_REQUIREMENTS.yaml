@@ -1,0 +1,6 @@
+{
+  "required": [
+    {"dataset": "price_history", "interval": "1D", "instrument_id": "XAUUSD"}
+  ],
+  "optional": []
+}

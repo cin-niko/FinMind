@@ -54,7 +54,9 @@ async def sse_event_stream(event_source: AsyncIterator[object]) -> AsyncIterator
         if isinstance(event, StreamEvent):
             yield encode_sse_event(event.event_name, event.to_payload())
             continue
-        yield encode_sse_event(getattr(event, "event_name"), getattr(event, "payload"))
+        to_payload = getattr(event, "to_payload", None)
+        payload = to_payload() if callable(to_payload) else getattr(event, "payload")
+        yield encode_sse_event(getattr(event, "event_name"), payload)
 
 
 async def with_heartbeats(

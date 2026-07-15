@@ -1,4 +1,4 @@
 Price series record for {{ instrument_id }}.
-- Interval: {{ payload.interval }}
-- Date range: {{ payload.start_date }} to {{ payload.end_date }}
-- Bar count: {{ payload.count }}
+- Interval: {{ payload.interval|default('Unavailable') }}
+- Date range: {{ payload.start_date|default('Unavailable') }} to {{ payload.end_date|default('Unavailable') }}
+- Bar count: {{ payload.count|default('Unavailable') }}

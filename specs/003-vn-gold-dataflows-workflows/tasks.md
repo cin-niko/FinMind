@@ -1,9 +1,9 @@
 ---
 id: SPEC-FEAT-003-TASKS
 feature: vn-gold-dataflows-workflows
-status: superseded
+status: draft
 owner: solo
-created: 2026-07-11
+created: 2026-07-12
 implements: []
 validated_by: []
 adr_refs: []
@@ -11,108 +11,231 @@ adr_refs: []
 
 # Tasks: VN And Gold Dataflows And Workflows
 
-**Input**: Design artifacts in `specs/003-vn-gold-dataflows-workflows/`
+**Input**: Design documents from `specs/003-vn-gold-dataflows-workflows/`
 
-> **Superseded task draft**: This task list predates the Phase 03 scope that
-> defines XAUUSD/Twelve Data, mature existing VN workflows, new VN news and
-> valuation workflows, server-persisted language preference, and Phase 04-only
-> chat behavior. Do not implement from this file. Regenerate it with
-> `/speckit-tasks` after the detailed Phase 03 planning discussion is complete.
->
-> Phase 02 migration references to task identifiers in this file are historical
-> traceability only. The regenerated task list replaces those identifiers.
+**Prerequisites**: [plan.md](plan.md), [spec.md](spec.md),
+[research.md](research.md), [data-model.md](data-model.md),
+[workflow contract](contracts/workflow-contract.md), and
+[conversation API contract](contracts/conversation-api.md).
 
-## Phase 1: Gold Scope And Foundation
+**Tests**: Required. All automated tests use deterministic mocks or fixtures;
+they must not call a live market, news, or model provider.
 
-- [ ] T001 Define the supported gold instrument/benchmark, source eligibility, datasets, freshness target, units, and provider-failure behavior in `specs/003-vn-gold-dataflows-workflows/research.md`
-- [x] T002 [P] Define Phase 03 market, record, and workflow usage in `specs/003-vn-gold-dataflows-workflows/data-model.md`
-- [x] T003 [P] Define catalog, gold collection, run, inspection, and safety API behavior in `specs/003-vn-gold-dataflows-workflows/contracts/workflow-contract.md`
-- [x] T004 Update shared active-market scope and runtime configuration validation in `specs/system/state-model.md` and `specs/system/runtime-config-security.md`
+**Organization**: Tasks are grouped by user story after the shared conversation
+foundation. A workflow submission always creates a new conversation; workflow
+results are mapped to first assistant messages; citations/artifacts belong to
+those messages.
 
-## Phase 2: User Story 1 - Build Gold Dataflows (Priority: P1)
+## Format: `[ID] [P?] [Story] Description`
 
-**Goal**: Collect auditable gold evidence before a gold workflow can make claims.
+- **[P]** marks tasks that can run in parallel after their stated dependencies.
+- **[US#]** maps a task to a feature-spec user story.
 
-**Independent Test**: A supported gold collection returns normalized fresh cited
-records; stale, missing, and undeclared data becomes unavailable or rejected.
+## Phase 1: Setup And Test Doubles
 
-- [ ] T005 [P] [US1] Add gold collection and stale/unavailable evidence coverage in `tests/test_platform_services.py`
-- [ ] T006 [US1] Add configured gold connector selection, normalization, freshness, and provider-status handling in `src/finmind_agents/dataflows/registry.py`, `src/finmind_agents/dataflows/service.py`, and `src/finmind_agents/dataflows/providers/gold.py`
-- [ ] T007 [US1] Add deterministic gold evidence records, rendered context, and citation-allowlist construction in `src/finmind_agents/evidence/builders.py`, `src/finmind_agents/evidence/rendering.py`, and `src/finmind_agents/evidence/citations.py`
-- [ ] T008 [US1] Enforce declared gold dataset requirements and unsupported-asset rejection in `src/finmind_agents/dataflows/requirements.py`
+**Purpose**: Establish deterministic test boundaries and preserve the active
+Phase 03 contract before implementation begins.
 
-## Phase 3: User Story 2 - Run Gold Workflows (Priority: P1)
+- [X] T001 Update deterministic provider/model fixture seams in `tests/conftest.py` so all Phase 03 tests block live external calls.
+- [ ] T002 [P] Add deterministic XAUUSD, VN-news, valuation, timeout, and language fixtures in `tests/conftest.py` and `tests/fixtures/phase03/`.
+- [ ] T003 [P] Update Phase 03 contract references and validation entry points in `specs/003-vn-gold-dataflows-workflows/quickstart.md` and `tests/test_app.py`.
 
-**Goal**: Run fixed cited gold workflows without exposing stock-only analysis.
+---
 
-**Independent Test**: A gold run shows progress, citations, freshness, artifacts
-where supported, and visible unavailable states.
+## Phase 2: Foundational Conversation Architecture
 
-- [ ] T009 [P] [US2] Add gold workflow catalog, run, and citation API coverage in `tests/test_app.py`
-- [ ] T010 [US2] Add gold workflow definitions, skills, declared data requirements, and chart intents in `src/finmind_agents/workflows/definitions.py` and `src/finmind_agents/skills/gold-analysis/`
-- [ ] T011 [US2] Assemble grounded gold workflow output and artifact status in `src/finmind_agents/workflows/service.py`
-- [ ] T012 [US2] Expose Phase 03 gold catalog and workflow validation through `src/finmind_api/routes/workflows.py` and `src/finmind_api/schemas.py`
-- [ ] T013 [US2] Render gold workflow selection, freshness, citations, and unavailable output in `src/finmind_ui/src/features/workflows/WorkflowPage.tsx` and `src/finmind_ui/src/features/results/ResultView.tsx`
+**Purpose**: Replace the persisted run root with conversation/message ownership.
+All user-story work depends on this phase.
 
-## Phase 4: User Story 3 - Run New VN Stock Workflows (Priority: P1)
+**⚠️ CRITICAL**: Complete this phase before implementing any workflow feature.
 
-**Goal**: Deliver the composed VN stock brief on the shared evidence foundation.
+- [X] T004 Replace `ExecutionRun` and `RunStatus` usage with typed `WorkflowResult`, `Conversation`, `Message`, `ConversationStatus`, `MessageRole`, and `MessageSourceKind` in `src/finmind_agents/models.py`.
+- [X] T005 Define `ConversationRepository` and remove the public `RunRepository` protocol in `src/finmind_agents/repositories.py`.
+- [X] T006 Implement deterministic `ConversationAdapter` mapping from `WorkflowResult` to a first assistant message with message-owned citations/artifacts in `src/finmind_agents/workflows/conversation_adapter.py`.
+- [ ] T007 Implement PostgreSQL conversation, message, message-citation, and message-artifact persistence with owner filtering, terminal-only cascade delete, and retained `price_series_records` in `src/finmind_api/conversation_store.py`.
+- [ ] T008 Add legacy `runs`/`run_citations` schema retirement without data migration in `src/finmind_api/conversation_store.py` and `tests/test_app.py`.
+- [X] T009 Implement `ConversationWorkflowService` with pre-execution conversation creation, 120-second timeout, detached execution, safe interruption persistence, and startup reconciliation in `src/finmind_agents/workflows/conversation_service.py` and `src/finmind_api/app.py`.
+- [X] T010 Replace run-oriented stream event models and serializers with the `conversation.*` and `message.*` event contract in `src/finmind_api/streaming.py` and `src/finmind_agents/workflows/service.py`.
+- [X] T011 Replace `/runs` routing with owner-authorized conversation list/detail/delete routes and register them in `src/finmind_api/routes/conversations.py`, `src/finmind_api/routes/workflows.py`, and `src/finmind_api/routes/__init__.py`.
+- [X] T012 Replace run client types and calls with `ConversationSummary`, `ConversationDetail`, `ConversationMessage`, and `ConversationStreamEvent` in `src/finmind_ui/src/api/client.ts`.
+- [ ] T013 Add foundation unit and API coverage for adapter mapping, owner filtering, terminal-only delete, cascade deletion, timeout, disconnect, and restart reconciliation in `tests/test_platform_services.py` and `tests/test_app.py`.
 
-**Independent Test**: A VN stock brief keeps completed sections visible when a
-stage is partial and presents citations for its material claims.
+**Checkpoint**: A deterministic workflow can create a conversation, produce a
+message-bound result, survive client disconnect while the process is alive, and
+be reopened or terminally deleted without `/runs` APIs.
 
-- [ ] T014 [P] [US3] Add composed VN stock brief success and partial-stage coverage in `tests/test_platform_services.py`
-- [ ] T015 [P] [US3] Add stage-status and blocked-claim API coverage in `tests/test_app.py`
-- [ ] T016 [US3] Add VN stock brief composition and shared skill references in `src/finmind_agents/workflows/definitions.py` and `src/finmind_agents/workflows/executor.py`
-- [ ] T017 [US3] Persist composed stage status and partial output in `src/finmind_api/run_store.py`
-- [ ] T018 [US3] Render composed VN stage states and unavailable sections in `src/finmind_ui/src/features/results/ResultView.tsx`
+---
 
-## Phase 5: User Story 4 - Compare VN Stock And Gold Scope Boundaries (Priority: P2)
+## Phase 3: User Story 1 — Build Gold Evidence Dataflows (Priority: P1) 🎯 MVP
 
-**Goal**: Show only the correct market inputs and workflow expectations.
+**Goal**: Collect and normalize daily XAUUSD evidence with durable provenance,
+deterministic unavailable rendering, and bounded provider retries.
 
-**Independent Test**: Catalog and request validation permit VN stock or gold only
-and identify each workflow's supported sections and limitations.
+**Independent Test**: With only XAUUSD fixtures, collection returns daily
+records with UTC `market_time`/`collected_at`, citation-ready context, and safe
+unavailable/failure results without contacting a live provider.
 
-- [ ] T019 [P] [US4] Add catalog and request coverage for Phase 03 market rejection in `tests/test_app.py`
-- [ ] T020 [US4] Extend market and input validation for configured gold instruments in `src/finmind_agents/workflows/validation.py`
-- [x] T021 [US4] Remove unsupported catalog/provider configuration in `src/finmind_agents/dataflows/registry.py` and `src/finmind_api/settings.py`
-- [ ] T022 [US4] Render field-level validation and market-specific catalog copy in `src/finmind_ui/src/features/workflows/WorkflowPage.tsx`
+- [X] T014 [P] [US1] Add fixture-driven XAUUSD collection, timestamp-provenance, missing-data, and two-retry failure tests in `tests/test_platform_services.py`.
+- [X] T015 [US1] Add configured Gold provider selection and daily-only XAUUSD collection request validation in `src/finmind_agents/dataflows/registry.py` and `src/finmind_agents/dataflows/service.py`.
+- [X] T016 [US1] Implement XAUUSD daily OHLC normalization, UTC timestamps, full returned history upsert, and no-cache/no-fallback failure behavior in `src/finmind_agents/dataflows/providers/gold.py` and `src/finmind_api/conversation_store.py`.
+- [X] T017 [US1] Add Gold deterministic record rendering, `None` to `Unavailable` conversion, and citation allowlist construction in `src/finmind_agents/evidence/builders.py`, `src/finmind_agents/evidence/rendering.py`, and `src/finmind_agents/workflows/citations.py`.
+- [X] T018 [US1] Add Gold dataset/instrument rejection and evidence-contract API coverage in `tests/test_app.py`.
 
-## Phase 6: User Story 5 - Reinspect Workflow Runs (Priority: P2)
+**Checkpoint**: Gold evidence collection is independently safe and testable with
+fixtures; no Gold analysis is required yet.
 
-**Goal**: Restore evidence-backed VN stock and gold runs from history.
+---
 
-**Independent Test**: Completed and partial runs reopen with output, citations,
-artifacts, stage status, and limitations intact.
+## Phase 4: User Story 2 — Mature And Extend VN Stock Workflows (Priority: P1)
 
-- [ ] T023 [P] [US5] Add run-history and citation-reinspection API coverage in `tests/test_app.py`
-- [ ] T024 [US5] Complete persisted citation queries and market-aware run detail in `src/finmind_api/run_store.py` and `src/finmind_api/routes/runs.py`
-- [ ] T025 [US5] Add workflow history selection and reinspection flow in `src/finmind_ui/src/App.tsx` and `src/finmind_ui/src/features/shell/AppShell.tsx`
+**Goal**: Deliver bounded, cited VN technical/fundamental, news, valuation, and
+stock-brief results with unavailable fields rendered before the LLM.
 
-## Phase 7: Polish And Verification
+**Independent Test**: For a fixture-backed VN symbol, each workflow creates a
+conversation whose first assistant message contains only cited claims or
+explicit `Unavailable` markers and no trade instruction.
 
-- [ ] T026 [P] Update workflow risk and safety mitigations in `docs/risks/RISK-001-workflow-skill-contract-drift.md`, `docs/risks/RISK-002-agent-skill-unsupported-claims.md`, and `docs/risks/RISK-004-async-stream-resource-saturation.md`
-- [ ] T027 [P] Update validated Phase 03 environment configuration and manual VN/gold runtime checks in `.env` and `test.py`
-- [ ] T028 Review Phase 03 safety guardrails against `.specify/memory/constitution.md` and record outcome in `specs/003-vn-gold-dataflows-workflows/plan.md`
-- [ ] T029 Regenerate Phase 03 convergence and quickstart validation notes in `specs/003-vn-gold-dataflows-workflows/plan.md` and `specs/003-vn-gold-dataflows-workflows/quickstart.md`
-- [ ] T030 Run backend verification for Phase 03 coverage in `tests/test_app.py` and `tests/test_platform_services.py`
-- [ ] T031 Run UI build and the VN/gold validation scenarios in `specs/003-vn-gold-dataflows-workflows/quickstart.md`
+- [ ] T019 [P] [US2] Add deterministic fixture coverage for unavailable fields, mature technical/fundamental output, and VN stock-brief composition in `tests/test_platform_services.py`.
+- [ ] T020 [P] [US2] Add fixture coverage for publisher-allowlisted news URL/title/time/content and valuation unavailable/range/sensitivity cases in `tests/test_app.py`.
+- [ ] T021 [US2] Refine VN technical and fundamental workflow definitions, data requirements, and safety-only output sections in `src/finmind_agents/workflows/definitions/` and `src/finmind_agents/workflows/skills/`.
+- [ ] T022 [US2] Implement configured publisher-allowlist news normalization and bounded source-document context in `src/finmind_agents/dataflows/providers/news.py` and `src/finmind_agents/dataflows/service.py`.
+- [ ] T023 [US2] Implement deterministic VN valuation input gates, sector-method selection, median/P25–P75 range, and DCF sensitivity without target/recommendation output in `src/finmind_agents/workflows/valuation.py` and `src/finmind_agents/workflows/definitions.py`.
+- [ ] T024 [US2] Implement the composed stock-brief workflow and message-bound citation/artifact aggregation in `src/finmind_agents/workflows/definitions.py` and `src/finmind_agents/workflows/service.py`.
+- [ ] T025 [US2] Verify VN workflow API responses preserve `Unavailable`, citations, grounded output, and research-only safety behavior in `tests/test_app.py`.
 
-## Dependencies
+**Checkpoint**: Every fixed VN workflow is independently runnable against
+fixtures and produces one safe conversation result message.
 
-- Gold source definition and shared market scope (T001-T004) block all gold work.
-- Gold dataflows (T005-T008) block gold workflows (T009-T013).
-- VN brief work (T014-T018) can progress after the shared Phase 02 foundation.
-- Scope validation (T019-T022) and reinspection (T023-T025) depend on runnable
-  Phase 03 workflow contracts.
-- Polish and verification (T026-T031) follow implemented user stories.
+---
 
-## Migration Notes
+## Phase 5: User Story 3 — Run Gold Technical Analysis (Priority: P1)
 
-- T014-T018 replace unfinished Phase 02 T054-T061.
-- T019-T022 replace unfinished Phase 02 T062-T068.
-- T023-T025 replace unfinished Phase 02 T069, T071, T074-T075.
-- T026-T031 replace unfinished Phase 02 T118-T120, T122-T123, and T126.
-- Phase 02 chatflow T091-T099 remain Phase 04 work and are tracked in
-  `../004-agentic-chatflow/tasks.md`.
+**Goal**: Render a fixed daily XAUUSD technical-analysis conversation without
+stock-only sections or trading signals.
+
+**Independent Test**: A fixture-backed Gold workflow creates a conversation with
+an XAUUSD-only assistant result message, cited daily chart, and unavailable
+markers where evidence is insufficient.
+
+- [X] T026 [P] [US3] Add deterministic Gold technical workflow and chart/unavailable coverage in `tests/test_platform_services.py` and `tests/test_app.py`.
+- [X] T027 [US3] Add the fixed Gold technical workflow definition, daily chart requirement, and XAUUSD-only validation in `src/finmind_agents/workflows/definitions/gold-technical-analysis.yaml` and `src/finmind_agents/workflows/validation.py`.
+- [X] T028 [US3] Implement Gold technical skill context, analysis-only output rules, and stock-section exclusion in `src/finmind_agents/workflows/skills/gold-technical-analysis/SKILL.md` and `src/finmind_agents/workflows/service.py`.
+- [X] T029 [US3] Render the Gold catalog card, fixed-scope confirmation dialog, and validation state in `src/finmind_ui/src/features/workflows/WorkflowPage.tsx` and `src/finmind_ui/src/features/workflows/workflowCatalog.ts`.
+
+**Checkpoint**: Gold technical analysis can be demonstrated independently from
+the catalog through a fixture-backed conversation.
+
+---
+
+## Phase 6: User Story 4 — Receive Language-Appropriate Output (Priority: P1)
+
+**Goal**: Let the authenticated user manage Auto-detect, English, or Vietnamese
+from Settings and capture resolved `vi`/`en` on each workflow conversation.
+
+**Independent Test**: Settings changes immediately update UI copy; Auto-detect
+uses browser precedence/fallback; a submitted workflow captures only `vi` or
+`en` and its narrative follows that captured value.
+
+- [X] T030 [P] [US4] Add deterministic API/service tests for language preference defaulting, validation, update, and conversation capture in `tests/test_app.py` and `tests/test_platform_services.py`.
+- [X] T031 [US4] Implement server-side language preference persistence and authenticated `GET`/`PUT /api/preferences/language` endpoints in `src/finmind_api/preferences_store.py`, `src/finmind_api/routes/preferences.py`, and `src/finmind_api/routes/__init__.py`.
+- [X] T032 [US4] Thread resolved `vi`/`en` through workflow submission, `WorkflowResult`, and the model system-language instruction in `src/finmind_agents/workflows/conversation_service.py`, `src/finmind_agents/agents/prompts.py`, and `src/finmind_agents/runtime/service.py`.
+- [X] T033 [US4] Add the left-rail-footer Settings surface with Auto-detect/English/Vietnamese controls and immediate persisted updates in `src/finmind_ui/src/features/settings/LanguageSettings.tsx`, `src/finmind_ui/src/api/client.ts`, and `src/finmind_ui/src/App.tsx`.
+- [X] T034 [US4] Add Settings/browser-language and workflow-language UI coverage in `src/finmind_ui/src/features/settings/i18n.test.ts` and backend language-validation tests.
+- [X] T034A [US4] Consolidate FinMind-owned UI, workflow progress, deterministic
+  messages, and workflow catalog copy into typed English/Vietnamese locale
+  catalogs with English fallback, while leaving canonical record and citation
+  content unchanged.
+
+**Checkpoint**: Language is predictable in UI and workflow messages without
+altering source evidence or historical conversations.
+
+---
+
+## Phase 7: User Story 5 — Inspect And Delete A Workflow Conversation (Priority: P1)
+
+**Goal**: Let an owner reopen conversation messages/evidence and delete terminal
+conversations with message-child cascade behavior.
+
+**Independent Test**: A workflow-created conversation appears in History, shows
+its first assistant message and message-owned evidence, rejects cross-owner and
+active deletion, and deletes terminal children without deleting shared price data.
+
+- [ ] T035 [P] [US5] Add deterministic conversation history, owner-filtering, terminal-delete, and canonical-price-retention tests in `tests/test_app.py` and `tests/test_platform_services.py`.
+- [X] T036 [US5] Implement conversation summary/detail serializers and message-nested citations/artifacts in `src/finmind_api/schemas.py` and `src/finmind_api/routes/conversations.py`.
+- [X] T037 [US5] Replace run-history hydration and artifact selection with conversation/message history in `src/finmind_ui/src/App.tsx`, `src/finmind_ui/src/features/chat/`, and `src/finmind_ui/src/api/client.ts`.
+- [X] T038 [US5] Implement terminal conversation delete UI, confirmation/error states, and History removal in `src/finmind_ui/src/features/chat/ConversationHistory.tsx` and `src/finmind_ui/src/App.tsx`.
+- [X] T039 [US5] Update conversation/message/citation/artifact visual states against `specs/system/ui-ux-guidelines.md` in `src/finmind_ui/src/styles.css` and `src/finmind_ui/src/features/chat/ArtifactPanel.tsx`.
+
+**Checkpoint**: Conversation ownership, reinspection, and deletion work without
+any remaining user-facing run-history surface.
+
+---
+
+## Phase 8: Polish And Cross-Cutting Validation
+
+**Purpose**: Retire legacy run implementation, validate safety/performance, and
+complete deterministic end-to-end coverage.
+
+- [ ] T040 Remove legacy run persistence, routes, stream names, client types, and tests from `src/finmind_api/run_store.py`, `src/finmind_api/routes/runs.py`, `src/finmind_agents/repositories.py`, and `src/finmind_ui/src/api/client.ts`.
+- [ ] T041 [P] Verify no `partial` terminal status, raw reasoning, provider payload, target price, recommendation, or trade instruction remains in `src/finmind_agents/`, `src/finmind_api/`, and `src/finmind_ui/`.
+- [ ] T042 [P] Add deterministic regression coverage for 1-second conversation start visibility and 120-second terminal timeout in `tests/test_app.py` and `tests/test_platform_services.py`.
+- [ ] T043 Run backend validation with `uv run pytest` and record results in `specs/003-vn-gold-dataflows-workflows/quickstart.md`.
+- [ ] T044 Run frontend tests and build from `src/finmind_ui/` using commands in `src/finmind_ui/package.json`, then record results in `specs/003-vn-gold-dataflows-workflows/quickstart.md`.
+- [ ] T045 Perform and record the separate live-provider contract check without adding it to automated tests in `specs/003-vn-gold-dataflows-workflows/quickstart.md`.
+
+---
+
+## Dependencies And Execution Order
+
+```text
+Setup (T001–T003)
+  -> Foundation (T004–T013)
+      -> US1 Gold evidence (T014–T018)
+          -> US3 Gold technical analysis (T026–T029)
+      -> US2 VN workflows (T019–T025)
+      -> US4 Language settings and localized presentation (T030–T034A)
+      -> US5 Conversation inspection/delete (T035–T039)
+  -> Polish (T040–T045)
+```
+
+### User Story Dependencies
+
+- **US1** starts after the foundation and is the suggested MVP. It is required
+  before US3.
+- **US2**, **US4**, and **US5** start after the foundation and can proceed in
+  parallel with US1 if capacity allows.
+- **US3** starts after US1.
+- **Polish** starts after every selected story is complete.
+
+## Parallel Opportunities
+
+- T002 and T003 can run in parallel after T001.
+- T014 and T018 can run in parallel before the US1 implementation tasks.
+- T019 and T020 can run in parallel before the US2 implementation tasks.
+- T026 can begin after US1; T030 and T035 can run in parallel after the
+  foundation.
+- T041 and T042 can run in parallel after feature implementation.
+
+## Implementation Strategy
+
+### MVP First
+
+1. Complete Setup and Foundation.
+2. Complete US1 and validate deterministic Gold collection independently.
+3. Demonstrate a fixture-backed Gold dataflow with provenance and safe failure.
+
+### Incremental Delivery
+
+1. Add US2 for complete VN research workflows.
+2. Add US3 for the fixed Gold analysis experience.
+3. Add US4 Settings and language capture.
+4. Add US5 History/reinspection/deletion.
+5. Complete cross-cutting migration, safety, performance, and deterministic
+   validation.
+
+## Notes
+
+- Every task uses the required checkbox, ID, optional parallel marker, story
+  label where applicable, and exact path format.
+- Do not implement the old superseded run-based task list; this file is the
+  authoritative Phase 03 execution order.

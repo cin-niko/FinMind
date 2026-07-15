@@ -9,12 +9,24 @@ from finmind_agents.evidence.rendering import render_record_context
 
 class Market(StrEnum):
     VN_STOCK = "VN_STOCK"
+    GOLD = "GOLD"
 
 
-class RunStatus(StrEnum):
+class ConversationStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
     SUCCESS = "success"
-    PARTIAL = "partial"
     FAILED = "failed"
+
+
+class MessageRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class MessageSourceKind(StrEnum):
+    WORKFLOW = "workflow_result"
+    CHAT = "chat"
 
 
 class WorkflowType(StrEnum):
@@ -175,7 +187,7 @@ class DataRecord:
             "market_time": self.market_time.isoformat(),
             "source_id": self.source_id,
             "citation_id": self.citation_id,
-            "fields": self.payload,
+            "fields": _unavailable_for_prompt(self.payload),
             "context": self.context,
         }
 
@@ -276,19 +288,66 @@ class Artifact:
     downloads: tuple[dict[str, Any], ...] = ()
 
 
-@dataclass
-class ExecutionRun:
-    run_id: str
-    kind: str
-    status: RunStatus
-    requested_by: str
-    inputs: dict[str, Any]
-    started_at: datetime
-    completed_at: datetime | None
-    output: dict[str, Any]
-    logs: list[dict[str, Any]] = field(default_factory=list)
-    title: str | None = None
+@dataclass(frozen=True)
+class WorkflowResult:
+    """Transient, grounded output produced by a workflow before persistence.
+
+    A workflow never writes user-facing history directly.  The conversation
+    adapter below is the sole boundary that turns this result into a message.
+    """
+
+    workflow_id: str
+    inputs: dict[str, object]
+    sections: tuple[dict[str, object], ...]
+    steps: tuple[dict[str, object], ...]
+    collection: dict[str, object]
+    citations: tuple[Citation, ...]
+    artifacts: tuple[Artifact, ...]
+    grounding: dict[str, object]
+    language: str
+
+
+@dataclass(frozen=True)
+class Message:
+    message_id: str
+    conversation_id: str
+    role: MessageRole
+    source_kind: MessageSourceKind
+    content: str
+    created_at: datetime
+    citations: tuple[Citation, ...] = ()
+    artifacts: tuple[Artifact, ...] = ()
+    workflow_id: str | None = None
+    workflow_result: WorkflowResult | None = None
+
+
+@dataclass(frozen=True)
+class Conversation:
+    conversation_id: str
+    owner: str
+    status: ConversationStatus
+    title: str
+    workflow_id: str | None
+    inputs: dict[str, object]
+    language: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+    failure_message: str | None = None
 
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _unavailable_for_prompt(value: Any) -> Any:
+    """Render absent evidence explicitly without mutating stored provenance."""
+    if value is None:
+        return "Unavailable"
+    if isinstance(value, dict):
+        return {key: _unavailable_for_prompt(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_unavailable_for_prompt(item) for item in value]
+    if isinstance(value, tuple):
+        return [_unavailable_for_prompt(item) for item in value]
+    return value

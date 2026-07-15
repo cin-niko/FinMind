@@ -2,12 +2,16 @@ from datetime import UTC, datetime
 
 from finmind_agents.models import (
     CanonicalMarketDataRecord,
-    Citation,
-    ExecutionRun,
+    Conversation,
+    ConversationStatus,
     Market,
+    Message,
     SourceDocument,
 )
-from finmind_agents.repositories import MarketDataRepository, RunRepository
+from finmind_agents.repositories import (
+    ConversationRepository,
+    MarketDataRepository,
+)
 from finmind_agents.workflows.catalog import build_workflow_catalog
 from finmind_agents.workflows.specs import WorkflowCatalog
 
@@ -107,20 +111,78 @@ class InMemoryMarketDataRepository(MarketDataRepository):
         ]
 
 
-class InMemoryRunRepository(RunRepository):
+class InMemoryConversationRepository(ConversationRepository):
+    """Deterministic repository used by tests and local fixture wiring."""
+
     def __init__(self) -> None:
-        self._runs: dict[str, ExecutionRun] = {}
-        self._citations: dict[str, list[Citation]] = {}
+        self._conversations: dict[str, Conversation] = {}
+        self._messages: dict[str, list[Message]] = {}
         self._price_series: dict[tuple[str, str], CanonicalMarketDataRecord] = {}
+        self._language_preferences: dict[str, str] = {}
 
-    def save(self, run: ExecutionRun) -> None:
-        self._runs[run.run_id] = run
+    def save_conversation(self, conversation: Conversation) -> None:
+        self._conversations[conversation.conversation_id] = conversation
 
-    def save_citations(self, run_id: str, citations: tuple[Citation, ...]) -> None:
-        self._citations[run_id] = list(citations)
+    def get_conversation(self, conversation_id: str, owner: str) -> Conversation | None:
+        conversation = self._conversations.get(conversation_id)
+        return conversation if conversation and conversation.owner == owner else None
 
-    def list_citations(self, run_id: str) -> list[Citation]:
-        return list(self._citations.get(run_id, ()))
+    def list_conversations(self, owner: str) -> list[Conversation]:
+        return sorted(
+            (
+                conversation
+                for conversation in self._conversations.values()
+                if conversation.owner == owner
+            ),
+            key=lambda conversation: conversation.updated_at,
+            reverse=True,
+        )
+
+    def update_conversation_status(
+        self,
+        conversation_id: str,
+        owner: str,
+        status: ConversationStatus,
+        *,
+        failure_message: str | None = None,
+    ) -> Conversation | None:
+        from dataclasses import replace
+
+        conversation = self.get_conversation(conversation_id, owner)
+        if conversation is None:
+            return None
+        now = datetime.now(UTC)
+        updated = replace(
+            conversation,
+            status=status,
+            updated_at=now,
+            completed_at=now if status in {ConversationStatus.SUCCESS, ConversationStatus.FAILED} else None,
+            failure_message=failure_message,
+        )
+        self._conversations[conversation_id] = updated
+        return updated
+
+    def save_message(self, message: Message) -> None:
+        self._messages.setdefault(message.conversation_id, []).append(message)
+
+    def list_messages(self, conversation_id: str, owner: str) -> list[Message]:
+        if self.get_conversation(conversation_id, owner) is None:
+            return []
+        return sorted(
+            self._messages.get(conversation_id, []),
+            key=lambda message: message.created_at,
+        )
+
+    def delete_conversation(self, conversation_id: str, owner: str) -> bool:
+        conversation = self.get_conversation(conversation_id, owner)
+        if conversation is None or conversation.status not in {
+            ConversationStatus.SUCCESS,
+            ConversationStatus.FAILED,
+        }:
+            return False
+        del self._conversations[conversation_id]
+        self._messages.pop(conversation_id, None)
+        return True
 
     def save_price_series(
         self,
@@ -129,31 +191,25 @@ class InMemoryRunRepository(RunRepository):
         for record in records:
             self._price_series[(record.dataset_id, record.record_key)] = record
 
-    def get(self, run_id: str) -> ExecutionRun | None:
-        return self._runs.get(run_id)
+    def reconcile_interrupted(self) -> int:
+        count = 0
+        for conversation in tuple(self._conversations.values()):
+            if conversation.status in {ConversationStatus.QUEUED, ConversationStatus.RUNNING}:
+                self.update_conversation_status(
+                    conversation.conversation_id,
+                    conversation.owner,
+                    ConversationStatus.FAILED,
+                    failure_message="Workflow interrupted by service restart.",
+                )
+                count += 1
+        return count
 
-    def list(self) -> list[ExecutionRun]:
-        return sorted(
-            self._runs.values(),
-            key=lambda run: run.started_at,
-            reverse=True,
-        )
+    def get_language_preference(self, owner: str) -> str | None:
+        return self._language_preferences.get(owner)
 
-    def delete(self, run_id: str) -> bool:
-        existed = run_id in self._runs
-        self._runs.pop(run_id, None)
-        self._citations.pop(run_id, None)
-        return existed
-
-    def update_title(self, run_id: str, title: str) -> ExecutionRun | None:
-        run = self._runs.get(run_id)
-        if run is None:
-            return None
-        from dataclasses import replace
-
-        updated = replace(run, title=title)
-        self._runs[run_id] = updated
-        return updated
+    def save_language_preference(self, owner: str, selection: str) -> str:
+        self._language_preferences[owner] = selection
+        return selection
 
 
 def create_workflow_catalog() -> WorkflowCatalog:

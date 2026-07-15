@@ -57,8 +57,9 @@ def collect_workflow_data(
         raise WorkflowValidationError(
             f"No market data was returned for {symbol}. Check the symbol and try again."
         )
+    records = (*collection.records, *_source_document_records(collection.source_documents))
     return CollectedWorkflowData(
-        records=collection.records,
+        records=records,
         source_documents=collection.source_documents,
         collection=collection,
         collection_plan=mark_collection_plan_executed(collection_plan),
@@ -72,6 +73,30 @@ def data_requirements_for_workflow(
     for skill_ref in workflow.skill_refs:
         requirements.extend(_load_requirements_for_skill_ref(skill_ref))
     return tuple(requirements)
+
+
+def _source_document_records(
+    documents: tuple[SourceDocument, ...],
+) -> tuple[CanonicalMarketDataRecord, ...]:
+    """Expose bounded news fields as cited workflow evidence, never raw search payloads."""
+    return tuple(
+        CanonicalMarketDataRecord(
+            dataset_id="vn_news",
+            record_key=document.document_id,
+            instrument_id=document.instrument_ids[0] if document.instrument_ids else "VN_STOCK",
+            market_time=document.published_at,
+            collected_at=document.collected_at,
+            source_id=document.source_id,
+            payload={
+                "url": document.url_or_reference,
+                "title": document.title,
+                "published_at": document.published_at.isoformat(),
+                "content": document.content_excerpt,
+            },
+        )
+        for document in documents
+        if document.url_or_reference and document.title and document.content_excerpt
+    )
 
 
 def data_requirements_for_skill(

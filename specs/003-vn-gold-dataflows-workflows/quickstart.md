@@ -15,7 +15,9 @@ adr_refs: []
 
 - Authenticated local FinMind environment with the Phase 02 workflow foundation.
 - `FINMIND_DATABASE_URL` configured for persisted conversation inspection.
-- A documented configured gold instrument/benchmark and source connector.
+- `FINMIND_GOLD_DATA_PROVIDER=twelvedata` and a locally supplied
+  `FINMIND_TWELVE_DATA_API_KEY` for the production XAUUSD connector. Automated
+  tests inject a mock HTTP boundary and do not use this credential.
 - Deterministic mocked or fixture-based VN stock and Gold evidence; automated
   validation must not call a live provider.
 
@@ -36,9 +38,10 @@ adr_refs: []
 
 ## Scenario 2: Gold Workflow
 
-1. Open the workflow catalog and choose a supported gold workflow.
-2. Confirm stock-only financial sections are absent and required gold input is
-   explicit; confirm the Gold interval is fixed to daily and cannot be changed.
+1. Open the workflow catalog and activate the Gold technical-analysis card.
+2. Confirm it opens the same confirmation dialog as other workflows, shows its
+   fixed XAUUSD scope, stock-only financial sections are absent, and no market,
+   symbol, instrument, or interval control is shown before Run is selected.
 3. Submit the workflow and observe safe progress before final output.
 4. Verify each material claim has citation provenance or an unavailable marker;
    inspect chart/artifact status and the source market or publication timestamp.
@@ -77,8 +80,9 @@ adr_refs: []
 
 ## Scenario 6: Language Selection
 
-1. Confirm the UI offers Auto-detect, English, and Vietnamese, with Auto-detect
-   as the initial saved selection.
+1. Open Settings from the authenticated left-rail footer. Confirm it offers
+   Auto-detect, English, and Vietnamese, with Auto-detect as the initial saved
+   selection; confirm it is not a primary navigation item.
 2. With a browser language list beginning `vi-VN`, select Auto-detect and verify
    UI copy and the submitted workflow language are `vi`. Repeat with an
    unsupported browser language list and verify the effective language is `en`.
@@ -97,6 +101,9 @@ adr_refs: []
 3. Start a workflow and verify it immediately creates a new conversation. Close
    the browser tab; verify the conversation continues and can be reopened after
    it reaches a terminal status.
+   Verify the stream begins with `conversation.started`, emits only
+   conversation-oriented event names, and ends with an adapter-created first
+   assistant message or safe failure summary.
 4. Use a fixture that exceeds 120 seconds and verify an inspectable `failed`
    timeout result, not a permanently running conversation.
 5. Seed queued and running conversations from a prior service instance, start

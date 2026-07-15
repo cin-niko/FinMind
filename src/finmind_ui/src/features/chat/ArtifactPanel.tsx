@@ -16,6 +16,7 @@ type Props = {
   artifacts?: Artifact[];
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onClose?: () => void;
 };
 
 const RECORD_TYPE_TITLES: Record<string, string> = {
@@ -52,7 +53,8 @@ export function ArtifactPanel({
   citations,
   artifacts,
   collapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  onClose
 }: Props) {
   const { t } = useI18n();
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -98,16 +100,16 @@ export function ArtifactPanel({
   }
 
   return (
-    <aside className="artifactPanel" aria-label="Artifact detail">
+    <aside className="artifactPanel" aria-label={t("artifactDetail")}>
       <header className="artifactHeader">
-        <h2>{selectedCitationId ? "Citations" : artifact?.title}</h2>
+        <h2>{selectedCitationId ? t("citations") : artifact?.title}</h2>
         <div className="artifactHeaderActions">
           <button
             className="iconButton panelToggleButton"
-            onClick={onToggleCollapse}
+            onClick={onToggleCollapse ?? onClose}
             type="button"
-            aria-label="Collapse right panel"
-            title="Collapse right panel"
+            aria-label={t("collapsePanel")}
+            title={t("collapsePanel")}
           >
             <ChevronsRight size={18} />
           </button>

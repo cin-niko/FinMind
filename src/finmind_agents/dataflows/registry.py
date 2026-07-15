@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from finmind_agents.dataflows.models import DatasetGroup
 from finmind_agents.dataflows.providers.base import DataflowProvider
 from finmind_agents.dataflows.providers.vnstock import VnstockProvider
+from finmind_agents.dataflows.providers.gold import GoldPriceProvider, TwelveDataGoldFetcher
 from finmind_agents.models import Market
 
 
@@ -32,6 +33,9 @@ def build_default_provider_registry(
     *,
     vn_data_provider: str = "vnstock",
     vnstock_api_key: str = "",
+    gold_data_provider: str = "twelvedata",
+    twelve_data_api_key: str = "",
+    provider_timeout_seconds: float = 15.0,
     extra_providers: Iterable[DataflowProvider] = (),
 ) -> DataflowProviderRegistry:
     vn_providers: tuple[DataflowProvider, ...]
@@ -39,9 +43,22 @@ def build_default_provider_registry(
         vn_providers = (VnstockProvider(api_key=vnstock_api_key),)
     else:
         vn_providers = ()
+    gold_providers: tuple[DataflowProvider, ...]
+    if gold_data_provider == "twelvedata":
+        gold_providers = (
+            GoldPriceProvider(
+                TwelveDataGoldFetcher(
+                    twelve_data_api_key,
+                    timeout_seconds=provider_timeout_seconds,
+                )
+            ),
+        )
+    else:
+        gold_providers = ()
     return DataflowProviderRegistry(
         providers=(
             *vn_providers,
+            *gold_providers,
             *tuple(extra_providers),
         )
     )
