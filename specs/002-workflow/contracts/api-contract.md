@@ -355,7 +355,7 @@ Rules:
 
 Chatflow APIs are not owned by Phase 02. Production flexible Q&A behavior,
 chatflow transport, chatflow persistence, and any `/api/chatflow/...` contract
-belong to `../004-agentic-chatflow/`.
+require a future bounded feature; no active chatflow API spec exists.
 
 ## Streaming Event Frames
 

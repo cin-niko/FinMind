@@ -14,8 +14,9 @@ adr_refs:
 FinMind is an internal financial research platform, not a marketing site. The
 first screen after login must be the usable application shell. Current active
 surfaces are the chat-first shell, workflows entry points, and mock artifact
-detail. Phase 02 supplies the fixed-workflow foundation, and Phase 03 owns the
-active VN stock and gold workflow experience. Production agentic chatflow,
+detail. Phase 02 supplies the fixed-workflow foundation, and Phase 03 owns
+language preferences. Mature VN and Gold workflow experiences require separate
+bounded feature specifications. Production agentic chatflow,
 native market data, admin ingestion, and external plugin surfaces remain roadmap
 concepts until their bounded specs make them canonical.
 
@@ -83,7 +84,12 @@ Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail
 - The left rail footer contains the current role/session summary, a Settings
   control, and logout; neither control belongs in the top context bar.
 - Desktop shell scrolling is separated by panel: the left rail keeps brand/nav and logout visible while history scrolls; the primary content pane keeps its header visible; chat keeps the composer pinned to the bottom while only messages scroll; the right artifact panel keeps its header visible while only artifact body content scrolls.
-- Desktop left rail may collapse to a compact icon rail. The right artifact/citation panel may fully collapse so the primary pane reclaims the width; selecting a citation or artifact opens it again. Collapse controls belong in the respective panel headers, use icon-only buttons with accessible labels, and must not destroy the active chat, artifact, or citation selection state.
+- Desktop left rail may collapse to a compact icon rail. Footer actions remain
+  fully contained in the compact rail and use icon-only buttons with accessible
+  labels. The right artifact/citation panel may fully collapse so the primary
+  pane reclaims the width; selecting a citation or artifact opens it again.
+  Collapse controls belong in the respective panel headers and must not destroy
+  the active chat, artifact, or citation selection state.
 - No large hero areas.
 
 Navigation is roadmap-aware:
@@ -109,8 +115,9 @@ Navigation is roadmap-aware:
 ### Workflow
 
 - Workflow catalog cards for fixed system-defined workflows
-- Market/instrument inputs expose only supported VN stock and gold choices as
-  enabled runnable selections for `003-vn-gold-dataflows-workflows`.
+- Market/instrument inputs expose only choices enabled by an active bounded
+  feature specification. A draft or archived future feature does not enable a
+  market selection.
 - Market identifiers in catalog summaries and selectors use human-readable
   labels rather than raw contract values; each supported market maps through a
   shared, closed UI label mapping. An unsupported market is a contract error

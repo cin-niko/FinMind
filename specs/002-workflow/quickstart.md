@@ -243,8 +243,8 @@ npm run build
 ## Scenario 9: Chatflow Deferred
 
 1. Confirm Phase 02 exposes no runnable `/api/chatflow/...` contract.
-2. Confirm production chatflow validation is deferred to
-   `../004-agentic-chatflow/`.
+2. Confirm production chatflow has no active feature spec and remains deferred
+   to a fresh future Spec Kit cycle.
 
 ## Scenario 10: Multi-User Non-Blocking Execution
 

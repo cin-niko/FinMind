@@ -132,7 +132,7 @@ execution status.
 ### Tests for User Story 1
 
 - [x] T038 [P] [US1] Add VN workflow runtime test for `technical-analysis` with agent metadata in `tests/test_platform_services.py`
-- [x] T039 [P] [US1] Record legacy US workflow runtime coverage as superseded by Phase 03 T020-T021 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T039 [P] [US1] Record legacy US workflow runtime coverage as superseded by the bounded VN foundation scope.
 - [x] T040 [P] [US1] Add fail-closed workflow run test when `FINMIND_AGENT_MODEL` is unset in `tests/test_platform_services.py`
 
 ### Implementation for User Story 1
@@ -175,10 +175,9 @@ catalog path.
 
 ---
 
-## Phase 5: Moved Scope - Phase 03 VN Stock Brief
+## Phase 5: Moved Scope - Phase 04 VN Stock Brief
 
-**Goal**: Moved to `../003-vn-gold-dataflows-workflows/` as the Phase 03 VN
-stock brief scope.
+**Goal**: Moved to a future bounded feature as the mature VN stock-brief scope.
 
 **Independent Test**: Run `stock-brief` and verify visible stages,
 quality-gate behavior, partial/unavailable sections, and preserved completed
@@ -186,69 +185,69 @@ sections.
 
 ### Tests for User Story 3
 
-- [x] T054 [P] [US3] Moved composite workflow success coverage to Phase 03 T014 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T055 [P] [US3] Moved composite partial-stage coverage to Phase 03 T014 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T056 [P] [US3] Moved stage-status and blocked-claim API coverage to Phase 03 T015 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T054 [P] [US3] Reassign composite workflow success coverage to the future bounded VN feature.
+- [x] T055 [P] [US3] Reassign composite partial-stage coverage to the future bounded VN feature.
+- [x] T056 [P] [US3] Reassign stage-status and blocked-claim API coverage to the future bounded VN feature.
 
 ### Implementation for User Story 3
 
-- [x] T057 [P] [US3] Moved composite definitions and skills to Phase 03 T016 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T058 [US3] Moved composite sequencing and section assembly to Phase 03 T016 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T059 [US3] Moved reusable-step runtime policy to Phase 03 T016 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T060 [US3] Moved composite run persistence to Phase 03 T017 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T061 [US3] Moved composite UI stage rendering to Phase 03 T018 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T057 [P] [US3] Reassign composite definitions and skills to the future bounded VN feature.
+- [x] T058 [US3] Reassign composite sequencing and section assembly to the future bounded VN feature.
+- [x] T059 [US3] Reassign reusable-step runtime policy to the future bounded VN feature.
+- [x] T060 [US3] Keep conversation/result persistence in the shared Phase 02/system contract.
+- [x] T061 [US3] Reassign composite UI stage rendering to the future bounded VN feature.
 
 **Checkpoint**: `stock-brief` works as a composed workflow without duplicating
 collection or safety logic.
 
 ---
 
-## Phase 6: Moved Scope - Phase 03 Market Validation
+## Phase 6: Moved Scope - VN Market Validation
 
-**Goal**: Moved to `../003-vn-gold-dataflows-workflows/` for VN stock and gold
-market validation.
+**Goal**: VN workflow validation belongs to a future bounded VN feature; future
+Gold validation requires a separate bounded specification.
 
 **Independent Test**: Attempt unsupported assets, missing inputs, invalid
 symbols, undeclared dataset collection, and missing model configuration.
 
 ### Tests for User Story 4
 
-- [x] T062 [P] [US4] Moved market and input API coverage to Phase 03 T019 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T063 [P] [US4] Moved undeclared dataset rejection coverage to Phase 03 T005 and T008 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T064 [P] [US4] Moved no-fabrication safety coverage to Phase 03 T005 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T062 [P] [US4] Reassign VN market and input API coverage to the future bounded VN feature.
+- [x] T063 [P] [US4] Keep undeclared-dataset rejection in the shared Phase 02/system safety contract.
+- [x] T064 [P] [US4] Keep no-fabrication safety coverage in the shared Phase 02/system contract.
 
 ### Implementation for User Story 4
 
-- [x] T065 [US4] Moved workflow input validation and market scoping to Phase 03 T020 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T066 [US4] Moved collection-plan approval and rejection to Phase 03 T008 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T067 [US4] Moved validation and partial-provider API errors to Phase 03 T021 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T068 [US4] Moved field-level validation UI to Phase 03 T022 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T065 [US4] Reassign VN workflow input validation and market scoping to the future bounded VN feature.
+- [x] T066 [US4] Keep collection-plan approval and rejection in the shared workflow foundation.
+- [x] T067 [US4] Keep provider error transport in the shared workflow foundation.
+- [x] T068 [US4] Reassign VN field-level validation UI to the future bounded VN feature.
 
 **Checkpoint**: Safety behavior is independently testable through both API and
 UI.
 
 ---
 
-## Phase 7: Moved Scope - Phase 03 Run Reinspection
+## Phase 7: Conversation-backed Workflow Reinspection
 
-**Goal**: Remaining reinspection behavior moved to
-`../003-vn-gold-dataflows-workflows/` for VN stock and gold runs.
+**Goal**: Reinspection is retained by the shared Phase 02/system conversation
+contract and is not owned by a market-analysis feature.
 
 **Independent Test**: Complete a workflow run, refresh, reopen it from
 history, and verify saved output, citations, and artifacts are restored.
 
 ### Tests for User Story 5
 
-- [x] T069 [P] [US5] Moved run-history API coverage to Phase 03 T023 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T069 [P] [US5] Retain workflow-history API coverage in the shared conversation contract.
 - [x] T070 [P] [US5] Add run reinspection persistence coverage for `collection` and `agent` envelopes in `tests/test_platform_services.py`
-- [x] T071 [P] [US5] Moved citation reinspection API coverage to Phase 03 T023 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T071 [P] [US5] Retain citation reinspection API coverage in the shared conversation contract.
 
 ### Implementation for User Story 5
 
 - [x] T072 [US5] Migrate run repository persistence into PostgreSQL via `PostgresRunRepository` in `src/finmind_api/run_store.py`, configured by `FINMIND_DATABASE_URL`
 - [x] T073 [US5] Add run list and detail routes in `src/finmind_api/routes/runs.py`
-- [x] T074 [US5] Moved citation reinspection queries to Phase 03 T024 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T075 [US5] Moved history selection and reinspection UI to Phase 03 T025 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T074 [US5] Retain citation reinspection queries in the shared conversation contract.
+- [x] T075 [US5] Retain history selection and reinspection UI in the shared conversation contract.
 
 **Checkpoint**: Stored workflow runs remain inspectable after the architecture
 migration.
@@ -292,31 +291,32 @@ and the UI separates visible working steps from final answer text.
 
 ---
 
-## Phase 9: Moved Scope - Chatflow Asynchronously With Streaming
+## Phase 9: Retired Scope - Chatflow Asynchronously With Streaming
 
-**Goal**: Moved to `../004-agentic-chatflow/`. Phase 02 no longer owns chatflow
-transport, chatflow persistence, or deterministic mock chatflow output.
+**Goal**: Phase 02 no longer owns chatflow transport, chatflow persistence, or
+deterministic mock chatflow output. The former destination draft was retired;
+future production chatflow requires a fresh Spec Kit cycle.
 
 **Independent Test**: Verify Phase 02 exposes no runnable `/api/chatflow/...`
-contract and that Phase 04 owns production chatflow specification work.
+contract and no active production-chatflow feature spec exists.
 
 ### Tests for User Story 7
 
-- [x] T091 [P] [US7] Move chatflow stream API coverage to `../004-agentic-chatflow/tasks.md`
-- [x] T092 [P] [US7] Move chatflow completion persistence and reinspection coverage to `../004-agentic-chatflow/tasks.md`
-- [x] T093 [P] [US7] Move fail-closed chatflow streaming-adapter validation coverage to `../004-agentic-chatflow/tasks.md`
-- [x] T094 [P] [US7] Move frontend chatflow stream client reconciliation coverage to `../004-agentic-chatflow/tasks.md`
+- [x] T091 [P] [US7] Remove chatflow stream API coverage from Phase 02 scope.
+- [x] T092 [P] [US7] Remove chatflow completion persistence and reinspection coverage from Phase 02 scope.
+- [x] T093 [P] [US7] Remove fail-closed chatflow streaming-adapter validation coverage from Phase 02 scope.
+- [x] T094 [P] [US7] Remove frontend chatflow stream client reconciliation coverage from Phase 02 scope.
 
 ### Implementation for User Story 7
 
-- [x] T095 [US7] Move chatflow run and message service contracts to `../004-agentic-chatflow/tasks.md`
-- [x] T096 [US7] Move chatflow chat/message routes to `../004-agentic-chatflow/tasks.md`
-- [x] T097 [US7] Move persisted chatflow run and chat metadata support to `../004-agentic-chatflow/tasks.md`
-- [x] T098 [US7] Move deterministic mock chatflow streaming output to `../004-agentic-chatflow/tasks.md`
-- [x] T099 [US7] Move frontend chatflow stream handling and persisted re-open support to `../004-agentic-chatflow/tasks.md`
+- [x] T095 [US7] Remove chatflow run and message service contracts from Phase 02 scope.
+- [x] T096 [US7] Remove chatflow chat/message routes from Phase 02 scope.
+- [x] T097 [US7] Remove persisted chatflow run and chat metadata support from Phase 02 scope.
+- [x] T098 [US7] Keep deterministic mock chat behavior owned by the MVP UI rather than production chatflow.
+- [x] T099 [US7] Remove frontend production-chatflow stream and persistence work from Phase 02 scope.
 
-**Checkpoint**: Chatflow work is no longer part of Phase 02 and remains traceable
-in Phase 04.
+**Checkpoint**: Chatflow work is no longer part of Phase 02 and has no active
+production feature spec.
 
 ---
 
@@ -368,15 +368,15 @@ verification.
 - [x] T115 [P] Update workflow implementation traceability in `specs/002-workflow/spec.md`
 - [x] T116 [P] Update workflow plan traceability after package migration in `specs/002-workflow/plan.md`
 - [x] T117 [P] Record runtime/package migration and direct async SSE decisions in `docs/adr/ADR-001-hybrid-workflow-definitions-and-agent-skills.md` and `docs/adr/ADR-002-direct-async-sse-streaming.md`
-- [x] T118 [P] Moved workflow risk mitigation updates to Phase 03 T026 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T119 [P] Moved Phase 03 environment configuration updates to Phase 03 T027 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T120 [P] Moved manual VN/gold workflow validation to Phase 03 T027 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T118 [P] Reassign mature VN workflow risk updates to the future bounded VN feature.
+- [x] T119 [P] Keep workflow-foundation environment configuration in Phase 02; future market-specific configuration belongs to its active bounded feature.
+- [x] T120 [P] Reassign manual VN validation to Phase 04; future Gold validation requires a fresh Phase 05 spec.
 - [x] T121 Review migrated workflow UI against `specs/system/ui-ux-guidelines.md`
-- [x] T122 Moved runtime safety review to Phase 03 T028 in `../003-vn-gold-dataflows-workflows/tasks.md`
-- [x] T123 [P] Moved convergence and quickstart validation notes to Phase 03 T029 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T122 Keep runtime safety review in the shared Phase 02/system contract.
+- [x] T123 [P] Reassign mature VN convergence and validation notes to Phase 04 planning.
 - [x] T124 Run backend verification command `UV_CACHE_DIR=/private/tmp/finmind-uv-cache uv run --group dev python -m pytest tests/test_app.py tests/test_platform_services.py`
 - [x] T125 Run frontend verification command `cd src/finmind_ui && npm run build`
-- [x] T126 Moved VN/gold workflow quickstart validation to Phase 03 T031 in `../003-vn-gold-dataflows-workflows/tasks.md`
+- [x] T126 Reassign mature VN quickstart validation to Phase 04; Gold remains inactive.
 
 ---
 
@@ -389,7 +389,7 @@ verification.
 - **Data Records And Citations (Phase 2A)**: Depends on Foundational and
   blocks new claim-generating workflow work.
 - **Completed Phase 02 User Stories (Phases 3-10)**: Depend on Foundational
-  completion; Phase 03 owns the moved workflow-maturity work recorded above.
+  completion; Phase 04 owns the moved mature VN workflow work recorded above.
 - **Polish (Phase 11)**: Depends on all desired user stories being complete.
 
 ### User Story Dependencies
@@ -399,14 +399,14 @@ verification.
   citations.
 - **US2 Choose A Workflow Type (P1)**: Starts after Foundation and can proceed
   in parallel with US1 once catalog loading exists.
-- **Moved Phase 03 Workflow Maturity**: Composite VN workflows, active-market
-  validation, and run reinspection are planned in
-  `../003-vn-gold-dataflows-workflows/tasks.md`.
+- **Moved VN Workflow Maturity**: Composite VN workflows and VN market
+  validation require a future bounded VN feature; shared
+  conversation reinspection remains in Phase 02/system.
 - **US6 Run Workflows Asynchronously With Streaming (P1)**: Depends on
   Foundation and should land before UI workflows are considered complete,
   because stream endpoints are the canonical execution APIs.
-- **Moved Phase 04 Chatflow**: Depends on the shared stream contract from US6
-  and is planned in `../004-agentic-chatflow/tasks.md`.
+- **Future Chatflow**: May depend on the shared stream contract from US6 but
+  requires a fresh bounded feature before planning.
 - **US8 Inspect Artifacts And Citations In The Right Panel (P1)**: Depends on
   US1 workflow output, US5 run reinspection persistence, and US6 stream event
   reconciliation.
@@ -435,7 +435,7 @@ verification.
 - US2 tests T048-T049 can run in parallel.
 - US6 tests T076-T081 can run in parallel.
 - US8 tests T100-T104 can run in parallel.
-- Phase 03 and Phase 04 task plans define their own parallel work.
+- Later bounded feature task plans define their own parallel work.
 
 ---
 
@@ -484,9 +484,9 @@ Task: "Add chart viewer tests in src/finmind_ui/src/features/charts/MarketChart.
 3. Deliver US2 to complete workflow choice on the migrated UI.
 4. Deliver US6 to make stream transport the canonical execution path.
 5. Deliver US8 right-panel artifact and citation inspection.
-6. Continue composite workflows, active-market validation, and reinspection in
-   `../003-vn-gold-dataflows-workflows/`.
-7. Continue chatflow planning in `../004-agentic-chatflow/`.
+6. Continue composite VN workflows and VN validation in a future bounded VN
+   feature; keep generic reinspection in Phase 02/system.
+7. Do not resume production chatflow planning without a fresh Spec Kit cycle.
 
 ### Notes
 
@@ -499,6 +499,5 @@ Task: "Add chart viewer tests in src/finmind_ui/src/features/charts/MarketChart.
 - Treat structured record fields as canonical and rendered `context` as a
   deterministic projection reused by LLM input and UI display.
 - Do not add production flexible chatflow behavior, broker actions, or autonomous
-  financial actions in this feature. Gold workflow support is owned
-  by `../003-vn-gold-dataflows-workflows/`; chatflow is owned by
-  `../004-agentic-chatflow/`.
+  financial actions in this feature. Gold workflow support requires a future
+  active Phase 05 spec; production chatflow has no active feature spec.

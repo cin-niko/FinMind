@@ -31,10 +31,11 @@ V1 uses cookie-backed web sessions for authenticated browser access. Session coo
 
 ## Scope Gates
 
-The active user-facing workflow scope is VN stocks and gold only. Chatflow
-remains deferred to Phase 04. Future market coverage is not valid user-facing
-scope until a bounded spec defines asset coverage, source eligibility, and
-safety behavior.
+The product market-family boundary remains VN stocks and Gold. The active fixed
+workflow foundation enables VN stocks; Gold requires a separate bounded feature
+contract. Production chatflow remains separately specified. A market is not
+valid user-facing workflow scope until an active spec defines asset coverage,
+source eligibility, and safety behavior.
 
 VN provider selection uses `FINMIND_VN_DATA_PROVIDER` as its sole environment
 variable and accepts only `vnstock` in the current workflow foundation.

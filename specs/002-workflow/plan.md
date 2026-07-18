@@ -20,8 +20,8 @@ adr_refs:
 ## Summary
 
 Implement Phase 02 fixed, UI-runnable financial trading support workflows for VN
-stocks on top of a shared agent runtime that can later power
-Phase 04 chatflow. Workflow execution should be async-first on the
+stocks on top of a shared agent runtime that can later support a separately
+specified chatflow. Workflow execution should be async-first on the
 server so multiple authenticated users can run workflow requests
 concurrently without blocking API worker threads. The target repo split is `src/finmind_agents` for the agentic
 and finance orchestration layer, `src/finmind_api` for the FastAPI delivery
@@ -87,8 +87,8 @@ that is open while work is running and collapsed after completion.
   `FINMIND_SYNC_OFFLOAD_LIMIT`. Provider/model-specific limit buckets and
   Redis/distributed leases are deferred until real usage or multi-worker /
   multi-instance deployment requires them.
-- Constraints: Phase 02 remains a VN stock foundation; gold is deferred to
-  `../003-vn-gold-dataflows-workflows/`; out-of-scope assets are blocked; no
+- Constraints: Phase 02 remains a VN stock foundation; Gold requires a future
+  bounded feature; out-of-scope assets are blocked; no
   broker/order/trade execution; no raw reasoning exposure;
   workflow skill execution requires an explicit LLM configuration and fails
   closed when unavailable; async handlers must not directly perform blocking
@@ -105,8 +105,9 @@ that is open while work is running and collapsed after completion.
   delivery layer and does not absorb finance workflow logic.
 - Testing standards: add/adjust pytest coverage for the Phase 02 catalog, VN
   atomic runs, data-quality gating, citations, chart artifacts, and workflow
-  streaming; run frontend build for UI contract compatibility. Phase 03 owns
-  composite workflows, active-market validation, and run reinspection.
+  streaming; run frontend build for UI contract compatibility. Phase 04 owns
+  mature/composite VN workflows; shared conversation reinspection stays in the
+  Phase 02/system foundation.
 - Safety guardrails: unsupported assets are blocked, data-quality warnings gate
   claims, material claims require citations or unavailable marking, raw reasoning
   is excluded, LLM/tool failures fail closed or produce partial/unavailable
@@ -174,8 +175,8 @@ Deterministic step:
 The data audit is the `vn-financial-data-auditor` skill step; the post-skill
 `GroundingCheck` audits cited sources and blocks claims missing required data.
 
-Composite VN stock briefs and their partial-stage behavior are planned in
-`../003-vn-gold-dataflows-workflows/`; they reuse this phase's atomic workflow,
+Composite VN stock briefs and their partial-stage behavior require a future
+bounded VN feature; they reuse this phase's atomic workflow,
 grounding, record, citation, and stream foundations.
 
 Execution rules:
@@ -198,7 +199,7 @@ Execution rules:
   workflow metadata is finalized after the streamed answer completes through a
   second async metadata pass. The stream must not depend on recovering answer
   text from partial JSON. The v3 typed-projection API is chosen over
-  `stream_mode="messages"` so future subagent delegation (Phase 04 chatflow,
+  `stream_mode="messages"` so future subagent delegation (a later chatflow,
   composite workflows) can use the `subagents`/`tool_calls` projections for
   `run.stage` progress without changing the streaming contract.
 - Workflow YAML is the executable product contract for inputs, markets, skill
@@ -356,7 +357,7 @@ DataflowService.collect(...)
   (`uncited_claims`); blocked claims are surfaced for transparency and affected
   sections are caveated. Data age is conveyed by citation `timestamp`; there is
   no separate freshness concept.
-- Phase 03 composite workflows preserve completed sections when later stages are
+- Phase 04 composite workflows preserve completed sections when later stages are
   partial.
 
 ## Async Execution And Streaming Design
@@ -445,16 +446,16 @@ Chatflow streaming:
 
 - Phase 02 does not own chatflow transport or chatflow behavior. Production
   flexible Q&A behavior, chatflow tool choice, source planning, persistence, and
-  streaming belong to `../004-agentic-chatflow/`.
+  streaming require a future bounded feature.
 - Phase 02 workflow streaming should keep event, safety, and runtime boundaries
-  reusable so Phase 04 can define chatflow-specific contracts without duplicating
+  reusable so a future feature can define chatflow-specific contracts without duplicating
   the workflow foundation.
 
 ## Dataflows Collection Design
 
 `src/finmind_agents/dataflows/` is a collection module, not an admin ingestion or
 backfill platform. It serves Phase 02 workflows and is intentionally reusable by
-Phase 03 VN/gold dataflows and workflows and Phase 04 chatflow.
+later bounded VN, Gold, and chatflow features.
 
 Module layout:
 
@@ -524,7 +525,7 @@ Rules:
 
 Resolved in `research.md`:
 
-- Use atomic fixed workflows before flexible chatflow; Phase 03 adds composed
+- Use atomic fixed workflows before flexible chatflow; Phase 04 specifies composed
   workflows after the foundation is stable.
 - Use hybrid YAML workflow definitions and Markdown agent skills instead of
   one-off fixed-code workflows or unconstrained skill-only execution.

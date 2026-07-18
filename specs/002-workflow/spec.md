@@ -31,9 +31,10 @@ reinspection from the UI.
 
 This draft feature owns workflow execution, workflow streaming, and result
 inspection. It does not own the overall app shell (`../001-mvp-ui/`). Production
-chatflow behavior and chatflow transport are deferred to `../004-agentic-chatflow/`.
-Gold dataflows and the next VN stock plus gold workflows are owned by
-`../003-vn-gold-dataflows-workflows/`.
+chatflow behavior and transport are not currently specified and require a future
+bounded feature.
+Mature VN stock workflows and Gold workflows require separately merged bounded
+feature specifications.
 
 For Phase 02 storage, the workflow feature persists lean durable evidence by
 default: reusable `price_series` base data, final run output, and cited
@@ -95,11 +96,10 @@ Acceptance scenarios:
    fabricating evidence.
 ## Moved Scope
 
-The following unfinished Phase 02 behavior is now owned by
-`../003-vn-gold-dataflows-workflows/`: composed VN stock briefs, market-aware
-field validation, Phase 03 VN/gold scope enforcement, and workflow-history
-reinspection. The Phase 03 specification preserves the originating requirement
-and success-criterion traceability.
+The composed VN stock brief and mature VN analysis behavior require a future
+bounded VN feature. Shared conversation-backed workflow result inspection
+remains part of the Phase 02/system foundation. Gold planning is inactive until
+a bounded Gold feature is merged.
 
 ### User Story 6 - Run Workflows Asynchronously With Streaming (Priority: P1)
 
@@ -204,8 +204,8 @@ Acceptance scenarios:
   cited sources are a subset of sources returned by `collect_data` and blocking
   claim categories whose required dataset returned no records.
 - **FR-011**: Phase 02 MUST NOT enable workflow markets beyond its VN stock
-  foundation. Gold workflow support is deferred to
-  `../003-vn-gold-dataflows-workflows/`.
+  foundation. Gold workflow support requires a future active Phase 05 spec;
+  archived notes alone do not enable it.
 - **FR-014**: Test fixtures MUST provide deterministic VN stock records with
   source identity, market time, collection time, and unique record keys. Product
   provider failures must remain visible rather than substituting fixture data.
@@ -461,7 +461,7 @@ See `../system/state-model.md` for canonical entity definitions.
   broad native ingestion platform.
 - Phase 02 does not define chatflow transport or chatflow behavior. Production
   flexible Q&A, broad dynamic research planning, chat-specific product
-  intelligence, and chatflow streaming are owned by `../004-agentic-chatflow/`.
+  intelligence, and chatflow streaming require a future bounded feature.
 - User-facing "reasoning" in Phase 02 means safe execution visibility such as
   workflow stages, tool activity summaries, and progress updates; it does not
   mean raw chain-of-thought or hidden internal reasoning.

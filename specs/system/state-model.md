@@ -16,11 +16,11 @@ This spec defines stable domain state shared across FinMind features. Feature fo
 
 ## Market Scope
 
-`002-workflow` establishes the workflow, citation, grounding, and chart
-contracts. `003-vn-gold-dataflows-workflows` defines the active user-facing
-workflow scope as VN stocks and gold. Future market
-scope is not canonical until a bounded feature spec defines supported assets,
-source eligibility, and safety behavior.
+`002-workflow` establishes workflow, citation, grounding, and chart contracts.
+`003-language-preferences` defines language selection and captured workflow
+output language. Mature VN and Gold workflows require separately merged bounded
+feature specifications. Future market scope is not canonical until an active
+spec defines supported assets, source eligibility, and safety behavior.
 
 ## Entities
 
@@ -65,7 +65,8 @@ Rules:
   unchanged.
 - At workflow submission the UI sends the resolved effective language (`vi` or
   `en`). The backend validates and captures that value as `output_language` and
-  uses it for generated Phase 03 workflow narrative. A later selection change
+  uses it for generated workflow narrative under the Phase 03 language
+  contract. A later selection change
   does not rewrite saved workflow output.
 
 ### Session
