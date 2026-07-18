@@ -18,11 +18,7 @@ export type WorkflowCatalogSummary = {
 const WORKFLOW_COPY: Record<string, { title: MessageKey; description: MessageKey }> = {
   "vn-financial-data-collector": { title: "workflowCollectorTitle", description: "workflowCollectorDescription" },
   "vn-fundamental-analysis": { title: "workflowFundamentalTitle", description: "workflowFundamentalDescription" },
-  "vn-technical-analysis": { title: "workflowTechnicalTitle", description: "workflowTechnicalDescription" },
-  "vn-news-digest": { title: "workflowNewsTitle", description: "workflowNewsDescription" },
-  "vn-valuation": { title: "workflowValuationTitle", description: "workflowValuationDescription" },
-  "vn-stock-brief": { title: "workflowBriefTitle", description: "workflowBriefDescription" },
-  "gold-technical-analysis": { title: "workflowGoldTitle", description: "workflowGoldDescription" }
+  "vn-technical-analysis": { title: "workflowTechnicalTitle", description: "workflowTechnicalDescription" }
 };
 
 const INPUT_KEYS: Record<string, MessageKey> = {
@@ -34,19 +30,13 @@ const STAGE_KEYS: Record<string, MessageKey> = {
   collect_data: "stageCollectData",
   "data-audit": "stageDataAudit",
   "technical-analysis": "stageTechnicalAnalysis",
-  "fundamental-analysis": "stageFundamentalAnalysis",
-  "news-digest": "stageNewsDigest",
-  valuation: "stageValuation"
+  "fundamental-analysis": "stageFundamentalAnalysis"
 };
 
 const SECTION_KEYS: Record<string, MessageKey> = {
   "Collected Data": "sectionCollectedData",
   "Fundamental Analysis": "sectionFundamentalAnalysis",
-  "Technical Analysis": "sectionTechnicalAnalysis",
-  "News Digest": "sectionNewsDigest",
-  "Valuation Research": "sectionValuationResearch",
-  "VN Stock Brief": "sectionStockBrief",
-  "Gold Technical Analysis": "sectionGoldTechnicalAnalysis"
+  "Technical Analysis": "sectionTechnicalAnalysis"
 };
 
 export function marketLabel(market: WorkflowMarket, language: UiLanguage = "en"): string {

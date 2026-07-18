@@ -3,11 +3,7 @@ import { translate, type MessageKey, type UiLanguage } from "../settings/catalog
 const WORKFLOW_PROMPT_KEYS: Record<string, MessageKey> = {
   "vn-financial-data-collector": "promptCollector",
   "vn-fundamental-analysis": "promptFundamental",
-  "vn-technical-analysis": "promptTechnical",
-  "vn-news-digest": "promptNews",
-  "vn-valuation": "promptValuation",
-  "vn-stock-brief": "promptBrief",
-  "gold-technical-analysis": "promptGold"
+  "vn-technical-analysis": "promptTechnical"
 };
 
 export function workflowPromptTemplate(

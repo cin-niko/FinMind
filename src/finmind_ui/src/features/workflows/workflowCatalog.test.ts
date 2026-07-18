@@ -6,6 +6,7 @@ import {
   marketLabel,
   summarizeWorkflow,
 } from "./workflowCatalog.ts";
+import { workflowPromptTemplate } from "./workflowTemplates.ts";
 
 const workflow: Workflow = {
   id: "vn-financial-data-collector",
@@ -52,3 +53,5 @@ assert.equal(viSummary.markets[0], "Cổ phiếu VN");
 assert.deepEqual(viSummary.requiredInputs, ["thị trường", "mã"]);
 assert.equal(viSummary.citationLabel, "Yêu cầu trích dẫn");
 assert.equal(viSummary.chartLabel, "Xu hướng giá");
+
+assert.equal(workflowPromptTemplate("future-workflow")("VCB"), "Analyze stock VCB");
