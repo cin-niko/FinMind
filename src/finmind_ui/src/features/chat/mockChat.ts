@@ -1,4 +1,5 @@
 import type { Artifact, ArtifactDownload, WorkflowRun } from "../../api/client";
+import { isUiLanguage, translate, workflowStepTitle, type UiLanguage } from "../settings/catalog.ts";
 
 export type ChatArtifactKind = "report" | "chart" | "file" | "table";
 
@@ -57,13 +58,17 @@ export function orderCitationsByAppearance(
   return { citations: ordered, ordinals };
 }
 
-export function mapArtifactsToCards(artifacts: Artifact[], runId: string): ChatArtifact[] {
+export function mapArtifactsToCards(
+  artifacts: Artifact[],
+  runId: string,
+  language: UiLanguage = "en"
+): ChatArtifact[] {
   return artifacts.map((artifact) => ({
     id: `${runId}-${artifact.artifact_id}`,
     artifactId: artifact.artifact_id,
     kind: artifact.artifact_type,
-    title: artifactDisplayTitle(artifact),
-    typeLabel: artifactTypeLabel(artifact),
+    title: artifactDisplayTitle(artifact, language),
+    typeLabel: artifactTypeLabel(artifact, language),
     download: artifact.downloads[0] ?? (artifact.artifact_type === "file" ? {
       url: artifact.file.url,
       filename: artifact.file.filename,
@@ -71,32 +76,32 @@ export function mapArtifactsToCards(artifacts: Artifact[], runId: string): ChatA
     } : undefined),
     summary:
       artifact.artifact_type === "chart"
-        ? "Chart artifact"
-        : `${artifact.file_type.toUpperCase()} file`
+        ? translate(language, "chartArtifact")
+        : `${artifact.file_type.toUpperCase()} ${translate(language, "file")}`
   }));
 }
 
-function artifactDisplayTitle(artifact: Artifact): string {
+function artifactDisplayTitle(artifact: Artifact, language: UiLanguage): string {
   if (artifact.artifact_type !== "chart") {
     return artifact.title;
   }
   const recordKey = typeof artifact.inputs.record_key === "string" ? artifact.inputs.record_key : "";
   const symbol = recordKey.split(/[-_:]/)[0]?.trim().toUpperCase();
-  return symbol ? `${symbol} Chart` : artifact.title;
+  return symbol ? `${symbol} ${translate(language, "chart")}` : artifact.title;
 }
 
-function artifactTypeLabel(artifact: Artifact): string {
+function artifactTypeLabel(artifact: Artifact, language: UiLanguage): string {
   if (artifact.artifact_type === "chart") {
-    return "Chart";
+    return translate(language, "chart");
   }
   const fileType = artifact.file_type.toUpperCase();
   if (fileType === "XLSX" || fileType === "CSV") {
-    return `Spreadsheet · ${fileType}`;
+    return `${translate(language, "spreadsheet")} · ${fileType}`;
   }
   if (fileType === "PDF") {
     return "PDF";
   }
-  return `File · ${fileType}`;
+  return `${translate(language, "file")} · ${fileType}`;
 }
 
 export type ChatBlock =
@@ -112,11 +117,12 @@ export type ChatBlock =
 
 export type WorkflowProgressStep = {
   id: string;
-  title: string;
+  title?: string;
   kind: "collect_data" | "skill";
   status: string;
   warnings: string[];
   inputContext?: string;
+  market?: string;
 };
 
 export type WorkflowStreamState = {
@@ -198,26 +204,26 @@ export function createUserMessage(content: string, index: number): ChatMessage {
   };
 }
 
-export function createMockResponse(prompt: string): ChatMessage {
+export function createMockResponse(prompt: string, language: "en" | "vi" = "en"): ChatMessage {
   const normalized = prompt.toLowerCase();
   const subject = normalized.includes("gold") ? "SJC Gold" : "VCB";
 
   return {
     id: `assistant-${slugify(prompt)}`,
     role: "assistant",
-    content: `Mock response for ${subject}. This is a deterministic V1 chat answer; it does not call the production orchestrator.`,
+    content: translate(language, "mockResponse", { subject }),
     blocks: [
       {
         kind: "text",
-        content: `Here is a mock research view for ${subject}. Inline visuals are rendered from trusted local templates only.`
+        content: translate(language, "mockResearchView", { subject })
       },
       {
         kind: "inlineVisual",
-        title: `${subject} quick view`,
+        title: translate(language, "quickView", { subject }),
         metrics: [
-          { label: "Direction", value: normalized.includes("risk") ? "Mixed" : "Constructive", tone: "up" },
-          { label: "Freshness", value: "Demo", tone: "warn" },
-          { label: "Evidence", value: "Mock citations", tone: "neutral" }
+          { label: translate(language, "direction"), value: translate(language, normalized.includes("risk") ? "mixed" : "constructive"), tone: "up" },
+          { label: translate(language, "freshness"), value: "Demo", tone: "warn" },
+          { label: translate(language, "evidence"), value: translate(language, "mockEvidence"), tone: "neutral" }
         ]
       }
     ],
@@ -225,8 +231,8 @@ export function createMockResponse(prompt: string): ChatMessage {
       {
         id: "artifact-report",
         kind: "report",
-        title: `${subject} mock report`,
-        summary: "Open the full deterministic report in the right-side panel."
+        title: translate(language, "mockReport", { subject }),
+        summary: translate(language, "mockReportSummary")
       }
     ]
   };
@@ -236,7 +242,8 @@ export function createMockResponse(prompt: string): ChatMessage {
 export function createWorkflowAssistantMessage(run: WorkflowRun, index: number): ChatMessage {
   const sections = run.output.sections;
   const reportContent = sections.map((section) => section.content).join("\n\n---\n\n");
-  const artifacts: ChatArtifact[] = mapArtifactsToCards(run.output.artifacts, run.id);
+  const language = isUiLanguage(run.inputs.language) ? run.inputs.language : "en";
+  const artifacts: ChatArtifact[] = mapArtifactsToCards(run.output.artifacts, run.id, language);
   return {
     id: `assistant-wf-${index}`,
     role: "assistant",
@@ -258,13 +265,12 @@ export function createPendingAssistantMessage(index: number, inputContext?: stri
     artifacts: [],
     pending: true,
     streamState: {
-      label: "Working",
+      label: "working",
       complete: false,
       steps: inputContext
         ? [
             {
               id: "collect_data",
-              title: "Collect market data",
               kind: "collect_data",
               status: "running",
               warnings: [],
@@ -283,15 +289,15 @@ export function createPendingAssistantMessage(index: number, inputContext?: stri
 export function workflowStreamStateFromRun(run: WorkflowRun): WorkflowStreamState {
   const inputContext = inputContextForRun(run);
   return {
-    label: `Completed ${run.output.steps.length} steps`,
+    label: "completed",
     complete: true,
     steps: run.output.steps.map((step) => ({
       id: step.id,
-      title: titleForStep(step.id, run.inputs),
       kind: step.kind,
       status: step.status,
       warnings: step.warnings,
-      inputContext
+      inputContext,
+      market: run.inputs.market
     })),
     answer: run.output.sections.map((section) => section.content).join("\n\n---\n\n"),
     citations: run.output.citations,
@@ -300,27 +306,12 @@ export function workflowStreamStateFromRun(run: WorkflowRun): WorkflowStreamStat
 }
 
 
-export function titleForStep(stepId: string, inputs?: Record<string, string>): string {
-  const marketLabel = marketLabelForInputs(inputs);
-  if (stepId === "collect_data") {
-    return marketLabel ? `Collect ${marketLabel} data` : "Collect market data";
-  }
-  if (stepId.includes("data-auditor")) {
-    return "Audit source coverage";
-  }
-  if (stepId.includes("technical-analysis")) {
-    return "Analyze technical momentum";
-  }
-  if (stepId.includes("fundamental-analysis")) {
-    return "Analyze fundamentals";
-  }
-  if (stepId.includes("news")) {
-    return "Review news signals";
-  }
-  if (stepId.includes("risk")) {
-    return "Review downside risks";
-  }
-  return humanizeStepId(stepId);
+export function titleForStep(
+  stepId: string,
+  inputs?: Record<string, string>,
+  language: UiLanguage = "en"
+): string {
+  return workflowStepTitle(language, stepId, inputs?.market);
 }
 
 export function inputContextForRun(run: WorkflowRun): string | undefined {
@@ -334,19 +325,4 @@ export function inputContextForInputs(inputs?: Record<string, string>): string |
   }
   const market = inputs?.market?.trim().replace(/_/g, " ");
   return market || undefined;
-}
-
-function marketLabelForInputs(inputs?: Record<string, string>): string | null {
-  const market = inputs?.market?.trim().toUpperCase();
-  if (market === "VN_STOCK") {
-    return "VN stock";
-  }
-  return null;
-}
-
-function humanizeStepId(stepId: string): string {
-  return stepId
-    .replace(/^vn-/, "")
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 }

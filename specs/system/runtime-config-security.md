@@ -31,10 +31,11 @@ V1 uses cookie-backed web sessions for authenticated browser access. Session coo
 
 ## Scope Gates
 
-The active user-facing workflow scope is VN stocks and gold only. Chatflow
-remains deferred to Phase 04. Future market coverage is not valid user-facing
-scope until a bounded spec defines asset coverage, source eligibility, and
-safety behavior.
+The product market-family boundary remains VN stocks and Gold. The active fixed
+workflow foundation enables VN stocks; Gold requires a separate bounded feature
+contract. Production chatflow remains separately specified. A market is not
+valid user-facing workflow scope until an active spec defines asset coverage,
+source eligibility, and safety behavior.
 
 VN provider selection uses `FINMIND_VN_DATA_PROVIDER` as its sole environment
 variable and accepts only `vnstock` in the current workflow foundation.
@@ -62,12 +63,17 @@ Generated material claims must show citations (source id, dataset id, timestamp)
 
 The UI may show evidence, citations, workflow stages, role status, tool status, artifact status, and final grounded rationale. It must not expose raw agent reasoning.
 
-## Run Store (PostgreSQL)
+## Conversation Store (PostgreSQL)
 
-Completed workflow and chat runs persist to PostgreSQL so history survives app restarts. Configuration:
+Workflow-created conversations persist to PostgreSQL so history survives app
+restarts. Interrupted queued or running conversations are reconciled to failed
+on startup under the shared conversation contract. Configuration:
 
-- `FINMIND_DATABASE_URL`: Postgres DSN. Required for the product run store; the application fails closed (protected content is not served) when it is missing or the database is unreachable.
-- The persistence implementation (`PostgresRunRepository`) lives in the API layer (`src/finmind_api/run_store.py`); the agentic layer (`finmind_agents`) only declares the `RunRepository` contract.
+- `FINMIND_DATABASE_URL`: Postgres DSN. Required for the product conversation store; the application fails closed (protected content is not served) when it is missing or the database is unreachable.
+- The persistence implementation is owned by the API layer; the agentic layer declares the corresponding conversation repository contract.
 - Development uses the `postgres` service in `docker-compose.yaml`; local `uv run uvicorn` points `FINMIND_DATABASE_URL` at `localhost:5432`.
-- One `runs` table backs both `workflow` and `chat` runs via the `kind` discriminator. The schema is bootstrapped idempotently on startup (`CREATE TABLE IF NOT EXISTS`); migrations are deferred until schema changes are required.
+- Conversations own their messages and execution metadata; assistant messages
+  own their citation snapshots and artifacts. Deleting a conversation
+  cascade-deletes those children but does not delete shared canonical market
+  data. The schema is bootstrapped or migrated safely on startup.
 - Database credentials are read only from environment variables and must not be logged, returned in API output, or exposed in the UI.

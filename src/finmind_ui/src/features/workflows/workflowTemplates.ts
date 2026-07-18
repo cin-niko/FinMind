@@ -1,11 +1,15 @@
-const TEMPLATES: Record<string, (symbol: string) => string> = {
-  "vn-financial-data-collector": (s) => `Collect and audit financial data for stock ${s}`,
-  "vn-fundamental-analysis": (s) => `Analyze the fundamentals of stock ${s}`,
-  "vn-technical-analysis": (s) => `Analyze the technicals of stock ${s}`,
+import { translate, type MessageKey, type UiLanguage } from "../settings/catalog.ts";
+
+const WORKFLOW_PROMPT_KEYS: Record<string, MessageKey> = {
+  "vn-financial-data-collector": "promptCollector",
+  "vn-fundamental-analysis": "promptFundamental",
+  "vn-technical-analysis": "promptTechnical"
 };
 
-export function workflowPromptTemplate(workflowId: string): (symbol: string) => string {
-  return TEMPLATES[workflowId] ?? ((s) => `Analyze stock ${s}`);
+export function workflowPromptTemplate(
+  workflowId: string,
+  language: UiLanguage = "en"
+): (symbol: string) => string {
+  const key = WORKFLOW_PROMPT_KEYS[workflowId] ?? "promptGenericStock";
+  return (symbol) => translate(language, key, { symbol });
 }
-
-

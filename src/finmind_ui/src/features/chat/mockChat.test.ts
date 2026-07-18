@@ -5,7 +5,7 @@ import {
   createUserMessage,
   getConversationTitle,
   getLatestUserMessageId
-} from "./mockChat";
+} from "./mockChat.ts";
 
 const conversation = createNewConversation("What changed for VCB today?");
 assert.equal(getConversationTitle(conversation), "What changed for VCB today?");
@@ -46,7 +46,7 @@ assert.equal(
 );
 
 // Citation appearance-ordering: panel order must match inline chip ordinals.
-import { orderCitationsByAppearance, type LiveCitation } from "./mockChat";
+import { orderCitationsByAppearance, type LiveCitation } from "./mockChat.ts";
 
 const citationsInCollectionOrder: LiveCitation[] = [
   { citation_id: "citation_A", record_id: "rA", record_type: "generic", source_id: "srcA", dataset_id: "dsA", label: "Alpha", timestamp: "2026-07-05T00:00:00+00:00", display_content: "Alpha", payload_snapshot: {} },

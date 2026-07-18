@@ -25,14 +25,14 @@ Every piece of information should have one canonical location. Link to it instea
 | Platform-wide state, contracts, runtime, security, UI rules | [`specs/system/`](specs/system/) |
 | Per-feature specs | [`specs/NNN-slug/`](specs/README.md) |
 | Local agent skills | [`.agents/skills/`](.agents/skills/) |
-| Current feature implementation plan | [`specs/003-vn-gold-dataflows-workflows/plan.md`](specs/003-vn-gold-dataflows-workflows/plan.md) |
+| Current feature implementation plan | [`specs/003-language-preferences/plan.md`](specs/003-language-preferences/plan.md) |
 | Existing tests | [`tests/`](tests/) |
 | Product source ideas | [`ideas/`](ideas/) |
 
 ## 3. Hard Rules
 
 1. **Specs before code.** When adding or changing behavior, update the relevant `specs/system/*` or `specs/NNN-slug/*` file first, then implementation and tests.
-2. **Do not collapse bounded features into one phase.** Current bounded feature folders are active `001-mvp-ui/`, draft `002-workflow/`, draft `003-vn-gold-dataflows-workflows/`, and draft `004-agentic-chatflow/`. Create future `NNN-slug/` folders only when the next bounded capability is ready to become canonical.
+2. **Do not collapse bounded features into one phase.** Current bounded feature folders are active `001-mvp-ui/`, draft `002-workflow/`, active `003-language-preferences/`, and draft `004-agentic-chatflow/`. Create future `NNN-slug/` specs only when the next bounded capability is ready to become canonical.
 3. **System contracts live in `specs/system/`.** If a feature changes shared state, API contracts, runtime behavior, security, or UI foundations, update `specs/system/*` and cross-reference the feature.
 4. **Use YAML frontmatter on spec files.** Include `id`, `status` or feature lifecycle status, `implements`, `validated_by`, and `adr_refs`. Only reference paths that exist; draft specs may use `implements: []` until code lands.
 5. **Keep current user-facing market scope to VN stocks and gold.** No other market or asset is in scope unless a later spec explicitly changes it.
@@ -129,7 +129,7 @@ For UI work, use `ui-ux-pro-max` for design-system/search guidance and implement
 ## 7. Anti-Patterns
 
 - Do not recreate a monolithic V1 spec folder as the long-term source of truth.
-- Do not add ingestion admin, plugin hardening, or out-of-scope assets into the current MVP unless the owning spec is explicitly changed. Gold is owned by `specs/003-vn-gold-dataflows-workflows/`.
+- Do not add ingestion admin, plugin hardening, Gold workflows, or out-of-scope assets into the current MVP unless an owning bounded feature spec is merged.
 - Do not expose provider secrets, environment secrets, or raw model reasoning in docs, logs, UI, or tests.
 - Do not invent new market scope terminology outside `specs/system/runtime-config-security.md`.
 - Do not let feature specs redefine shared entities that belong in `specs/system/state-model.md`.
@@ -152,13 +152,13 @@ tests/                   current test suite
 
 1. `001-mvp-ui`: active implemented feature covering auth, app shell, deterministic mock chat UI, artifact detail, navigation, grouped history layout, and UI foundations.
 2. `002-workflow`: draft phase 02 feature for a guarded async workflow runtime, retrieval-first `dataflows` module, YAML workflow definitions, Markdown agent skills, VN stock foundation scope, citations, chart artifacts, workflow stream transport, and run inspection.
-3. `003-vn-gold-dataflows-workflows`: draft phase 03 feature for gold dataflows plus new fixed workflows covering VN stocks and gold before production chatflow.
+3. `003-language-preferences`: active implemented phase 03 feature for persisted Auto-detect/Vietnamese/English UI preferences, localization, and captured workflow output language.
 4. `004-agentic-chatflow`: draft phase 04 feature for future evidence-backed flexible Q&A chatflow over trusted sources.
 
 Deleted roadmap folders such as data operations and extension hardening are not canonical. Recreate future capabilities through a fresh Spec Kit cycle only when scope, data access, safety, and contracts are ready.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
-at specs/003-vn-gold-dataflows-workflows/plan.md
+shell commands, and other important information, read the current plan at
+specs/003-language-preferences/plan.md.
 <!-- SPECKIT END -->

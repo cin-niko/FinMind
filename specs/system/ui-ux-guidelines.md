@@ -14,8 +14,9 @@ adr_refs:
 FinMind is an internal financial research platform, not a marketing site. The
 first screen after login must be the usable application shell. Current active
 surfaces are the chat-first shell, workflows entry points, and mock artifact
-detail. Phase 02 supplies the fixed-workflow foundation, and Phase 03 owns the
-active VN stock and gold workflow experience. Production agentic chatflow,
+detail. Phase 02 supplies the fixed-workflow foundation, and Phase 03 owns
+language preferences. Mature VN and Gold workflow experiences require separate
+bounded feature specifications. Production agentic chatflow,
 native market data, admin ingestion, and external plugin surfaces remain roadmap
 concepts until their bounded specs make them canonical.
 
@@ -36,7 +37,9 @@ concepts until their bounded specs make them canonical.
 - Roadmap surfaces are not active navigation: Market, Admin ingestion, production
   chat orchestration, and plugin surfaces require new bounded specs before they
   become canonical.
-- Operational clarity: ingestion status, stale data warnings, failed runs, and unsupported markets must be visible without reading logs.
+- Operational clarity: ingestion status, unavailable-evidence limitations,
+  failed conversations, and unsupported markets must be visible without reading
+  logs.
 - Dense but legible: prioritize compact navigation, tables, toolbars, split panes, and fixed-height panels.
 - No raw reasoning exposure: show stages, role status, tool status, citations, and artifacts; do not show hidden model reasoning transcripts.
 - Stable layout: hover, loading, validation, and chart states must not resize the shell or shift critical controls.
@@ -58,9 +61,9 @@ Use a light professional theme by default with a Perplexity-inspired ledger trea
 | Accent Teal | `accent-teal` | `#2F6654` | Selected icons, focus rings, send button, chart highlights |
 | Accent Teal Strong | `accent-teal-strong` | `#285746` | Active controls and hover states |
 | Amber | `accent-amber` | `#D09A2D` | Primary workflow run CTA, warnings, and coverage status |
-| Success | `success` | `#138A63` | Fresh data, bullish candles, success states |
+| Success | `success` | `#138A63` | Completed states and bullish candles |
 | Danger | `danger` | `#B9433A` | Failed jobs, bearish candles, destructive states |
-| Warning | `warning` | `#D09A2D` | Stale data, partial results |
+| Warning | `warning` | `#D09A2D` | Unavailable evidence and limitations |
 
 Avoid gradient-orb, bokeh, decorative hero, generic white-card/blue-SaaS, heavy beige archive styling, purple-blue, and marketing-card-heavy treatments.
 
@@ -73,12 +76,20 @@ Desktop shell uses a fixed left rail plus a main work area. Chat artifact detail
 - Primary nav rows are flat text rows by default. Do not draw each row as an outlined button.
 - Only the active nav row or selected history row receives `surface-selected`; avoid simultaneous white, gray, and yellow row-selection backgrounds. Active rail rows do not increase font weight.
 - Yellow/amber must not be used as a rail selection color. Reserve it for run actions, warnings, and content-level coverage state.
-- `History` is one rail section with two subsections: `Chat` and `Workflow Runs`. Do not split history by relative dates such as Today or Yesterday in V1.
+- `History` is one rail section for persisted conversations. A workflow-created
+  conversation appears here as soon as it is started; do not expose a separate
+  workflow-run history or split history by relative dates in V1.
 - Top context bar is compact, pinned inside the primary content pane, and aligned with the artifact detail header when the artifact panel is open. In chat, it shows only the active conversation title matching the History label, falling back to `New Chat` before a conversation exists. Other surfaces show their current surface title only; surface metadata and filters belong inside the active work area.
 - Chat artifact detail headers are compact and pinned inside the right-side artifact panel. They use the same small title size as the chat header and show the artifact title plus close control only; artifact kind and metadata belong in the panel body.
-- The logout control belongs in the left rail footer with the current role/session summary, not in the top context bar.
+- The left rail footer contains the current role/session summary, a Settings
+  control, and logout; neither control belongs in the top context bar.
 - Desktop shell scrolling is separated by panel: the left rail keeps brand/nav and logout visible while history scrolls; the primary content pane keeps its header visible; chat keeps the composer pinned to the bottom while only messages scroll; the right artifact panel keeps its header visible while only artifact body content scrolls.
-- Desktop left rail may collapse to a compact icon rail. The right artifact/citation panel may fully collapse so the primary pane reclaims the width; selecting a citation or artifact opens it again. Collapse controls belong in the respective panel headers, use icon-only buttons with accessible labels, and must not destroy the active chat, artifact, or citation selection state.
+- Desktop left rail may collapse to a compact icon rail. Footer actions remain
+  fully contained in the compact rail and use icon-only buttons with accessible
+  labels. The right artifact/citation panel may fully collapse so the primary
+  pane reclaims the width; selecting a citation or artifact opens it again.
+  Collapse controls belong in the respective panel headers and must not destroy
+  the active chat, artifact, or citation selection state.
 - No large hero areas.
 
 Navigation is roadmap-aware:
@@ -104,8 +115,9 @@ Navigation is roadmap-aware:
 ### Workflow
 
 - Workflow catalog cards for fixed system-defined workflows
-- Market/instrument inputs expose only supported VN stock and gold choices as
-  enabled runnable selections for `003-vn-gold-dataflows-workflows`.
+- Market/instrument inputs expose only choices enabled by an active bounded
+  feature specification. A draft or archived future feature does not enable a
+  market selection.
 - Market identifiers in catalog summaries and selectors use human-readable
   labels rather than raw contract values; each supported market maps through a
   shared, closed UI label mapping. An unsupported market is a contract error
@@ -134,11 +146,34 @@ Navigation is roadmap-aware:
   active symbol, and a terminal `Done` row. They show safe stage metadata only,
   not raw reasoning transcripts.
 
-### Results
+### Conversation Detail
 
-- Run list with filters
-- Detail view with output, citations, artifacts, visible execution status, and logs summary
-- Partial and failed runs distinguishable from successful runs
+- Conversation list and detail view with initiating workflow metadata, first
+  assistant message, its citations and artifacts, visible execution status, and
+  safe failure summary
+- Failed workflow-created conversations distinguishable from successful ones;
+  unavailable evidence and limitations remain visible in either outcome
+
+### Settings
+
+- Settings opens from the left rail footer without adding a primary navigation
+  item.
+- The Phase 03 settings surface offers exactly Auto-detect, English, and
+  Vietnamese. The active selection is visible, changes save immediately for the
+  authenticated user, and UI copy updates to the resolved language.
+- Auto-detect uses the browser's first supported Vietnamese or English language
+  and falls back to English. The language field does not show persistent helper
+  text below the selector. Changing it does not alter saved conversation
+  messages or evidence.
+- All FinMind-owned interface copy uses typed locale keys with English fallback.
+  This includes workflow names and descriptions, progress steps and statuses,
+  controls, validation, errors, empty states, and artifact/citation panel
+  chrome. API and workflow contracts expose stable codes or identifiers, not
+  localized labels.
+- Canonical record field names/content and citation evidence remain English or
+  in their canonical source representation. The interface may therefore show
+  English evidence inside Vietnamese application chrome; it must not imply that
+  source evidence was translated.
 
 ### Chat
 
@@ -157,7 +192,7 @@ Navigation is roadmap-aware:
   panel on desktop or equivalent full-screen artifact view on mobile.
 - Inline citation chips appear at the cited answer location. Clicking a citation
   chip opens the citations view in the same right-side panel, shows the complete
-  source list for the answer or run, and scrolls to the selected source.
+  source list for the answer or conversation, and scrolls to the selected source.
 - Citations are not artifact cards; they are source/evidence inspection controls.
 - Chat must not render citation bundle or evidence list artifact cards when
   inline citation chips and citation-panel inspection are available.

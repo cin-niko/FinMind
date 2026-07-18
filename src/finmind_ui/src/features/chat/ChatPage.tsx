@@ -15,6 +15,8 @@ import type { ChatArtifact, ChatConversation, LiveEvidence } from "./mockChat";
 import type { Artifact, WorkflowRun } from "../../api/client";
 import { getLatestUserMessageId, mapArtifactsToCards, orderCitationsByAppearance } from "./mockChat";
 import { Markdown } from "../../components/Markdown";
+import { useI18n } from "../settings/i18n";
+import { workflowStepTitle } from "../settings/i18n";
 
 type Props = {
   conversation: ChatConversation | null;
@@ -22,14 +24,6 @@ type Props = {
   onSelectArtifact: (artifact: ChatArtifact, run?: WorkflowRun, live?: LiveEvidence) => void;
   onSelectCitation: (citationId: string, run?: WorkflowRun, live?: LiveEvidence) => void;
 };
-
-const prompts = [
-  "What changed for VCB today?",
-  "Explain gold price pressure this week.",
-  "Compare banking and retail momentum.",
-  "What risks should I watch before market close?"
-];
-
 
 function messageSource(message: ChatConversation["messages"][number]): string {
   if (message.workflowRun) {
@@ -52,14 +46,24 @@ export function evidenceFor(message: ChatConversation["messages"][number]): Live
   return { citations, citationOrdinals: ordinals, artifacts };
 }
 
-function visibleArtifacts(message: ChatConversation["messages"][number]): ChatArtifact[] {
+function visibleArtifacts(
+  message: ChatConversation["messages"][number],
+  language: "en" | "vi"
+): ChatArtifact[] {
   if (message.pending && message.streamState && !message.workflowRun) {
-    return mapArtifactsToCards(message.streamState.artifacts, message.id);
+    return mapArtifactsToCards(message.streamState.artifacts, message.id, language);
   }
   return message.artifacts;
 }
 
 export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCitation }: Props) {
+  const { language, t } = useI18n();
+  const prompts = [
+    t("promptVcbChange"),
+    t("promptGoldPressure"),
+    t("promptSectorMomentum"),
+    t("promptClosingRisks")
+  ];
   const [draft, setDraft] = useState("");
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const messageRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -95,14 +99,13 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
   }
 
   return (
-    <section className="chatPage" aria-label="New chat">
+    <section className="chatPage" aria-label={t("newChat")}>
       <div className={conversation ? "chatTranscript hasConversation" : "chatTranscript empty"} ref={transcriptRef}>
         {!conversation ? (
           <div className="chatEmpty">
-            <h2>What should we research?</h2>
+            <h2>{t("researchPrompt")}</h2>
             <p>
-              Ask a finance research question. V1 returns deterministic mock responses with trusted
-              local visual artifacts.
+              {t("researchIntro")}
             </p>
             <div className="promptGrid">
               {prompts.map((prompt) => (
@@ -126,7 +129,11 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                   <details className="workflowProgress" open={!message.streamState.complete}>
                     <summary>
                       <span className="workflowProgressSummary">
-                        <span>{message.streamState.label}</span>
+                        <span>
+                          {message.streamState.complete
+                            ? t("completedSteps", { count: message.streamState.steps.length })
+                            : t("working")}
+                        </span>
                         <ChevronRight className="workflowProgressChevron" size={14} aria-hidden="true" />
                       </span>
                     </summary>
@@ -138,7 +145,7 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                             <span className="workflowProgressMarker">{iconForStep(step.id, step.kind, step.status)}</span>
                           </span>
                           <span className="workflowProgressCopy">
-                            <span>{step.title}</span>
+                            <span>{workflowStepTitle(language, step.id, step.market)}</span>
                             {step.inputContext ? <small>{step.inputContext}</small> : null}
                           </span>
                         </li>
@@ -150,7 +157,7 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                             <span className="workflowProgressMarker"><CheckCircle2 size={14} /></span>
                           </span>
                           <span className="workflowProgressCopy">
-                            <span>Done</span>
+                            <span>{t("done")}</span>
                           </span>
                         </li>
                       ) : null}
@@ -175,7 +182,7 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                             }
                           />
                         ) : (
-                          "Waiting for answer..."
+                          t("waiting")
                         )}
                       </div>
                     ) : message.workflowRun ? (
@@ -204,9 +211,9 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                     </div>
                   )
                 )}
-                {visibleArtifacts(message).length ? (
+                {visibleArtifacts(message, language).length ? (
                   <div className="artifactCards">
-                    {visibleArtifacts(message).map((artifact) => (
+                    {visibleArtifacts(message, language).map((artifact) => (
                       <div className="artifactCard" key={artifact.id}>
                         <button
                           className="artifactOpenButton"
@@ -228,10 +235,10 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
                             className="artifactDownloadButton"
                             href={artifact.download.url}
                             onClick={(event) => event.stopPropagation()}
-                            title={`Download ${artifact.download.filename}`}
+                            title={`${t("download")} ${artifact.download.filename}`}
                           >
                             <Download size={16} />
-                            <span>Download</span>
+                            <span>{t("download")}</span>
                           </a>
                         ) : null}
                       </div>
@@ -251,12 +258,12 @@ export function ChatPage({ conversation, onSubmit, onSelectArtifact, onSelectCit
         }}
       >
         <textarea
-          aria-label="Message"
+          aria-label={t("message")}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Ask FinMind..."
+          placeholder={t("askPlaceholder")}
           value={draft}
         />
-        <button className="sendButton" type="submit" aria-label="Send message">
+        <button className="sendButton" type="submit" aria-label={t("send")}>
           <Send size={18} />
         </button>
       </form>

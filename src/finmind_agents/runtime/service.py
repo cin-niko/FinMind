@@ -22,6 +22,7 @@ from finmind_agents.agents.prompts import (
 from finmind_agents.agents.validators import (
     AgentValidationError,
     validate_agent_content,
+    validate_response_language,
     validate_agent_metadata,
     validate_agent_result,
 )
@@ -83,6 +84,7 @@ class AgentOrchestrator:
             )
 
         factory = self.agent_factory or build_deep_agent
+        system_prompt = answer_system_prompt(str(request.context.get("language", "en")))
         skill_loader: Callable[[str], str] = lambda skill_id: (
             request.skill_markdown
             if skill_id == request.skill_id
@@ -93,7 +95,7 @@ class AgentOrchestrator:
         try:
             agent = factory(
                 settings,
-                ANSWER_STREAM_SYSTEM_PROMPT,
+                system_prompt,
                 skill_loader,
                 _supports_agent_tools(settings.model),
             )
@@ -126,6 +128,7 @@ class AgentOrchestrator:
         if not answer_text:
             raise AgentOrchestratorError("Workflow agent returned empty content")
         validate_agent_content(answer_text)
+        validate_response_language(answer_text, str(request.context.get("language", "en")))
 
         model = build_chat_model(settings)
         try:
@@ -176,6 +179,17 @@ def build_deep_agent(
         model=build_chat_model(settings),
         tools=tools,
         system_prompt=system_prompt,
+    )
+
+
+def answer_system_prompt(language: str) -> str:
+    language_name = "Vietnamese" if language == "vi" else "English"
+    return (
+        f"{ANSWER_STREAM_SYSTEM_PROMPT}\n"
+        f"Language: Respond in the {language_name} language.\n"
+        "Preserve canonical record field names and content, citation titles, "
+        "citation excerpts, publisher names, and URLs exactly as provided; do "
+        "not translate that evidence."
     )
 
 

@@ -468,8 +468,8 @@ Validation:
 
 ## FinMindAgentRuntime
 
-Shared runtime boundary for workflow agents in Phase 02 and future chatflow
-agents in Phase 04.
+Shared runtime boundary for workflow agents in Phase 02 and a future separately
+specified chatflow.
 
 Fields:
 
@@ -501,7 +501,7 @@ Execution policy envelope for one runtime mode.
 Fields:
 
 - `policy_id`: e.g. `workflow_strict`.
-- `mode`: workflow for Phase 02; chatflow is deferred to Phase 04.
+- `mode`: workflow for Phase 02; chatflow is not currently specified.
 - `allowed_tools`: tool ids the agent may call.
 - `allowed_skills`: skill ids the agent may load.
 - `allowed_markets`: `VN_STOCK` for Phase 02.
@@ -519,7 +519,7 @@ Validation:
 
 - Workflow policy must restrict skills to the YAML workflow contract and
   datasets to the loaded skill's `DATA_REQUIREMENTS.yaml`.
-- Chatflow policy may be broader in Phase 04 but still must require data-driven,
+- A future chatflow policy may be broader but still must require data-driven,
   citation-backed answers.
 - Policies must block unsupported assets and irreversible financial actions.
 - Phase 02 model/provider adapters must support streaming through
@@ -668,8 +668,7 @@ Validation:
 ## Chatflow Models
 
 Phase 02 does not own chatflow request, conversation, message, or persistence
-models. The canonical Phase 04 draft is
-`../004-agentic-chatflow/data-model.md`.
+models. No active production-chatflow feature spec exists.
 
 ## AgentRunResult
 
@@ -834,7 +833,7 @@ Workflow run record.
 Base fields:
 
 - `run_id`
-- `kind`: workflow for Phase 02; Phase 04 defines chatflow use of the shared run
+- `kind`: workflow for Phase 02; a future bounded feature may define chatflow use of the shared run
   model.
 - `owner_user_id`
 - `conversation_id`: optional for chat-linked workflow output.
@@ -983,8 +982,8 @@ Step kinds:
   directly. In workflow mode, tool selection is config-driven: a
   mapping from market and dataset type to a concrete tool. Provider substitution
   on failure is not implemented; a failed tool yields a
-  missing dataset. Agent-driven tool selection in chatflow mode is owned by
-  `../004-agentic-chatflow/`.
+  missing dataset. Agent-driven tool selection in chatflow mode requires a
+  future bounded feature.
 - `build_data_bundle`: deterministic packaging phase. Converts collected
   canonical records and prior deterministic outputs into data records,
   assigns citation ids, persists records/citations, and selects the compact

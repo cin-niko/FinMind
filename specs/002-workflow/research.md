@@ -51,8 +51,8 @@ and citation bundles would duplicate the evidence model.
 ## Decision: VN stocks are Phase 02 workflow scope
 
 VN stocks prove the Phase 02 equity research workflow surface while keeping US
-stocks and other assets out of active scope. Gold dataflows and gold
-workflows are deferred to `../003-vn-gold-dataflows-workflows/`.
+stocks and other assets out of active scope. Gold dataflows and workflows have
+no active feature spec and require a future Spec Kit cycle.
 
 Rationale: The product goal is agentic financial trading research advice, but data
 access and safety scope must stay bounded. Two equity markets are enough for the
@@ -82,7 +82,7 @@ Rationale: If workflows are agents that use skills, keeping a separate workflow
 orchestrator and chatflow orchestrator would duplicate the hardest parts:
 grounding, citations, dataflow tool access, model invocation, output validation,
 and no-raw-reasoning guarantees. A shared runtime lets Phase 02 validate the
-agent substrate on bounded workflow runs before Phase 04 adds flexible Q&A.
+agent substrate on bounded workflow runs before any future flexible-Q&A feature.
 
 Alternatives considered: separate workflow and chatflow runtimes, a hard-coded
 workflow-only runner, or an unguarded agent framework. Rejected because separate
@@ -494,9 +494,10 @@ or not current enough for workflow output.
 
 ## Decision: US Market Collection Is Unsupported
 
-Non-VN collection and provider adapters are outside the current product plan.
-The active scope is VN stocks and gold; Phase 03 tasks retire US choices from
-workflow validation, catalog, and active provider configuration.
+US collection and provider adapters are outside the current product plan. Phase
+02 enables only VN stocks. Phase 04 retains that VN boundary for mature
+workflows; a future active Phase 05 spec must decide whether and how provisional
+Gold support becomes canonical.
 
 ## Source Review: TradingAgents
 

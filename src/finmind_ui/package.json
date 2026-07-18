@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --experimental-strip-types src/features/settings/i18n.test.ts && node --experimental-strip-types src/features/workflows/workflowCatalog.test.ts && node --experimental-strip-types src/features/chat/mockChat.test.ts",
     "build": "tsc --noEmit && vite build",
     "lint": "tsc --noEmit"
   },

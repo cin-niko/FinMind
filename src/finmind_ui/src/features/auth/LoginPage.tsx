@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { login } from "../../api/client";
 import type { SessionState } from "../../api/client";
+import { useI18n } from "../settings/i18n";
 
 type Props = {
   onAuthenticated: (
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function LoginPage({ onAuthenticated }: Props) {
+  const { t } = useI18n();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,8 +29,8 @@ export function LoginPage({ onAuthenticated }: Props) {
       if (session.authenticated) {
         onAuthenticated(session);
       }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Login failed");
+    } catch {
+      setError(t("loginFailed"));
     } finally {
       setLoading(false);
     }
@@ -39,7 +41,7 @@ export function LoginPage({ onAuthenticated }: Props) {
       <div className="loginStage">
         <header className="loginHero">
           <h1>FinMind</h1>
-          <p>Personalized finance research assistant.</p>
+          <p>{t("loginTagline")}</p>
         </header>
         <form
           aria-describedby="login-context"
@@ -48,7 +50,7 @@ export function LoginPage({ onAuthenticated }: Props) {
           onSubmit={handleSubmit}
         >
           <p className="loginContext" id="login-context">
-            Sign in to access our product.
+            {t("signInContext")}
           </p>
           {error ? (
             <div className="errorAlert" role="alert">
@@ -56,24 +58,24 @@ export function LoginPage({ onAuthenticated }: Props) {
             </div>
           ) : null}
           <label htmlFor={usernameId}>
-            Username
+            {t("username")}
             <input
               autoComplete="off"
               id={usernameId}
               name="finmind-user"
-              placeholder="Enter your email"
+              placeholder={t("emailPlaceholder")}
               value={username}
               onChange={(event) => setUsername(event.target.value)}
             />
           </label>
           <label htmlFor={passwordId}>
-            Password
+            {t("password")}
             <div className="passwordField">
               <input
                 autoComplete="new-password"
                 id={passwordId}
                 name="finmind-secret"
-                placeholder="Enter your password"
+                placeholder={t("passwordPlaceholder")}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 type={showPassword ? "text" : "password"}
@@ -83,7 +85,7 @@ export function LoginPage({ onAuthenticated }: Props) {
                 className="passwordToggle"
                 onClick={() => setShowPassword((prev) => !prev)}
                 aria-label={
-                  showPassword ? "Hide password" : "Show password"
+                  showPassword ? t("hidePassword") : t("showPassword")
                 }
                 aria-pressed={showPassword}
               >
@@ -96,10 +98,10 @@ export function LoginPage({ onAuthenticated }: Props) {
             disabled={loading}
             type="submit"
           >
-            {loading ? "Signing in…" : "Continue"}
+            {loading ? t("signingIn") : t("continue")}
           </button>
           <p className="loginFootnote">
-            Protected access. Authorized internal accounts only.
+            {t("protectedAccess")}
           </p>
         </form>
       </div>

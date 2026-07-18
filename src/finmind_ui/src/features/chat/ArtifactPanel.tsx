@@ -4,6 +4,7 @@ import type { ChatArtifact, LiveCitation } from "./mockChat";
 import type { Artifact, WorkflowRun } from "../../api/client";
 import { MarketChart } from "../charts/MarketChart";
 import { Markdown } from "../../components/Markdown";
+import { useI18n } from "../settings/i18n";
 
 type Props = {
   artifact: ChatArtifact | null;
@@ -15,6 +16,7 @@ type Props = {
   artifacts?: Artifact[];
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onClose?: () => void;
 };
 
 const RECORD_TYPE_TITLES: Record<string, string> = {
@@ -51,8 +53,10 @@ export function ArtifactPanel({
   citations,
   artifacts,
   collapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  onClose
 }: Props) {
+  const { t } = useI18n();
   const listRef = useRef<HTMLUListElement | null>(null);
   const [expandedCitationId, setExpandedCitationId] = useState<string | null>(null);
 
@@ -102,7 +106,7 @@ export function ArtifactPanel({
         <div className="artifactHeaderActions">
           <button
             className="iconButton panelToggleButton"
-            onClick={onToggleCollapse}
+            onClick={onToggleCollapse ?? onClose}
             type="button"
             aria-label="Collapse right panel"
             title="Collapse right panel"
@@ -125,14 +129,14 @@ export function ArtifactPanel({
                 <iframe className="fileFrame" src={selectedFile.file.url} title={selectedFile.title} />
               ) : (
                 <a className="downloadChip" href={selectedFile.file.url}>
-                  Open file
+                  {t("openFile")}
                 </a>
               )}
               {selectedFile.downloads.length ? (
                 <div className="downloadRow">
                   {selectedFile.downloads.map((download) => (
                     <a className="downloadChip" href={download.url} key={download.url}>
-                      Download {download.filename}
+                      {t("download")} {download.filename}
                     </a>
                   ))}
                 </div>
@@ -193,7 +197,7 @@ export function ArtifactPanel({
                 <div className="citationModalHeader">
                   <h3 id="citation-modal-title">{formatCitationTitle(expandedCitation)}</h3>
                   <button
-                    aria-label="Close citation"
+                    aria-label={t("closeCitation")}
                     className="dialogCloseButton"
                     onClick={() => setExpandedCitationId(null)}
                     type="button"
